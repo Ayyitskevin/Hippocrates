@@ -60,7 +60,7 @@ extension BackupArchive {
         var typeID: UUID?
         var drugClassID: UUID?
         var serviceLineID: UUID?
-        var acceptance: Acceptance
+        var acceptance: SchemaV1Vocabulary.Acceptance
         var costAvoidanceCents: Int
         var minutesSpent: Int?
         var diQuestionID: UUID?
@@ -74,9 +74,9 @@ extension BackupArchive {
         var background: String
         var answerText: String
         var searchStrategy: String
-        var requestorRole: RequestorRole
-        var questionClass: DIQuestionClass
-        var urgency: Urgency
+        var requestorRole: SchemaV1Vocabulary.RequestorRole
+        var questionClass: SchemaV1Vocabulary.DIQuestionClass
+        var urgency: SchemaV1Vocabulary.Urgency
         var verifiedOn: Date
         var reviewAfter: Date
         var didFollowUp: Bool
@@ -87,7 +87,7 @@ extension BackupArchive {
     struct CitationRecord: Codable, Equatable, Sendable {
         var id: UUID
         var questionID: UUID?
-        var tier: SourceTier
+        var tier: SchemaV1Vocabulary.SourceTier
         var title: String
         var locator: String
         var accessedDate: Date

@@ -348,7 +348,7 @@ private func interventionArchitectureFindings(in source: String, path: String) t
         "type": "InterventionType?",
         "drugClass": "DrugClass?",
         "serviceLine": "ServiceLine?",
-        "acceptance": "Acceptance",
+        "acceptance": "SchemaV1Vocabulary.Acceptance",
         "costAvoidanceCents": "Int",
         "minutesSpent": "Int?",
         "diQuestion": "DIQuestion?"
@@ -1062,7 +1062,7 @@ private func runSelfTests() throws {
         var type: InterventionType?
         var drugClass: DrugClass?
         var serviceLine: ServiceLine?
-        var acceptance: Acceptance
+        var acceptance: SchemaV1Vocabulary.Acceptance
         var costAvoidanceCents: Int
         var minutesSpent: Int?
         var diQuestion: DIQuestion?

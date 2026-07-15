@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 import XCTest
 @testable import Hippocrates
@@ -83,6 +84,42 @@ final class BackupRoundTripTests: XCTestCase {
         XCTAssertEqual(try destination.mainContext.fetchCount(FetchDescriptor<Intervention>()), 0)
     }
 
+    func testRestoreRefusesContextWithPendingInsertWithoutDiscardingIt() throws {
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        _ = try insertCompleteFixture(into: source.mainContext)
+        let archive = try BackupService.makeArchive(from: source.mainContext, createdAt: exportDate)
+
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        destination.mainContext.insert(DrugClass(label: "Unsaved configuration"))
+        XCTAssertTrue(destination.mainContext.hasChanges)
+
+        XCTAssertThrowsError(try BackupService.restore(archive, into: destination.mainContext)) { error in
+            XCTAssertEqual(error as? BackupError, .destinationHasPendingChanges)
+        }
+
+        // Restore must neither save nor roll back work owned by another screen.
+        XCTAssertTrue(destination.mainContext.hasChanges)
+    }
+
+    func testRestoreRefusesContextWithPendingDeleteWithoutDiscardingIt() throws {
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        _ = try insertCompleteFixture(into: source.mainContext)
+        let archive = try BackupService.makeArchive(from: source.mainContext, createdAt: exportDate)
+
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        let existing = DrugClass(label: "Saved configuration")
+        destination.mainContext.insert(existing)
+        try destination.mainContext.save()
+        destination.mainContext.delete(existing)
+        XCTAssertTrue(destination.mainContext.hasChanges)
+
+        XCTAssertThrowsError(try BackupService.restore(archive, into: destination.mainContext)) { error in
+            XCTAssertEqual(error as? BackupError, .destinationHasPendingChanges)
+        }
+
+        XCTAssertTrue(destination.mainContext.hasChanges)
+    }
+
     func testVerificationHistoryMustEndAtCurrentVerificationDate() throws {
         let verifiedOn = Date(timeIntervalSinceReferenceDate: 700_000_000)
         let invalidQuestion = BackupArchive.DIQuestionRecord(
@@ -119,6 +156,46 @@ final class BackupRoundTripTests: XCTestCase {
             XCTAssertEqual(
                 error as? BackupError,
                 .verificationHistoryDoesNotEndAtVerifiedOn(questionID: invalidQuestion.id)
+            )
+        }
+    }
+
+    func testReviewDateCannotPrecedeVerificationDate() throws {
+        let verifiedOn = Date(timeIntervalSinceReferenceDate: 700_000_000)
+        let invalidQuestion = BackupArchive.DIQuestionRecord(
+            id: UUID(),
+            createdAt: verifiedOn,
+            answeredAt: nil,
+            questionText: "Question",
+            background: "Background",
+            answerText: "Answer",
+            searchStrategy: "Search",
+            requestorRole: .pharmacist,
+            questionClass: .other,
+            urgency: .routine,
+            verifiedOn: verifiedOn,
+            reviewAfter: verifiedOn.addingTimeInterval(-1),
+            didFollowUp: false,
+            tags: [],
+            verificationHistory: [verifiedOn]
+        )
+        let archive = BackupArchive(
+            createdAt: exportDate,
+            payload: .init(
+                interventionTypes: [],
+                drugClasses: [],
+                serviceLines: [],
+                interventions: [],
+                questions: [invalidQuestion],
+                citations: [],
+                appConfig: nil
+            )
+        )
+
+        XCTAssertThrowsError(try BackupService.validate(archive)) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .reviewDatePrecedesVerification(questionID: invalidQuestion.id)
             )
         }
     }

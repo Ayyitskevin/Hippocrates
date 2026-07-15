@@ -102,7 +102,7 @@ enum SchemaV1: VersionedSchema {
         @Relationship(deleteRule: .nullify)
         var serviceLine: ServiceLine?
 
-        var acceptance: Acceptance
+        var acceptance: SchemaV1Vocabulary.Acceptance
         var costAvoidanceCents: Int
         var minutesSpent: Int?
 
@@ -117,7 +117,7 @@ enum SchemaV1: VersionedSchema {
             type: InterventionType? = nil,
             drugClass: DrugClass? = nil,
             serviceLine: ServiceLine? = nil,
-            acceptance: Acceptance = .pending,
+            acceptance: SchemaV1Vocabulary.Acceptance = .pending,
             costAvoidanceCents: Int? = nil,
             minutesSpent: Int? = nil,
             diQuestion: DIQuestion? = nil
@@ -145,17 +145,17 @@ enum SchemaV1: VersionedSchema {
         var background: String
         var answerText: String
         var searchStrategy: String
-        var requestorRole: RequestorRole
-        var questionClass: DIQuestionClass
-        var urgency: Urgency
-        var verifiedOn: Date
-        var reviewAfter: Date
+        var requestorRole: SchemaV1Vocabulary.RequestorRole
+        var questionClass: SchemaV1Vocabulary.DIQuestionClass
+        var urgency: SchemaV1Vocabulary.Urgency
+        private(set) var verifiedOn: Date
+        private(set) var reviewAfter: Date
         var didFollowUp: Bool
         var tags: [String]
 
         // §7 requires re-verification to append rather than erase history. The
         // initial verification date is the first element.
-        var verificationHistory: [Date]
+        private(set) var verificationHistory: [Date]
 
         @Relationship(deleteRule: .cascade, inverse: \Citation.question)
         var citations: [Citation]
@@ -171,9 +171,9 @@ enum SchemaV1: VersionedSchema {
             background: String = "",
             answerText: String = "",
             searchStrategy: String = "",
-            requestorRole: RequestorRole = .pharmacist,
-            questionClass: DIQuestionClass = .other,
-            urgency: Urgency = .routine,
+            requestorRole: SchemaV1Vocabulary.RequestorRole = .pharmacist,
+            questionClass: SchemaV1Vocabulary.DIQuestionClass = .other,
+            urgency: SchemaV1Vocabulary.Urgency = .routine,
             verifiedOn: Date = .now,
             reviewAfter: Date,
             didFollowUp: Bool = false,
@@ -196,9 +196,30 @@ enum SchemaV1: VersionedSchema {
             self.reviewAfter = reviewAfter
             self.didFollowUp = didFollowUp
             self.tags = tags
-            self.verificationHistory = verificationHistory ?? [verifiedOn]
+            let initialHistory = verificationHistory ?? [verifiedOn]
+            precondition(
+                initialHistory.last == verifiedOn,
+                "Verification history must end at the current verification date."
+            )
+            precondition(
+                reviewAfter >= verifiedOn,
+                "The review date cannot precede the verification date."
+            )
+            self.verificationHistory = initialHistory
             self.citations = citations
             self.linkedInterventions = linkedInterventions
+        }
+
+        /// Re-verification is one domain operation so callers cannot update the
+        /// visible date without also resetting its review clock and audit trail.
+        func reverify(on date: Date, reviewAfter newReviewDate: Date) {
+            precondition(
+                newReviewDate >= date,
+                "The review date cannot precede the verification date."
+            )
+            verifiedOn = date
+            reviewAfter = newReviewDate
+            verificationHistory.append(date)
         }
     }
 
@@ -206,7 +227,7 @@ enum SchemaV1: VersionedSchema {
     final class Citation {
         @Attribute(.unique) var id: UUID
         var question: DIQuestion?
-        var tier: SourceTier
+        var tier: SchemaV1Vocabulary.SourceTier
         var title: String
         var locator: String
         var accessedDate: Date
@@ -215,7 +236,7 @@ enum SchemaV1: VersionedSchema {
         init(
             id: UUID = UUID(),
             question: DIQuestion? = nil,
-            tier: SourceTier,
+            tier: SchemaV1Vocabulary.SourceTier,
             title: String,
             locator: String,
             accessedDate: Date,

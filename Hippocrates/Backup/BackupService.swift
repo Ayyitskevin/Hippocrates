@@ -7,7 +7,9 @@ enum BackupError: Error, Equatable {
     case danglingReference(entity: String, id: UUID, field: String, referencedID: UUID)
     case invalidCostAvoidanceKey(String)
     case verificationHistoryDoesNotEndAtVerifiedOn(questionID: UUID)
+    case reviewDatePrecedesVerification(questionID: UUID)
     case multipleAppConfigs
+    case destinationHasPendingChanges
     case destinationNotEmpty
 }
 
@@ -113,11 +115,20 @@ enum BackupService {
         return archive
     }
 
-    /// Restores only into an empty store. The spec does not authorize merge or
-    /// replacement semantics, and guessing could duplicate or erase years of
-    /// records. A future replacement UI requires an explicit product decision.
+    /// Restores only into a fresh, empty context. `ModelContext.transaction`
+    /// saves all pending work in that context, while rollback discards all of
+    /// it. Refusing a dirty context prevents backup restore from committing or
+    /// rolling back unrelated edits. Callers should create a dedicated context
+    /// for restore rather than borrowing one from an editing screen.
+    ///
+    /// The spec does not authorize merge or replacement semantics; guessing
+    /// could duplicate or erase years of records. A future replacement UI
+    /// requires an explicit product decision.
     static func restore(_ archive: BackupArchive, into context: ModelContext) throws {
         try validate(archive)
+        guard !context.hasChanges else {
+            throw BackupError.destinationHasPendingChanges
+        }
         guard try isEmpty(context) else {
             throw BackupError.destinationNotEmpty
         }
@@ -263,6 +274,11 @@ enum BackupService {
         for question in archive.payload.questions
         where question.verificationHistory.last != question.verifiedOn {
             throw BackupError.verificationHistoryDoesNotEndAtVerifiedOn(questionID: question.id)
+        }
+
+        for question in archive.payload.questions
+        where question.reviewAfter < question.verifiedOn {
+            throw BackupError.reviewDatePrecedesVerification(questionID: question.id)
         }
 
         for citation in archive.payload.citations {
