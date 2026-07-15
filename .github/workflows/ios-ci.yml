@@ -35,18 +35,67 @@ jobs:
           xcrun swift --version
 
       - name: Enforce offline architecture
-        run: xcrun swift Scripts/NetworkBoundaryScanner.swift --build-check "$GITHUB_WORKSPACE"
+        run: /usr/bin/xcrun swift Scripts/NetworkBoundaryScanner.swift --build-check "$GITHUB_WORKSPACE"
 
       - name: Validate project discovery
         run: xcodebuild -list -json -project Hippocrates.xcodeproj
 
-      - name: Prove the build rejects planted networking code
+      - name: Prove the direct scanner rejects planted boundary violations
         run: |
-          probe="$RUNNER_TEMP/HippocratesBoundaryProbe"
-          log="$RUNNER_TEMP/HippocratesBoundaryProbe.log"
+          probe="$RUNNER_TEMP/HippocratesDirectBoundaryProbe"
+          log="$RUNNER_TEMP/HippocratesDirectBoundaryProbe.log"
           cp -R "$GITHUB_WORKSPACE" "$probe"
           printf '\nprivate let plantedNetworkBoundaryViolation = URLSession.shared\n' \
             >> "$probe/Hippocrates/App/RootView.swift"
+          printf 'struct PlantedOrphanSource {}\n' \
+            > "$probe/Hippocrates/App/PlantedOrphan.swift"
+          printf 'unreviewed resource\n' \
+            > "$probe/Hippocrates/Resources/Unexpected.txt"
+          printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
+            >> "$probe/HippocratesTests/SchemaContractTests.swift"
+          /usr/bin/perl -0pi -e 's/SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;/SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;/ or die "reviewed config value not found\n"' \
+            "$probe/Hippocrates.xcodeproj/project.pbxproj"
+
+          set +e
+          /usr/bin/xcrun swift "$probe/Scripts/NetworkBoundaryScanner.swift" \
+            --build-check "$probe" \
+            > "$log" 2>&1
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            sed -n '1,280p' "$log"
+            echo "error: planted boundary violations did not fail the direct scanner"
+            exit 1
+          fi
+
+          for expected in \
+            "URLSession violates the no-network boundary" \
+            "App-target Swift source exists on disk but is missing from target Sources" \
+            "Unreviewed file exists beneath Hippocrates/Resources" \
+            "contentsOf URL loading is forbidden" \
+            "Xcode build configurations changed outside the reviewed allowlist"
+          do
+            if ! grep -Fq "$expected" "$log"; then
+              sed -n '1,280p' "$log"
+              echo "error: boundary probe did not report: $expected"
+              exit 1
+            fi
+          done
+
+          echo "The direct scanner rejected planted API, source, resource, test-loader, and configuration violations."
+
+      - name: Prove the sandboxed Xcode build rejects declared-input violations
+        run: |
+          probe="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe"
+          log="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$probe"
+          printf '\nprivate let plantedNetworkBoundaryViolation = URLSession.shared\n' \
+            >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
+            >> "$probe/HippocratesTests/SchemaContractTests.swift"
+          /usr/bin/perl -0pi -e 's/SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;/SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;/ or die "reviewed config value not found\n"' \
+            "$probe/Hippocrates.xcodeproj/project.pbxproj"
 
           set +e
           xcodebuild build \
@@ -54,7 +103,7 @@ jobs:
             -scheme Hippocrates \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/BoundaryProbeDerivedData" \
+            -derivedDataPath "$RUNNER_TEMP/XcodeBoundaryProbeDerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             > "$log" 2>&1
@@ -62,18 +111,24 @@ jobs:
           set -e
 
           if [ "$status" -eq 0 ]; then
-            sed -n '1,240p' "$log"
-            echo "error: the planted network reference did not fail the Xcode build"
+            sed -n '1,280p' "$log"
+            echo "error: declared-input violations did not fail the sandboxed Xcode build"
             exit 1
           fi
 
-          if ! grep -Fq "URLSession violates the no-network boundary" "$log"; then
-            sed -n '1,240p' "$log"
-            echo "error: the boundary probe failed for an unexpected reason"
-            exit 1
-          fi
+          for expected in \
+            "URLSession violates the no-network boundary" \
+            "contentsOf URL loading is forbidden" \
+            "Xcode build configurations changed outside the reviewed allowlist"
+          do
+            if ! grep -Fq "$expected" "$log"; then
+              sed -n '1,280p' "$log"
+              echo "error: sandboxed Xcode probe did not report: $expected"
+              exit 1
+            fi
+          done
 
-          echo "The Xcode build rejected the planted network reference as required."
+          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input violation."
 
       - name: Build release configuration
         run: |

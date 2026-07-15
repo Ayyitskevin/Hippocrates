@@ -14,6 +14,7 @@ cross a decision or evidence gate.
 | F2 — backup foundation | Verified | Populated all-model store restores and logically re-exports identically in hosted tests |
 | F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
 | F4 — policy-neutral configuration and backup evolution | Verified | Implementation commit `ade0c7f` passed the Xcode 16.4/iOS 18.5 Release build, analyzer, simulator tests, and boundary probe in [hosted run 29439588632](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29439588632) |
+| F5 — boundary-control closure | Implemented; awaiting hosted verification | 128 executable checks close source, persistence, PBX configuration, scheme, and physical-file trust gaps; exact-head Apple evidence pending |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -48,6 +49,34 @@ Exit gate achieved: implementation commit
 [`ade0c7f`](https://github.com/Ayyitskevin/Hippocrates/commit/ade0c7fc53d480ee03360499f703fd6c87972d67)
 passed the hosted Release build, analysis, simulator tests, and planted-networking
 boundary probe.
+
+## Foundation hardening — boundary-control closure
+
+Implemented deliverables:
+
+- a linear, top-level PBX property parser that rejects duplicate, missing,
+  malformed, or quoted-string-spoofed architecture keys;
+- exact recursive disk-to-target equality for app/test Swift files, with duplicate,
+  wrong-type, missing, escaped, cross-target canonical paths, and physical
+  device/inode aliases rejected;
+- an exact one-manifest app resource phase and empty test resource phase;
+- exactly six bound Debug/Release configurations with allowlisted keys and pinned
+  execution-sensitive values, plus one strict shared-scheme XML tree, no
+  shadow user schemes, and no symbolic links anywhere in the project bundle;
+- canonical-file privileges keyed only by exact normalized repository-relative
+  paths, so basename and suffix collisions inherit no exception;
+- closed source/import/interpolation allowlists covering transport, iCloud,
+  implicit loaders, rich-text links, dynamic invocation, and encoding evasions;
+- exact local-only app and test SwiftData construction seams with CloudKit
+  explicitly disabled;
+- literal-safe persisted-Intervention brace inspection; and
+- 128 executable scanner checks, a direct recursive negative probe planting API,
+  unlisted-source, extra-resource, test-loader, and configuration violations, and
+  a separate sandboxed Xcode negative probe limited to declared inputs.
+
+Exit gate pending: the local Swift 6.1 build check is clean. Exact-head hosted
+Xcode 16.4 Release build, analysis, simulator tests, and all planted diagnostics
+must pass before this milestone is marked verified.
 
 ## Feature-specific decision gate
 

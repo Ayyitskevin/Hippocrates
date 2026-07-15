@@ -4,10 +4,10 @@ import XCTest
 
 final class PrivacyManifestTests: XCTestCase {
     func testAppPrivacyManifestDeclaresNoTrackingAndNoCollectedData() throws {
-        let manifestURL = try XCTUnwrap(
-            Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy")
+        let manifestPath = try XCTUnwrap(
+            Bundle.main.path(forResource: "PrivacyInfo", ofType: "xcprivacy")
         )
-        let data = try Data(contentsOf: manifestURL)
+        let data = try XCTUnwrap(FileManager.default.contents(atPath: manifestPath))
         let object = try PropertyListSerialization.propertyList(from: data, format: nil)
         let manifest = try XCTUnwrap(object as? [String: Any])
 

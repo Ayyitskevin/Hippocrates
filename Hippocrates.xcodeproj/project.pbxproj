@@ -297,7 +297,12 @@
 				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
 				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
+				"$(SRCROOT)/Hippocrates.xcodeproj",
 				"$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
+				"$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata",
+				"$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata/xcschemes",
+				"$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata/xcschemes/Hippocrates.xcscheme",
+				"$(SRCROOT)/Scripts",
 				"$(SRCROOT)/Scripts/NetworkBoundaryScanner.swift",
 			);
 			name = "Enforce Offline Boundary";
@@ -307,7 +312,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "unset SDKROOT\nexec xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n";
+			shellScript = "exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

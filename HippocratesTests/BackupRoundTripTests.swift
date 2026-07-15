@@ -534,7 +534,7 @@ final class BackupRoundTripTests: XCTestCase {
             title: "Published source",
             locator: "Table 2",
             accessedDate: verifiedOn,
-            urlString: "https://example.org/source"
+            urlString: "https://example.invalid/source"
         )
         let intervention = Intervention(
             id: interventionID,

@@ -239,11 +239,52 @@ presentation as a confirmed backup.
 
 ## Enforced privacy boundary
 
-The Xcode build phase is an always-run control. It verifies the reviewed app/test
-target topology, source membership, Swift-only compilation, zero package or
-framework linkage, the exact script phase, forbidden networking surfaces, and the
-persisted `Intervention` property allowlist. The privacy manifest separately
-declares no tracking and no collected data.
+The Xcode build phase is an always-run control with an exact sandbox input
+inventory covering every directory it enumerates and every file it reads. A new
+source or control file therefore fails closed until it is declared deliberately;
+hosted CI also runs the scanner directly so recursive orphan checks receive
+specific diagnostics outside Xcode's non-recursive input sandbox. The scanner's
+linear OpenStep-property parser rejects duplicate, missing, nested-string-spoofed,
+or malformed required properties. It then binds the exact app/test target
+identities and dependency, phase order, six Debug/Release build configurations
+with allowlisted values, and one exact shared-scheme XML execution tree.
+Frameworks, packages, compiler injection, detached configurations, shadow user
+schemes, symbolic links anywhere beneath the Xcode project bundle, and altered
+action settings fail.
+The physical topology is also closed:
+
+- recursive regular Swift files beneath Hippocrates/ equal app-target Sources;
+- recursive regular Swift files beneath HippocratesTests/ equal test Sources;
+- neither target duplicates a build ID, lexical path, symlink-resolved path, or
+  device/inode identity;
+- every source stays lexically and canonically beneath its reviewed root;
+- the project file and scanner script are regular files that resolve inside the
+  repository;
+- PrivacyInfo.xcprivacy is the sole app resource while test resources stay empty.
+
+Canonical source privileges are keyed only by exact normalized
+repository-relative paths. A matching basename or path suffix grants no
+store, schema, interpolation, URL, citation, typealias, or extension exception.
+
+Shipping imports are allowlisted to the five frameworks the current foundation
+uses. `SchemaContractTests` may use Foundation `URL` only in three exact
+`storeLocation` declaration/call seams for its file-backed SwiftData fixture;
+`BackupRoundTripTests` contains one reserved `https://example.invalid/`
+citation literal. The privacy-manifest test reads bundled bytes through a local
+FileManager path rather than a URL-capable loader. All other Foundation URL
+tokens, `contentsOf` loaders, URL/path streams, external-opening UI, transport
+imports, and external address literals remain rejected. Low-level socket and
+host-lookup APIs, iCloud/ubiquity surfaces, rich-text links, dynamic invocation,
+conditional compilation, bare
+slashes, backticked identifiers, and Unicode escapes are closed source surfaces.
+Executable string interpolation is an exact per-file expression allowlist.
+
+The shipping store and the one file-backed test store are exact local-only
+construction seams with managed CloudKit explicitly disabled. Structural
+inspection of the persisted Intervention allowlist masks comments, string
+contents, and regex contents before matching braces, so literals cannot hide
+later properties. The privacy manifest separately declares no tracking and no
+collected data.
 
 This is source-verifiable risk reduction, not an iOS network entitlement and not
 a HIPAA compliance program. README language must preserve that distinction.

@@ -95,8 +95,8 @@ enum SchemaV1: VersionedSchema {
     /// offers a note, details, patient, room, or other text field.
     @Model
     final class Intervention {
-        @Attribute(.unique) var id: UUID
-        var timestamp: Date
+        @Attribute(.unique) var id: Foundation.UUID
+        var timestamp: Foundation.Date
 
         @Relationship(deleteRule: .nullify)
         var type: InterventionType?
@@ -110,8 +110,8 @@ enum SchemaV1: VersionedSchema {
         var acceptance: SchemaV1Vocabulary.Acceptance
         /// `nil` means the institution has not assigned a value. It must remain
         /// distinct from an explicit zero-dollar value in storage and exports.
-        var costAvoidanceCents: Int?
-        var minutesSpent: Int?
+        var costAvoidanceCents: Swift.Int?
+        var minutesSpent: Swift.Int?
 
         // The inverse and its delete behavior are declared once on
         // DIQuestion.linkedInterventions. `diQuestion` remains optional so an

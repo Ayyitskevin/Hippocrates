@@ -24,10 +24,14 @@ data model, drug exclusion list, or history from that prototype is carried forwa
 - The app contains no networking, server, account, sync, CloudKit, analytics,
   crash-reporting SDK, notification, widget, intent, or third-party package.
 - SwiftData is explicitly configured with managed CloudKit sync disabled.
-- The app target has an always-run build phase that resolves the actual app/test
-  source membership and fails on networking APIs, network-opening UI, Foundation
-  URL loading, linked frameworks, hard-coded web addresses, target-topology drift,
-  or Swift Package dependencies.
+- The app target has an always-run, sandboxed build phase with every reviewed
+  directory and file declared explicitly. It inventories regular app/test Swift
+  files and app resources, proves exact equality with the canonical PBX
+  source/resource phases, and fails on duplicate or escaped paths, networking
+  APIs, network-opening UI, unreviewed imports, Foundation URL loading, iCloud
+  surfaces, compiler injection, linked frameworks, external address literals,
+  altered build configurations or schemes, project-bundle symlinks,
+  physical-file aliases, or package dependencies.
 
 Hippocrates contains no networking code and declares "Data Not Collected." Data
 lives in a local SwiftData store on one device. This is verifiable by inspecting
@@ -54,8 +58,11 @@ The pre-release foundation now contains:
 4. one type-owned cost-default source, with unknown cost kept distinct from an
    explicit zero-dollar value;
 5. backup format v2, explicit value-space migration from format v1, and validated
-   empty-store restoration; and
-6. lossless in-memory and file-backed tests for every model and relationship.
+   empty-store restoration;
+6. lossless in-memory and file-backed tests for every model and relationship; and
+7. a fail-closed PBX/configuration/scheme parser plus executable negative fixtures
+   for source, resource, import, URL-loader, symlink, physical-identity,
+   canonical-path collision, target-dependency, local-store, and persisted-schema drift.
 
 This hardens persistence without inventing product policy. Taxonomy editors,
 capture, summary, DI, and restore UI remain gated by the affected product and
@@ -67,16 +74,17 @@ Requirements: Xcode 16 or newer, Swift 6 language mode, and an iOS 18 simulator.
 
 ```sh
 xcodebuild -list -project Hippocrates.xcodeproj
-xcrun swift Scripts/NetworkBoundaryScanner.swift --self-test
+/usr/bin/xcrun swift Scripts/NetworkBoundaryScanner.swift --self-test
 xcodebuild test \
   -project Hippocrates.xcodeproj \
   -scheme Hippocrates \
   -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-The GitHub workflow runs the source boundary, Xcode 16.4 Release build, static
-analysis, file-backed and in-memory unit tests, and a planted-networking failure
-probe on iOS 18.5. Linux parsing and scanner self-tests are useful local checks,
+The GitHub workflow runs the source boundary directly for recursive orphan
+diagnostics, proves the sandboxed Xcode phase rejects violations in declared
+inputs, and then runs the Xcode 16.4 Release build, static analysis, and
+file-backed and in-memory tests on iOS 18.5. Local scanner self-tests are useful,
 but they are not substitutes for an exact-head hosted Apple-platform result.
 
 ## Privacy manifest and App Store label
