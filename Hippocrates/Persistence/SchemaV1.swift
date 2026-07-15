@@ -5,7 +5,12 @@ import SwiftData
 /// SwiftData migrations refer back to these exact nested model types, so future
 /// versions add a new schema enum instead of editing history in place.
 enum SchemaV1: VersionedSchema {
-    static let versionIdentifier = Schema.Version(1, 0, 0)
+    // SwiftData's Schema.Version is not Sendable in the iOS 18 SDK. Returning a
+    // fresh value satisfies VersionedSchema without creating non-Sendable
+    // global stored state or weakening strict-concurrency checking.
+    static var versionIdentifier: Schema.Version {
+        Schema.Version(1, 0, 0)
+    }
 
     static var models: [any PersistentModel.Type] {
         [
