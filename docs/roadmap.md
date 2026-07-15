@@ -14,7 +14,7 @@ cross a decision or evidence gate.
 | F2 — backup foundation | Verified | Populated all-model store restores and logically re-exports identically in hosted tests |
 | F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
 | F4 — policy-neutral configuration and backup evolution | Verified | Implementation commit `ade0c7f` passed the Xcode 16.4/iOS 18.5 Release build, analyzer, simulator tests, and boundary probe in [hosted run 29439588632](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29439588632) |
-| F5 — boundary-control closure | Implemented; awaiting hosted verification | 128 executable checks close source, persistence, PBX configuration, scheme, and physical-file trust gaps; exact-head Apple evidence pending |
+| F5 — boundary-control closure | Verified | Implementation series through [`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98) passed all scanner probes, Release build, analyzer, and simulator tests in [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -74,9 +74,11 @@ Implemented deliverables:
   unlisted-source, extra-resource, test-loader, and configuration violations, and
   a separate sandboxed Xcode negative probe limited to declared inputs.
 
-Exit gate pending: the local Swift 6.1 build check is clean. Exact-head hosted
-Xcode 16.4 Release build, analysis, simulator tests, and all planted diagnostics
-must pass before this milestone is marked verified.
+Exit gate achieved: the implementation series ending at
+[`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98)
+passed the exact-head direct and sandboxed planted diagnostics, Xcode 16.4
+Release build, static analysis, and iOS 18.5 simulator tests in
+[hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562).
 
 ## Feature-specific decision gate
 
