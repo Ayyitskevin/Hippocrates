@@ -706,7 +706,7 @@ private func appTargetSourceFindings(
             )
         ]
     }
-    let expectedShellScript = #"unset SDKROOT\nexec xcrun --sdk macosx swift -module-cache-path \"$DERIVED_FILE_DIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n"#
+    let expectedShellScript = #"unset SDKROOT\nexec xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n"#
     guard
         try pbxScalar("name", in: shellPhase) == "Enforce Offline Boundary",
         try pbxScalar("alwaysOutOfDate", in: shellPhase) == "1",
@@ -1152,7 +1152,7 @@ private func runSelfTests() throws {
         000000000000000000000000 = {isa = PBXGroup; children = (888888888888888888888888,); path = HippocratesTests; sourceTree = "<group>"; };
         111111111111111111111111 = {isa = PBXSourcesBuildPhase; files = (CCCCCCCCCCCCCCCCCCCCCCCC, DDDDDDDDDDDDDDDDDDDDDDDD,); };
         222222222222222222222222 = {isa = PBXNativeTarget; buildPhases = (333333333333333333333333, 111111111111111111111111, 444444444444444444444444, 555555555555555555555555,); buildRules = (); dependencies = (); name = Hippocrates; productType = "com.apple.product-type.application"; };
-        333333333333333333333333 = {isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; name = "Enforce Offline Boundary"; runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "unset SDKROOT\nexec xcrun --sdk macosx swift -module-cache-path \"$DERIVED_FILE_DIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n"; };
+        333333333333333333333333 = {isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; name = "Enforce Offline Boundary"; runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "unset SDKROOT\nexec xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n"; };
         444444444444444444444444 = {isa = PBXFrameworksBuildPhase; files = (); };
         555555555555555555555555 = {isa = PBXResourcesBuildPhase; files = (); };
         777777777777777777777777 = {isa = PBXNativeTarget; buildPhases = (1234567890ABCDEF12345678, 234567890ABCDEF123456789, 34567890ABCDEF1234567890,); buildRules = (); dependencies = (4567890ABCDEF12345678901,); name = HippocratesTests; productType = "com.apple.product-type.bundle.unit-test"; };
