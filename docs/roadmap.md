@@ -10,12 +10,12 @@ cross a decision or evidence gate.
 | Milestone | Status | Exit evidence |
 |---|---|---|
 | F0 — repository and doctrine | Complete | Clean public repository, README boundaries, zero dependencies |
-| F1 — versioned persistence | Implemented; Apple CI pending | Xcode project loads; in-memory schema/container tests pass on macOS |
-| F2 — backup foundation | Implemented; Apple CI pending | Populated all-model store restores and logically re-exports identically |
-| F3 — privacy build controls | Implemented; hosted run pending | Clean project passes; planted networking reference fails the build |
-| D0 — Jenn decisions | Blocked on answers | P-001 through P-005 recorded in `decision-register.md` |
+| F1 — versioned persistence | Verified | Xcode 16.4 Release build, analyzer, in-memory tests, and file-backed close/reopen test pass on iOS 18.5 CI |
+| F2 — backup foundation | Verified | Populated all-model store restores and logically re-exports identically in hosted tests |
+| F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
+| D0 — Jenn decisions | Awaiting answers | P-001 through P-005 recorded in `decision-register.md`; product-specific milestones remain gated |
 
-## Milestone 0 — close the foundation evidence gap
+## Milestone 0 — foundation evidence (complete)
 
 Deliverables:
 
@@ -25,8 +25,9 @@ Deliverables:
 - a documented local Xcode acceptance command; and
 - no signing, TestFlight, or App Store action.
 
-Exit gate: canonical `main` has a green hosted Apple build and the local worktree
-is clean. A Linux parse is not a substitute.
+Exit gate achieved: canonical `main` has a green hosted Apple Release build,
+static analysis, simulator test run, and executable boundary probe. A Linux parse
+remains a fast local check, not a substitute for this hosted evidence.
 
 ## Decision gate — before Milestones 1 and 2
 

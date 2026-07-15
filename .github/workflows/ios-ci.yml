@@ -40,6 +40,41 @@ jobs:
       - name: Validate project discovery
         run: xcodebuild -list -json -project Hippocrates.xcodeproj
 
+      - name: Prove the build rejects planted networking code
+        run: |
+          probe="$RUNNER_TEMP/HippocratesBoundaryProbe"
+          log="$RUNNER_TEMP/HippocratesBoundaryProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$probe"
+          printf '\nprivate let plantedNetworkBoundaryViolation = URLSession.shared\n' \
+            >> "$probe/Hippocrates/App/RootView.swift"
+
+          set +e
+          xcodebuild build \
+            -project "$probe/Hippocrates.xcodeproj" \
+            -scheme Hippocrates \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/BoundaryProbeDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            > "$log" 2>&1
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            sed -n '1,240p' "$log"
+            echo "error: the planted network reference did not fail the Xcode build"
+            exit 1
+          fi
+
+          if ! grep -Fq "URLSession violates the no-network boundary" "$log"; then
+            sed -n '1,240p' "$log"
+            echo "error: the boundary probe failed for an unexpected reason"
+            exit 1
+          fi
+
+          echo "The Xcode build rejected the planted network reference as required."
+
       - name: Build release configuration
         run: |
           xcodebuild build \

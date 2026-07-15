@@ -1,5 +1,7 @@
 # Hippocrates
 
+[![iOS CI](https://github.com/Ayyitskevin/Hippocrates/actions/workflows/ios-ci.yml/badge.svg)](https://github.com/Ayyitskevin/Hippocrates/actions/workflows/ios-ci.yml)
+
 Hippocrates is a personal, offline professional ledger for one hospital clinical
 pharmacist. It records interventions she has already made and drug-information
 answers she has already completed. It does not calculate, interpret, dose,
