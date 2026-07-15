@@ -46,15 +46,23 @@ No layer owns a networking client because no networking layer exists.
 
 ### Durable state
 
-The local SwiftData store is the only durable application state. `SchemaV1` is
-immutable after release; future changes introduce `SchemaV2` and an explicitly
-reviewed migration stage. UUIDs are portable backup identity. SwiftData
-`PersistentIdentifier` values never leave their store.
+The local SwiftData store is the only durable application state. No store schema
+has been distributed yet, so `SchemaV1` may still receive pre-release
+corrections. After the first distributed build it is immutable; future changes
+introduce `SchemaV2` and an explicitly reviewed migration stage. UUIDs are
+portable backup identity. SwiftData `PersistentIdentifier` values never leave
+their store.
 
 `AppConfig` is a single logical row obtained through one main-actor
 fetch-or-create service. The unique sentinel prevents two surviving rows, but
 SwiftData uniqueness uses upsert behavior; callers must not insert configuration
-ad hoc.
+ad hoc. Normal creation requires a clean `ModelContext`, saves only its own
+insert, and rolls back that insert on failure. Restore uses a separate no-save
+entry point inside its already-validated transaction.
+
+`AppConfig.stalenessIntervalMonths` is optional: `nil` is the durable safe
+state while P-005 is unanswered. A positive value must be explicitly supplied;
+the persistence layer contains no six- or twelve-month default.
 
 ### View state
 
@@ -97,8 +105,11 @@ maintainer would otherwise reasonably misread the code.
 ## Intervention capture transaction
 
 The three selections form an ephemeral `CaptureDraft`. The third tap constructs
-and inserts one `Intervention`, using the selected type's configured default cost
-value when present. Save occurs immediately with light haptic feedback.
+and inserts one `Intervention`, explicitly copying the selected type's configured
+default when present. `InterventionType.defaultCostAvoidanceCents` is the single
+configuration source; the intervention retains that optional value as a historical
+snapshot. `nil` means unknown/unassigned and is not coerced to explicit zero.
+Save occurs immediately with light haptic feedback.
 
 Service line, minutes, and cost override are optional schema values, but their
 capture placement is not yet decided. Their eventual controls may add optional
@@ -158,17 +169,28 @@ boundary. Save/import validation rejects or explicitly surfaces a
 interval or color.
 
 Re-verification appends a timestamp to `verificationHistory`, updates
-`verifiedOn`, and derives a new `reviewAfter` in one transaction. Dismissing an
+`verifiedOn`, and derives a new `reviewAfter` in one transaction. Verification
+history is strictly increasing and must end at the current `verifiedOn`;
+re-verification and restore reject equal or backward dates. Dismissing an
 amber/red interstitial is view-local and lasts only for the current presentation.
 
 ## Backup and restore
 
 Backups serialize versioned value records and foreign UUIDs, never `@Model`
-instances. Validation precedes mutation and rejects unknown versions, duplicate
-IDs, dangling references, invalid configuration keys, and broken verification
-history.
+instances. The codec reads a minimal version envelope before the payload. Backup
+format v2 is current; the immutable format-v1 decoder migrates values before any
+store mutation. Its duplicate app-wide cost map is folded into the matching
+type-owned default, and a missing type or conflicting duplicate fails loudly
+instead of choosing a source silently.
 
-V1 never silently merges. The product decision register tracks whether restore is
+Validation precedes mutation and rejects unknown versions, duplicate IDs,
+dangling references, negative cost values, nonpositive configured staleness,
+non-increasing verification history, and review dates that do not follow
+verification. A migrated development-format v1 archive must satisfy these
+hardened invariants; migration never invents clinical dates. Backup format
+evolution is independent of SwiftData schema version evolution.
+
+Restore never silently merges. The product decision register tracks whether it is
 limited to pre-bootstrap import or may replace a logically pristine configuration
 store. Any destructive replacement of a store containing user records requires a
 separate explicit confirmation design and review.

@@ -14,22 +14,34 @@ requirements.
 | A-003 | No network layer and zero SPM dependencies | Offline behavior is ordinary behavior; external SDKs cannot enter incidentally |
 | A-004 | `Intervention` uses an exact persisted-property allowlist with no text | Adding any property is an architecture review, not a casual model edit |
 | A-005 | Full backup uses value DTOs and portable UUID relationships | SwiftData store-local identifiers never become backup identity |
-| A-006 | DI freshness is computed per record, while verification history is durable | Draft overrides color; red uses a second `reviewAfter - verifiedOn` interval; re-verification never erases history |
+| A-006 | DI freshness is computed per record, while verification history is durable | Draft overrides color; red uses a second `reviewAfter - verifiedOn` interval; review dates and history are strictly increasing; re-verification never erases history |
 | A-007 | DI search filters in memory | The expected data volume is small and this avoids fragile SwiftData string predicates |
 | A-008 | GitHub macOS CI validates Xcode 16.4 and iOS 18.5 | Linux development cannot be mistaken for Apple-platform verification |
 | A-009 | TestFlight/App Store submission is a human action | Autonomous development does not imply autonomous distribution |
 | A-010 | CSV output follows RFC 4180 and neutralizes spreadsheet formula cells | Manager exports remain portable without letting editable labels become executable spreadsheet input |
 | A-011 | iOS backup-state messaging is explicitly best-effort | No public API reliably proves device/iCloud backup state, so the app never claims it verified enabled/disabled status |
+| A-012 | `AppConfigService` is the only configuration-row owner | Main-actor fetch-or-create requires a clean context; restore inserts without saving inside its own transaction |
+| A-013 | Type-owned defaults and optional intervention snapshots are the only cost representation | Unknown/unassigned remains `nil`, explicit zero remains zero, and no app-wide duplicate map exists |
+| A-014 | Backup format dispatch and migration happen in value space | Format v2 is current; the immutable development-format v1 decoder migrates before validation or store mutation and rejects conflicts |
 
-## Pending product decisions — required before configuration/capture
+## Accepted implementation decisions
+
+| ID | Resolution |
+|---|---|
+| I-001 | `InterventionType.defaultCostAvoidanceCents` is the single configurable source; each intervention stores an optional historical snapshot |
+| I-002 | One main-actor `AppConfigService` owns lookup, clean-context creation, validation, and transactional restore insertion |
+| I-006 | Decode each supported backup version explicitly and migrate value DTOs before store mutation |
+
+## Pending product decisions — required before affected features
 
 | ID | Owner | Question | Safe state until answered |
 |---|---|---|---|
 | P-001 | Jenn / institution | Does hospital policy permit this PHI-free personal work ledger on a personal device? | Build may continue; shift use is prohibited |
-| P-002 | Jenn / institution | Are official cost-avoidance values assigned per intervention type? | All values remain empty/configurable |
+| P-002 | Jenn / institution | Are official cost-avoidance values assigned per intervention type? | Type defaults and captured costs remain `nil` unless explicitly supplied; zero never substitutes for unknown |
 | P-003 | Jenn | Does the department have an intervention taxonomy, or should an explicitly approved ASHP-derived set be used? | Taxonomies remain empty |
 | P-004 | Jenn | Is the default review/export cadence annual or quarterly? | No default summary range is shipped |
-| P-005 | Jenn | Is DI staleness 12 months or 6 months? | Schema can store the interval; UI behavior does not ship |
+| P-005 | Jenn | Is DI staleness 12 months or 6 months? | `AppConfig.stalenessIntervalMonths` remains `nil`; freshness-default UI does not ship |
+| P-006 | Jenn | Do the frozen DI requestor, question-class, urgency, and source-tier values match the intended workflow? | No DI UI or distributed schema containing this vocabulary ships |
 
 ## Pending implementation decisions
 
@@ -38,17 +50,15 @@ institutional facts.
 
 | ID | Decision needed | Current position |
 |---|---|---|
-| I-001 | One source of truth for cost values | Prefer `InterventionType.defaultCostAvoidanceCents`; remove or narrowly define any duplicate app-wide map before V1 data exists |
-| I-002 | `AppConfig` singleton lifecycle | One main-actor fetch-or-create service; never rely on a uniqueness exception |
 | I-003 | Restore into a bootstrapped clean install | Permit only pre-bootstrap or logically pristine stores unless a separately reviewed destructive replacement flow is approved |
 | I-004 | Editable taxonomy labels as an indirect identifier channel | Do not permit per-intervention category creation; approve purpose-specific constraints or guard behavior before the taxonomy editor ships |
 | I-005 | Re-verification history representation | Current `[Date]` is adequate for V1 if only timestamp is required; introduce a model only if provenance metadata becomes a real requirement |
-| I-006 | Backup format compatibility policy | Decode every supported format explicitly; migration occurs in value space before store mutation |
 | I-007 | Acceptance-rate denominator | Do not ship the metric until accepted, rejected, pending, and not-applicable treatment is explicitly approved and labeled |
 | I-008 | Optional service-line, minutes, and cost-override capture UX | Preserve type -> class -> acceptance as the only required taps; do not assume placement or defaults before review |
 | I-009 | De-identification treatment of tags, citation metadata, and other editable strings | Treat them as possible identifier channels; decide purpose-specific constraints or guard behavior before their editors ship |
 | I-010 | Local-file URL boundary for restore | Permit one reviewed security-scoped file adapter only; require `isFileURL`, immediate `Data` capture, and no remote/open/share behavior |
 | I-011 | Meaning of `lastExportAt` | Choose an observable event in the full-backup flow; summary/portfolio exports never update it, and generation/presentation is never called confirmed delivery |
+| I-012 | Bootstrap readiness predicate | Define the exact minimum configuration that permits capture and distinguish never-configured, intentionally-empty, and restored states before first-run UI ships |
 
 ## Rejected directions
 

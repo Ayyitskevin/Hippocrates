@@ -108,7 +108,9 @@ enum SchemaV1: VersionedSchema {
         var serviceLine: ServiceLine?
 
         var acceptance: SchemaV1Vocabulary.Acceptance
-        var costAvoidanceCents: Int
+        /// `nil` means the institution has not assigned a value. It must remain
+        /// distinct from an explicit zero-dollar value in storage and exports.
+        var costAvoidanceCents: Int?
         var minutesSpent: Int?
 
         // The inverse and its delete behavior are declared once on
@@ -134,8 +136,6 @@ enum SchemaV1: VersionedSchema {
             self.serviceLine = serviceLine
             self.acceptance = acceptance
             self.costAvoidanceCents = costAvoidanceCents
-                ?? type?.defaultCostAvoidanceCents
-                ?? 0
             self.minutesSpent = minutesSpent
             self.diQuestion = diQuestion
         }
@@ -167,6 +167,19 @@ enum SchemaV1: VersionedSchema {
 
         @Relationship(deleteRule: .nullify, inverse: \Intervention.diQuestion)
         var linkedInterventions: [Intervention]
+
+        static func reviewWindowIsValid(
+            verifiedOn: Date,
+            reviewAfter: Date
+        ) -> Bool {
+            reviewAfter > verifiedOn
+        }
+
+        static func verificationHistoryIsChronological(_ history: [Date]) -> Bool {
+            zip(history, history.dropFirst()).allSatisfy { pair in
+                pair.0 < pair.1
+            }
+        }
 
         init(
             id: UUID = UUID(),
@@ -203,12 +216,16 @@ enum SchemaV1: VersionedSchema {
             self.tags = tags
             let initialHistory = verificationHistory ?? [verifiedOn]
             precondition(
-                initialHistory.last == verifiedOn,
-                "Verification history must end at the current verification date."
+                initialHistory.last == verifiedOn
+                    && Self.verificationHistoryIsChronological(initialHistory),
+                "Verification history must be strictly chronological and end at the current date."
             )
             precondition(
-                reviewAfter >= verifiedOn,
-                "The review date cannot precede the verification date."
+                Self.reviewWindowIsValid(
+                    verifiedOn: verifiedOn,
+                    reviewAfter: reviewAfter
+                ),
+                "The review date must follow the verification date."
             )
             self.verificationHistory = initialHistory
             self.citations = citations
@@ -219,8 +236,15 @@ enum SchemaV1: VersionedSchema {
         /// visible date without also resetting its review clock and audit trail.
         func reverify(on date: Date, reviewAfter newReviewDate: Date) {
             precondition(
-                newReviewDate >= date,
-                "The review date cannot precede the verification date."
+                date > verifiedOn,
+                "Re-verification must follow the current verification date."
+            )
+            precondition(
+                Self.reviewWindowIsValid(
+                    verifiedOn: date,
+                    reviewAfter: newReviewDate
+                ),
+                "The review date must follow the verification date."
             )
             verifiedOn = date
             reviewAfter = newReviewDate
@@ -261,25 +285,32 @@ enum SchemaV1: VersionedSchema {
     final class AppConfig {
         /// SwiftData has no singleton entity primitive. A fixed unique key keeps
         /// two physical rows from surviving, but uniqueness uses upsert behavior;
-        /// step 10.3 must own creation through one fetch-or-create path so a
-        /// second insert cannot unexpectedly replace existing configuration.
+        /// the configuration kernel owns creation through one fetch-or-create
+        /// path so a second insert cannot replace existing configuration.
         @Attribute(.unique) private(set) var singletonKey: String
 
-        /// Keys are `InterventionType.id.uuidString`; values are integer cents.
-        /// The dictionary starts empty and is never populated from invented data.
-        var costAvoidanceValues: [String: Int]
-        var stalenessIntervalMonths: Int
-        var lastExportAt: Date?
+        /// `nil` preserves the unanswered product decision. Configuration UI
+        /// must persist an explicitly approved interval rather than inheriting a
+        /// hidden six- or twelve-month default.
+        private(set) var stalenessIntervalMonths: Int?
+        private(set) var lastExportAt: Date?
 
         init(
-            costAvoidanceValues: [String: Int] = [:],
-            stalenessIntervalMonths: Int = 12,
+            stalenessIntervalMonths: Int? = nil,
             lastExportAt: Date? = nil
         ) {
+            precondition(
+                stalenessIntervalMonths.map { $0 > 0 } ?? true,
+                "The staleness interval must be positive when configured."
+            )
             self.singletonKey = "app"
-            self.costAvoidanceValues = costAvoidanceValues
             self.stalenessIntervalMonths = stalenessIntervalMonths
             self.lastExportAt = lastExportAt
+        }
+
+        func updateStalenessIntervalMonths(_ value: Int?) throws {
+            try AppConfigService.validate(stalenessIntervalMonths: value)
+            stalenessIntervalMonths = value
         }
     }
 }

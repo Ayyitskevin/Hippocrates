@@ -42,18 +42,24 @@ and this app is not a substitute for institutional policy.
 The de-identification guard is intentionally not exposed until DI capture ships;
 backup import remains an internal service until that same guard protects restore.
 
-## Current milestone
+## Current foundation
 
-The first milestone is deliberately limited to build-order steps 10.1 and 10.2:
+The pre-release foundation now contains:
 
 1. one iOS 18 Xcode project with an app target and test target;
 2. `SchemaV1`, `HippocratesMigrationPlan`, and explicit local-only
    `ModelContainer` wiring from commit one;
-3. a versioned JSON backup format with validated, empty-store restoration; and
-4. lossless in-memory round-trip tests for every model and relationship.
+3. one main-actor `AppConfigService` that creates a policy-neutral singleton
+   only from a clean context;
+4. one type-owned cost-default source, with unknown cost kept distinct from an
+   explicit zero-dollar value;
+5. backup format v2, explicit value-space migration from format v1, and validated
+   empty-store restoration; and
+6. lossless in-memory and file-backed tests for every model and relationship.
 
-Taxonomy seeding, editable configuration, intervention capture, and all later UI
-remain gated on the product-owner answers listed under **Required decisions**.
+This hardens persistence without inventing product policy. Taxonomy editors,
+capture, summary, DI, and restore UI remain gated by the affected product and
+implementation decisions listed below.
 
 ## Build
 
@@ -68,10 +74,10 @@ xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-The current implementation was authored on Linux, where Apple SDKs and
-`xcodebuild` are unavailable. The hand-authored project file is provisional until
-the commands above pass on macOS; that limitation must not be described as a
-successful Apple-platform build.
+The GitHub workflow runs the source boundary, Xcode 16.4 Release build, static
+analysis, file-backed and in-memory unit tests, and a planted-networking failure
+probe on iOS 18.5. Linux parsing and scanner self-tests are useful local checks,
+but they are not substitutes for an exact-head hosted Apple-platform result.
 
 ## Privacy manifest and App Store label
 
@@ -87,20 +93,24 @@ Account Holder, Admin, or App Manager must separately publish **Data Not
 Collected** before distribution. No TestFlight or App Store action is authorized
 by this repository milestone.
 
-## Required decisions before build-order steps 10.3 and 10.4
+## Required decisions before affected features ship
 
 1. Whether hospital policy permits a PHI-free personal work ledger on a personal
-   device. This gates use on shift, not local development.
-2. Whether the institution publishes cost-avoidance values. Values remain empty.
+   device. This gates use on shift, not foundation development.
+2. Whether the institution publishes cost-avoidance values. Stored defaults
+   remain `nil`; the schema and backup preserve `nil` separately from zero.
 3. Whether the department has an intervention taxonomy; otherwise ASHP categories
    require explicit approval before seeding. Taxonomies remain empty.
 4. Whether the default summary range is annual or quarterly.
-5. Whether DI staleness defaults to 12 months or 6 months.
+5. Whether DI staleness defaults to 12 months or 6 months. The stored default
+   remains `nil`.
+6. Whether the frozen DI requestor, question-class, urgency, and source-tier
+   vocabulary matches the intended workflow. DI UI does not ship until confirmed.
 
-Schema review must also confirm the representation of app-wide cost values,
-singleton enforcement for `AppConfig`, verification history, empty-only versus
-replacement restore, and how editable taxonomy labels are kept from becoming an
-indirect identifier channel.
+The accepted implementation decisions and remaining gates—including restore
+readiness, editable-label identifier risk, metric semantics, local-file import,
+and `lastExportAt` meaning—are tracked in
+[`docs/decision-register.md`](docs/decision-register.md).
 
 ## Primary implementation references
 

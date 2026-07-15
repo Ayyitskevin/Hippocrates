@@ -6,8 +6,12 @@ enum BackupError: Error, Equatable {
     case duplicateIdentifier(entity: String, id: UUID)
     case danglingReference(entity: String, id: UUID, field: String, referencedID: UUID)
     case invalidCostAvoidanceKey(String)
+    case conflictingLegacyCostAvoidanceValue(typeID: UUID, typeValue: Int, configValue: Int)
+    case invalidCostAvoidanceValue(entity: String, id: UUID, value: Int)
     case verificationHistoryDoesNotEndAtVerifiedOn(questionID: UUID)
-    case reviewDatePrecedesVerification(questionID: UUID)
+    case verificationHistoryNotChronological(questionID: UUID)
+    case reviewDateMustFollowVerification(questionID: UUID)
+    case invalidStalenessIntervalMonths(Int)
     case multipleAppConfigs
     case destinationHasPendingChanges
     case destinationNotEmpty
@@ -28,10 +32,14 @@ enum BackupService {
         let interventions = try context.fetch(FetchDescriptor<Intervention>())
         let questions = try context.fetch(FetchDescriptor<DIQuestion>())
         let citations = try context.fetch(FetchDescriptor<Citation>())
-        let configs = try context.fetch(FetchDescriptor<AppConfig>())
-
-        guard configs.count <= 1 else {
-            throw BackupError.multipleAppConfigs
+        let configuration: AppConfig?
+        do {
+            configuration = try AppConfigService.existing(in: context)
+        } catch {
+            if case AppConfigServiceError.multipleConfigurations = error {
+                throw BackupError.multipleAppConfigs
+            }
+            throw error
         }
 
         let payload = BackupArchive.Payload(
@@ -101,9 +109,8 @@ enum BackupService {
                     )
                 }
                 .sorted(by: idOrder),
-            appConfig: configs.first.map {
+            appConfig: configuration.map {
                 .init(
-                    costAvoidanceValues: $0.costAvoidanceValues,
                     stalenessIntervalMonths: $0.stalenessIntervalMonths,
                     lastExportAt: $0.lastExportAt
                 )
@@ -135,6 +142,14 @@ enum BackupService {
 
         do {
             try context.transaction {
+                if let configuration = archive.payload.appConfig {
+                    _ = try AppConfigService.insertForRestore(
+                        stalenessIntervalMonths: configuration.stalenessIntervalMonths,
+                        lastExportAt: configuration.lastExportAt,
+                        into: context
+                    )
+                }
+
                 let typeByID = Dictionary(
                     uniqueKeysWithValues: archive.payload.interventionTypes.map { record in
                         let model = InterventionType(
@@ -226,16 +241,6 @@ enum BackupService {
                     )
                     context.insert(model)
                 }
-
-                if let config = archive.payload.appConfig {
-                    context.insert(
-                        AppConfig(
-                            costAvoidanceValues: config.costAvoidanceValues,
-                            stalenessIntervalMonths: config.stalenessIntervalMonths,
-                            lastExportAt: config.lastExportAt
-                        )
-                    )
-                }
             }
         } catch {
             context.rollback()
@@ -271,14 +276,38 @@ enum BackupService {
         _ = try uniqueIDs(archive.payload.citations, entity: "Citation", id: \.id)
         _ = try uniqueIDs(archive.payload.interventions, entity: "Intervention", id: \.id)
 
+        for type in archive.payload.interventionTypes {
+            try validateCost(
+                type.defaultCostAvoidanceCents,
+                entity: "InterventionType",
+                id: type.id
+            )
+        }
+
+        for intervention in archive.payload.interventions {
+            try validateCost(
+                intervention.costAvoidanceCents,
+                entity: "Intervention",
+                id: intervention.id
+            )
+        }
+
         for question in archive.payload.questions
         where question.verificationHistory.last != question.verifiedOn {
             throw BackupError.verificationHistoryDoesNotEndAtVerifiedOn(questionID: question.id)
         }
 
         for question in archive.payload.questions
-        where question.reviewAfter < question.verifiedOn {
-            throw BackupError.reviewDatePrecedesVerification(questionID: question.id)
+        where !zip(
+            question.verificationHistory,
+            question.verificationHistory.dropFirst()
+        ).allSatisfy({ pair in pair.0 < pair.1 }) {
+            throw BackupError.verificationHistoryNotChronological(questionID: question.id)
+        }
+
+        for question in archive.payload.questions
+        where question.reviewAfter <= question.verifiedOn {
+            throw BackupError.reviewDateMustFollowVerification(questionID: question.id)
         }
 
         for citation in archive.payload.citations {
@@ -322,12 +351,23 @@ enum BackupService {
             )
         }
 
-        if let config = archive.payload.appConfig {
-            for key in config.costAvoidanceValues.keys {
-                guard let id = UUID(uuidString: key), typeIDs.contains(id) else {
-                    throw BackupError.invalidCostAvoidanceKey(key)
-                }
-            }
+        if let months = archive.payload.appConfig?.stalenessIntervalMonths,
+           months <= 0 {
+            throw BackupError.invalidStalenessIntervalMonths(months)
+        }
+    }
+
+    private static func validateCost(
+        _ value: Int?,
+        entity: String,
+        id: UUID
+    ) throws {
+        if let value, value < 0 {
+            throw BackupError.invalidCostAvoidanceValue(
+                entity: entity,
+                id: id,
+                value: value
+            )
         }
     }
 

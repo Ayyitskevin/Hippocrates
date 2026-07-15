@@ -4,7 +4,7 @@ import Foundation
 /// instances and PersistentIdentifier values belong to one ModelContext/store,
 /// so exporting them directly would make a backup impossible to restore safely.
 struct BackupArchive: Codable, Equatable, Sendable {
-    static let currentFormatVersion = 1
+    static let currentFormatVersion = 2
 
     var formatVersion: Int
     var createdAt: Date
@@ -61,7 +61,7 @@ extension BackupArchive {
         var drugClassID: UUID?
         var serviceLineID: UUID?
         var acceptance: SchemaV1Vocabulary.Acceptance
-        var costAvoidanceCents: Int
+        var costAvoidanceCents: Int?
         var minutesSpent: Int?
         var diQuestionID: UUID?
     }
@@ -95,8 +95,7 @@ extension BackupArchive {
     }
 
     struct AppConfigRecord: Codable, Equatable, Sendable {
-        var costAvoidanceValues: [String: Int]
-        var stalenessIntervalMonths: Int
+        var stalenessIntervalMonths: Int?
         var lastExportAt: Date?
     }
 }

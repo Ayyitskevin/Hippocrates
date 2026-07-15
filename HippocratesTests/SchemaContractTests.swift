@@ -30,6 +30,90 @@ final class SchemaContractTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 0)
     }
 
+    func testAppConfigFetchOrCreateIsPolicyNeutralAndIdempotent() throws {
+        let container = try HippocratesStore.makeContainer(inMemory: true)
+        let context = container.mainContext
+
+        let first = try AppConfigService.fetchOrCreate(in: context)
+        XCTAssertNil(first.stalenessIntervalMonths)
+        XCTAssertNil(first.lastExportAt)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 1)
+
+        try AppConfigService.setStalenessIntervalMonths(6, on: first)
+        try context.save()
+
+        let second = try AppConfigService.fetchOrCreate(in: context)
+        XCTAssertTrue(first === second)
+        XCTAssertEqual(second.stalenessIntervalMonths, 6)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 1)
+    }
+
+    func testAppConfigCreationDoesNotSaveUnrelatedPendingWork() throws {
+        let container = try HippocratesStore.makeContainer(inMemory: true)
+        let context = container.mainContext
+        context.insert(DrugClass(label: "Unsaved"))
+
+        XCTAssertThrowsError(try AppConfigService.fetchOrCreate(in: context)) { error in
+            XCTAssertEqual(
+                error as? AppConfigServiceError,
+                .creationRequiresCleanContext
+            )
+        }
+        XCTAssertTrue(context.hasChanges)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 0)
+    }
+
+    func testConfigurationRejectsNonpositiveStalenessIntervals() throws {
+        let container = try HippocratesStore.makeContainer(inMemory: true)
+        let configuration = try AppConfigService.fetchOrCreate(
+            in: container.mainContext
+        )
+
+        for value in [0, -1] {
+            XCTAssertThrowsError(
+                try AppConfigService.setStalenessIntervalMonths(
+                    value,
+                    on: configuration
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? AppConfigServiceError,
+                    .invalidStalenessIntervalMonths(value)
+                )
+            }
+        }
+        XCTAssertNoThrow(
+            try AppConfigService.setStalenessIntervalMonths(nil, on: configuration)
+        )
+        XCTAssertNoThrow(
+            try AppConfigService.setStalenessIntervalMonths(6, on: configuration)
+        )
+    }
+
+    func testFreshnessDatesRequirePositiveStrictlyChronologicalIntervals() {
+        let date = Date(timeIntervalSinceReferenceDate: 700_000_000)
+        XCTAssertFalse(DIQuestion.reviewWindowIsValid(verifiedOn: date, reviewAfter: date))
+        XCTAssertFalse(
+            DIQuestion.reviewWindowIsValid(
+                verifiedOn: date,
+                reviewAfter: date.addingTimeInterval(-1)
+            )
+        )
+        XCTAssertTrue(
+            DIQuestion.reviewWindowIsValid(
+                verifiedOn: date,
+                reviewAfter: date.addingTimeInterval(1)
+            )
+        )
+        XCTAssertTrue(
+            DIQuestion.verificationHistoryIsChronological([
+                date,
+                date.addingTimeInterval(1)
+            ])
+        )
+        XCTAssertFalse(DIQuestion.verificationHistoryIsChronological([date, date]))
+    }
+
     func testPersistedEnumRawValuesAreExplicitAndStable() {
         XCTAssertEqual(Acceptance.allCases.map(\.rawValue), [
             "accepted", "rejected", "pending", "notApplicable"
@@ -149,16 +233,12 @@ final class SchemaContractTests: XCTestCase {
             costAvoidanceCents: 0,
             diQuestion: question
         )
-        let config = AppConfig(
-            costAvoidanceValues: [:],
-            stalenessIntervalMonths: 12,
-            lastExportAt: nil
-        )
+        let config = try AppConfigService.fetchOrCreate(in: container.mainContext)
+        try AppConfigService.setStalenessIntervalMonths(12, on: config)
 
         container.mainContext.insert(type)
         container.mainContext.insert(question)
         container.mainContext.insert(intervention)
-        container.mainContext.insert(config)
         try container.mainContext.save()
     }
 
@@ -179,6 +259,7 @@ final class SchemaContractTests: XCTestCase {
         let type = try XCTUnwrap(types.first)
         let intervention = try XCTUnwrap(interventions.first)
         let question = try XCTUnwrap(questions.first)
+        let config = try XCTUnwrap(configs.first)
         XCTAssertEqual(types.count, 1)
         XCTAssertEqual(interventions.count, 1)
         XCTAssertEqual(questions.count, 1)
@@ -195,5 +276,7 @@ final class SchemaContractTests: XCTestCase {
         XCTAssertEqual(question.reviewAfter, reviewAfter)
         XCTAssertEqual(question.verificationHistory, [verifiedOn])
         XCTAssertEqual(question.tags, ["portfolio"])
+        XCTAssertEqual(intervention.costAvoidanceCents, 0)
+        XCTAssertEqual(config.stalenessIntervalMonths, 12)
     }
 }

@@ -160,7 +160,7 @@ final class BackupRoundTripTests: XCTestCase {
         }
     }
 
-    func testReviewDateCannotPrecedeVerificationDate() throws {
+    func testReviewDateMustFollowVerificationDate() throws {
         let verifiedOn = Date(timeIntervalSinceReferenceDate: 700_000_000)
         let invalidQuestion = BackupArchive.DIQuestionRecord(
             id: UUID(),
@@ -174,7 +174,7 @@ final class BackupRoundTripTests: XCTestCase {
             questionClass: .other,
             urgency: .routine,
             verifiedOn: verifiedOn,
-            reviewAfter: verifiedOn.addingTimeInterval(-1),
+            reviewAfter: verifiedOn,
             didFollowUp: false,
             tags: [],
             verificationHistory: [verifiedOn]
@@ -195,9 +195,298 @@ final class BackupRoundTripTests: XCTestCase {
         XCTAssertThrowsError(try BackupService.validate(archive)) { error in
             XCTAssertEqual(
                 error as? BackupError,
-                .reviewDatePrecedesVerification(questionID: invalidQuestion.id)
+                .reviewDateMustFollowVerification(questionID: invalidQuestion.id)
             )
         }
+    }
+
+    func testUnsetAndExplicitZeroCostsRoundTripDistinctly() throws {
+        let typeID = try XCTUnwrap(
+            UUID(uuidString: "10000000-0000-0000-0000-000000000010")
+        )
+        let unsetID = try XCTUnwrap(
+            UUID(uuidString: "60000000-0000-0000-0000-000000000060")
+        )
+        let zeroID = try XCTUnwrap(
+            UUID(uuidString: "60000000-0000-0000-0000-000000000061")
+        )
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        let type = InterventionType(
+            id: typeID,
+            label: "Configured type",
+            defaultCostAvoidanceCents: 5_000
+        )
+        let unset = Intervention(
+            id: unsetID,
+            type: type,
+            acceptance: .accepted
+        )
+        let explicitZero = Intervention(
+            id: zeroID,
+            type: type,
+            acceptance: .accepted,
+            costAvoidanceCents: 0
+        )
+        source.mainContext.insert(type)
+        source.mainContext.insert(unset)
+        source.mainContext.insert(explicitZero)
+        try source.mainContext.save()
+
+        let archive = try BackupService.makeArchive(
+            from: source.mainContext,
+            createdAt: exportDate
+        )
+        let records = Dictionary(
+            uniqueKeysWithValues: archive.payload.interventions.map {
+                ($0.id, $0)
+            }
+        )
+        let unsetRecord = try XCTUnwrap(records[unsetID])
+        let zeroRecord = try XCTUnwrap(records[zeroID])
+        XCTAssertEqual(records.count, 2)
+        XCTAssertNil(unsetRecord.costAvoidanceCents)
+        XCTAssertEqual(zeroRecord.costAvoidanceCents, 0)
+
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        try BackupService.restore(archive, into: destination.mainContext)
+        let restored = try BackupService.makeArchive(
+            from: destination.mainContext,
+            createdAt: exportDate
+        )
+        XCTAssertEqual(restored, archive)
+    }
+
+    func testLegacyV1BackupMigratesInValueSpace() throws {
+        let data = Data(
+            #"""
+            {
+              "createdAt": 0,
+              "formatVersion": 1,
+              "payload": {
+                "appConfig": {
+                  "costAvoidanceValues": {
+                    "10000000-0000-0000-0000-000000000001": 12500
+                  },
+                  "lastExportAt": null,
+                  "stalenessIntervalMonths": 12
+                },
+                "citations": [],
+                "drugClasses": [],
+                "interventionTypes": [
+                  {
+                    "defaultCostAvoidanceCents": null,
+                    "id": "10000000-0000-0000-0000-000000000001",
+                    "isActive": true,
+                    "label": "Legacy type",
+                    "sortOrder": 0
+                  }
+                ],
+                "interventions": [
+                  {
+                    "acceptance": "accepted",
+                    "costAvoidanceCents": 0,
+                    "diQuestionID": null,
+                    "drugClassID": null,
+                    "id": "60000000-0000-0000-0000-000000000006",
+                    "minutesSpent": null,
+                    "serviceLineID": null,
+                    "timestamp": 0,
+                    "typeID": "10000000-0000-0000-0000-000000000001"
+                  }
+                ],
+                "questions": [],
+                "serviceLines": []
+              }
+            }
+            """#.utf8
+        )
+
+        let migrated = try BackupCodec.decode(data)
+        XCTAssertEqual(migrated.formatVersion, BackupArchive.currentFormatVersion)
+        XCTAssertEqual(
+            migrated.payload.interventionTypes.first?.defaultCostAvoidanceCents,
+            12_500
+        )
+        XCTAssertEqual(migrated.payload.interventions.first?.costAvoidanceCents, 0)
+        XCTAssertEqual(migrated.payload.appConfig?.stalenessIntervalMonths, 12)
+        XCTAssertNoThrow(try BackupService.validate(migrated))
+
+        let reencoded = try BackupCodec.encode(migrated)
+        XCTAssertEqual(try BackupCodec.decode(reencoded), migrated)
+    }
+
+    func testLegacyV1CostMapRejectsInvalidKeyAndConflict() throws {
+        let typeID = try XCTUnwrap(
+            UUID(uuidString: "10000000-0000-0000-0000-000000000001")
+        )
+
+        let invalidKey = makeLegacyV1CostMapArchive(
+            typeID: typeID,
+            typeDefault: nil,
+            costMapKey: "not-a-uuid",
+            costMapValue: 100
+        )
+        XCTAssertThrowsError(try BackupCodec.decode(invalidKey)) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .invalidCostAvoidanceKey("not-a-uuid")
+            )
+        }
+
+        let conflict = makeLegacyV1CostMapArchive(
+            typeID: typeID,
+            typeDefault: 100,
+            costMapKey: typeID.uuidString,
+            costMapValue: 200
+        )
+        XCTAssertThrowsError(try BackupCodec.decode(conflict)) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .conflictingLegacyCostAvoidanceValue(
+                    typeID: typeID,
+                    typeValue: 100,
+                    configValue: 200
+                )
+            )
+        }
+    }
+
+    func testUnknownEncodedVersionFailsBeforePayloadDecoding() {
+        let data = Data(#"{"formatVersion":999}"#.utf8)
+        XCTAssertThrowsError(try BackupCodec.decode(data)) { error in
+            XCTAssertEqual(error as? BackupError, .unsupportedFormatVersion(999))
+        }
+    }
+
+    func testVerificationHistoryMustBeStrictlyChronological() {
+        let verifiedOn = Date(timeIntervalSinceReferenceDate: 700_000_000)
+        let invalidQuestion = BackupArchive.DIQuestionRecord(
+            id: UUID(),
+            createdAt: verifiedOn,
+            answeredAt: nil,
+            questionText: "Question",
+            background: "Background",
+            answerText: "Answer",
+            searchStrategy: "Search",
+            requestorRole: .pharmacist,
+            questionClass: .other,
+            urgency: .routine,
+            verifiedOn: verifiedOn,
+            reviewAfter: verifiedOn.addingTimeInterval(86_400),
+            didFollowUp: false,
+            tags: [],
+            verificationHistory: [
+                verifiedOn,
+                verifiedOn.addingTimeInterval(-1),
+                verifiedOn
+            ]
+        )
+        let archive = BackupArchive(
+            createdAt: exportDate,
+            payload: .init(
+                interventionTypes: [],
+                drugClasses: [],
+                serviceLines: [],
+                interventions: [],
+                questions: [invalidQuestion],
+                citations: [],
+                appConfig: nil
+            )
+        )
+
+        XCTAssertThrowsError(try BackupService.validate(archive)) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .verificationHistoryNotChronological(questionID: invalidQuestion.id)
+            )
+        }
+    }
+
+    func testNegativeCostAndNonpositiveStalenessAreRejected() {
+        let typeID = UUID()
+        var archive = BackupArchive(
+            createdAt: exportDate,
+            payload: .init(
+                interventionTypes: [
+                    .init(
+                        id: typeID,
+                        label: "Configured type",
+                        defaultCostAvoidanceCents: -1,
+                        isActive: true,
+                        sortOrder: 0
+                    )
+                ],
+                drugClasses: [],
+                serviceLines: [],
+                interventions: [],
+                questions: [],
+                citations: [],
+                appConfig: nil
+            )
+        )
+
+        XCTAssertThrowsError(try BackupService.validate(archive)) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .invalidCostAvoidanceValue(
+                    entity: "InterventionType",
+                    id: typeID,
+                    value: -1
+                )
+            )
+        }
+
+        archive.payload.interventionTypes[0].defaultCostAvoidanceCents = nil
+        archive.payload.appConfig = .init(
+            stalenessIntervalMonths: 0,
+            lastExportAt: nil
+        )
+        XCTAssertThrowsError(try BackupService.validate(archive)) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .invalidStalenessIntervalMonths(0)
+            )
+        }
+    }
+
+    private func makeLegacyV1CostMapArchive(
+        typeID: UUID,
+        typeDefault: Int?,
+        costMapKey: String,
+        costMapValue: Int
+    ) -> Data {
+        let typeDefaultJSON = typeDefault.map { String($0) } ?? "null"
+        return Data(
+            """
+            {
+              "createdAt": 0,
+              "formatVersion": 1,
+              "payload": {
+                "appConfig": {
+                  "costAvoidanceValues": {
+                    "\(costMapKey)": \(costMapValue)
+                  },
+                  "lastExportAt": null,
+                  "stalenessIntervalMonths": 12
+                },
+                "citations": [],
+                "drugClasses": [],
+                "interventionTypes": [
+                  {
+                    "defaultCostAvoidanceCents": \(typeDefaultJSON),
+                    "id": "\(typeID.uuidString)",
+                    "isActive": true,
+                    "label": "Legacy type",
+                    "sortOrder": 0
+                  }
+                ],
+                "interventions": [],
+                "questions": [],
+                "serviceLines": []
+              }
+            }
+            """.utf8
+        )
     }
 
     private func insertCompleteFixture(
@@ -258,10 +547,10 @@ final class BackupRoundTripTests: XCTestCase {
             minutesSpent: 7,
             diQuestion: question
         )
-        let config = AppConfig(
-            costAvoidanceValues: [typeID.uuidString: 12_500],
+        _ = try AppConfigService.insertForRestore(
             stalenessIntervalMonths: 12,
-            lastExportAt: exportDate
+            lastExportAt: exportDate,
+            into: context
         )
 
         context.insert(type)
@@ -270,7 +559,6 @@ final class BackupRoundTripTests: XCTestCase {
         context.insert(question)
         context.insert(citation)
         context.insert(intervention)
-        context.insert(config)
         try context.save()
 
         return (citationID, interventionID)

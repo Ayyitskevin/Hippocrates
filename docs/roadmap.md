@@ -13,7 +13,8 @@ cross a decision or evidence gate.
 | F1 — versioned persistence | Verified | Xcode 16.4 Release build, analyzer, in-memory tests, and file-backed close/reopen test pass on iOS 18.5 CI |
 | F2 — backup foundation | Verified | Populated all-model store restores and logically re-exports identically in hosted tests |
 | F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
-| D0 — Jenn decisions | Awaiting answers | P-001 through P-005 recorded in `decision-register.md`; product-specific milestones remain gated |
+| F4 — policy-neutral configuration and backup evolution | Implemented; hosted verification pending | One configuration owner, unknown/zero separation, strict DI chronology, and backup v2/v1 migration require exact-head hosted CI |
+| D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
 
@@ -29,24 +30,43 @@ Exit gate achieved: canonical `main` has a green hosted Apple Release build,
 static analysis, simulator test run, and executable boundary probe. A Linux parse
 remains a fast local check, not a substitute for this hosted evidence.
 
-## Decision gate — before Milestones 1 and 2
+## Foundation hardening — configuration and backup evolution
 
-Obtain and record P-001 through P-005. P-001 gates use on shift, while P-002
-through P-005 directly shape configuration and product defaults. If answers are
-not available, continue only foundation hardening, tests, documentation, and
-non-product-specific tooling.
+Implemented deliverables:
 
-Before the affected feature ships, also resolve I-007 (acceptance denominator),
-I-008 (optional capture controls), I-009 (metadata identifier channels), I-010
-(local-file import boundary), and I-011 (`lastExportAt` semantics). These are
-implementation decisions, not substitutes for Jenn's unanswered P-001 through
-P-005.
+- one main-actor `AppConfigService` that creates only from a clean context and
+  exposes a no-save restore insertion path;
+- `nil` policy state for unanswered DI staleness and cost values;
+- one type-owned cost default with optional intervention snapshots, preserving
+  unknown separately from explicit zero;
+- backup format v2 plus an immutable development-format-v1 value-space migration;
+- validation for negative cost, nonpositive staleness, freshness ordering, legacy
+  key mismatches, and legacy duplicate-source conflicts; and
+- in-memory, file-backed, round-trip, compatibility, and boundary-contract tests.
+
+The exit gate closes only when the exact canonical commit passes hosted Release
+build, analysis, simulator tests, and the planted-networking boundary probe.
+
+## Feature-specific decision gate
+
+P-001 gates use on shift, not local foundation work. P-002 gates entry of nonnil
+cost defaults; P-003 and I-004 gate taxonomy seeds and editor behavior; P-004
+gates the default summary range; P-005 gates DI freshness defaults; and P-006
+gates the frozen DI vocabulary and its UI. If answers are unavailable, continue
+only foundation hardening, tests, documentation, and non-product-specific tooling.
+
+Before the affected feature ships, also resolve I-003 (restore readiness), I-004
+(editable taxonomy identifier risk), I-005 (verification provenance), I-007
+(acceptance denominator), I-008 (optional capture controls), I-009 (metadata
+identifier channels), I-010 (local-file import boundary), I-011 (`lastExportAt`
+semantics), and I-012 (bootstrap readiness). These implementation decisions are
+not substitutes for Jenn's unanswered P-001 through P-006.
 
 ## Milestone 1 — configuration and taxonomy ownership
 
 Deliverables:
 
-- one `AppConfig` fetch-or-create service;
+- reuse the policy-neutral `AppConfigService` implemented in foundation hardening;
 - an explicit first-run configuration gate, after which ordinary launches go
   directly to capture with no dashboard or recurring welcome screen (guarded
   restore joins this pre-bootstrap gate only in Milestone 7);
@@ -159,17 +179,19 @@ re-export is logically identical, and no raw DI text can bypass the guard.
 
 ## V1 completion audit
 
-V1 is complete only when every checkbox in the original definition of done has
-direct evidence: hosted build/test, planted network failure, schema privacy,
-backup equality, summary acceptance, freshness behavior, guard fixtures, privacy
-manifest, and absence of clinical calculation. The real-device five-second test
-and App Store privacy label are human/external gates and remain visibly open until
-observed.
+Product v1 is complete only with direct evidence for: exact-head hosted build,
+analysis, and tests; planted-network rejection; persisted schema privacy; backup
+compatibility and logical equality; approved summary semantics and manager
+acceptance; freshness boundaries; de-identification fixtures and import parity;
+privacy-manifest consistency; and absence of clinical calculation or
+recommendation paths. The real-device five-second test, institutional permission
+for shift use, TestFlight/App Store actions, and the App Store privacy label are
+human/external gates and remain visibly open until observed.
 
 ## Permanent stop conditions
 
 Stop implementation and escalate if a request introduces networking, CloudKit,
 an account/server, patient identifiers, intervention free text, a clinical
 calculation or recommendation, hospital reference/protocol storage, third-party
-packages, notifications/analytics, or any v2 native surface before v1 usage data
-defines it.
+packages, notifications/analytics, or any post-v1 product surface before usage
+data from product v1 defines it.
