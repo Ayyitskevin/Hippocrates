@@ -1,0 +1,10 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+
+# Package.resolved is intentionally not ignored. Its presence is a build error:
+# Hippocrates has no Swift Package dependencies.
