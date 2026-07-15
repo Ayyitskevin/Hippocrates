@@ -1242,6 +1242,10 @@ private struct FilesystemInventory {
     let symbolicLinks: [URL]
 }
 
+private func fileIsSymbolicLink(_ file: URL) -> Bool {
+    (try? FileManager.default.destinationOfSymbolicLink(atPath: file.path)) != nil
+}
+
 private func filesystemInventory(under root: URL) throws -> FilesystemInventory {
     var isDirectory: ObjCBool = false
     guard
@@ -1258,7 +1262,7 @@ private func filesystemInventory(under root: URL) throws -> FilesystemInventory 
     var enumerationFailure: Error?
     guard let enumerator = FileManager.default.enumerator(
         at: root,
-        includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+        includingPropertiesForKeys: [.isRegularFileKey],
         options: [],
         errorHandler: { _, error in
             enumerationFailure = error
@@ -1279,12 +1283,13 @@ private func filesystemInventory(under root: URL) throws -> FilesystemInventory 
             break
         }
         let values = try fileURL.resourceValues(
-            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            forKeys: [.isRegularFileKey]
         )
-        if values.isRegularFile == true {
+        let isSymbolicLink = fileIsSymbolicLink(fileURL)
+        if values.isRegularFile == true, isSymbolicLink == false {
             files.append(fileURL.standardizedFileURL)
         }
-        if values.isSymbolicLink == true {
+        if isSymbolicLink {
             symbolicLinks.append(fileURL.standardizedFileURL)
         }
     }
@@ -2150,12 +2155,12 @@ private func pathIsBeneath(_ path: String, rootPath: String) -> Bool {
 }
 private func isRegularNonSymlinkFile(_ file: URL, beneath root: URL) throws -> Bool {
     let values = try file.resourceValues(
-        forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        forKeys: [.isRegularFileKey]
     )
     let resolvedFile = file.resolvingSymlinksInPath().standardizedFileURL
     let resolvedRoot = root.resolvingSymlinksInPath().standardizedFileURL
     return values.isRegularFile == true
-        && values.isSymbolicLink != true
+        && fileIsSymbolicLink(file) == false
         && pathIsBeneath(resolvedFile.path, rootPath: resolvedRoot.path)
 }
 
@@ -2633,6 +2638,14 @@ private func appTargetSourceFindings(
                 findings.append(
                     Finding(path: sourceURL.path, line: 1, message: "\(targetLabel) source is not a regular file")
                 )
+            } else if try isRegularNonSymlinkFile(lexicalSource, beneath: allowedRoot) == false {
+                findings.append(
+                    Finding(
+                        path: sourceURL.path,
+                        line: 1,
+                        message: "\(targetLabel) source must be a regular, non-symbolic-link file"
+                    )
+                )
             } else {
                 physicalIdentities.append(try physicalFileIdentity(at: lexicalSource.path))
             }
@@ -2669,7 +2682,20 @@ private func appTargetSourceFindings(
             )
         }
 
-        let diskFiles = try swiftFiles(under: allowedRoot)
+        let diskInventory = try filesystemInventory(under: allowedRoot)
+        let diskFiles = diskInventory.regularFiles.filter {
+            $0.pathExtension.lowercased() == "swift"
+        }
+        for symbolicLink in diskInventory.symbolicLinks
+        where symbolicLink.pathExtension.lowercased() == "swift" {
+            findings.append(
+                Finding(
+                    path: symbolicLink.path,
+                    line: 1,
+                    message: "\(targetLabel) on-disk Swift source must be a regular file; symbolic links are forbidden"
+                )
+            )
+        }
         var diskResolvedPaths: [String] = []
         var diskPhysicalIdentities: [String] = []
         for diskFile in diskFiles {
@@ -2835,13 +2861,33 @@ private func appTargetSourceFindings(
         if FileManager.default.fileExists(atPath: lexicalResource.path, isDirectory: &isDirectory) == false
             || isDirectory.boolValue {
             findings.append(Finding(path: resourceURL.path, line: 1, message: "Privacy manifest resource is missing"))
+        } else if try isRegularNonSymlinkFile(lexicalResource, beneath: resourceRoot) == false {
+            findings.append(
+                Finding(
+                    path: resourceURL.path,
+                    line: 1,
+                    message: "Privacy manifest must be a regular, non-symbolic-link file"
+                )
+            )
         }
     }
 
     let expectedManifestPath = resourceRoot.appendingPathComponent("PrivacyInfo.xcprivacy")
         .standardizedFileURL.path
-    let diskResourcePaths = Set(try regularFiles(under: resourceRoot).map { $0.standardizedFileURL.path })
+    let diskResourceInventory = try filesystemInventory(under: resourceRoot)
+    let diskResourcePaths = Set(
+        diskResourceInventory.regularFiles.map { $0.standardizedFileURL.path }
+    )
     let compiledResourceSet = Set(compiledResourcePaths)
+    for symbolicLink in diskResourceInventory.symbolicLinks {
+        findings.append(
+            Finding(
+                path: symbolicLink.path,
+                line: 1,
+                message: "Unreviewed symbolic link exists beneath Hippocrates/Resources"
+            )
+        )
+    }
     if diskResourcePaths != Set([expectedManifestPath]) {
         for path in diskResourcePaths.subtracting(Set([expectedManifestPath])).sorted() {
             findings.append(
