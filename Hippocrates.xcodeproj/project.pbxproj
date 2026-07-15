@@ -271,7 +271,30 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/",
+				"$(SRCROOT)",
+				"$(SRCROOT)/Hippocrates",
+				"$(SRCROOT)/Hippocrates/App",
+				"$(SRCROOT)/Hippocrates/App/HippocratesApp.swift",
+				"$(SRCROOT)/Hippocrates/App/RootView.swift",
+				"$(SRCROOT)/Hippocrates/Backup",
+				"$(SRCROOT)/Hippocrates/Backup/BackupArchive.swift",
+				"$(SRCROOT)/Hippocrates/Backup/BackupCodec.swift",
+				"$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
+				"$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
+				"$(SRCROOT)/Hippocrates/Models",
+				"$(SRCROOT)/Hippocrates/Models/DomainEnums.swift",
+				"$(SRCROOT)/Hippocrates/Persistence",
+				"$(SRCROOT)/Hippocrates/Persistence/HippocratesMigrationPlan.swift",
+				"$(SRCROOT)/Hippocrates/Persistence/HippocratesStore.swift",
+				"$(SRCROOT)/Hippocrates/Persistence/SchemaV1.swift",
+				"$(SRCROOT)/Hippocrates/Resources",
+				"$(SRCROOT)/Hippocrates/Resources/PrivacyInfo.xcprivacy",
+				"$(SRCROOT)/HippocratesTests",
+				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
+				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
+				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
+				"$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
+				"$(SRCROOT)/Scripts/NetworkBoundaryScanner.swift",
 			);
 			name = "Enforce Offline Boundary";
 			outputFileListPaths = (

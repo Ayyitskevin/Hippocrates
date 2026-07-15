@@ -961,22 +961,23 @@ private func repositoryFindings(at repositoryRoot: URL) throws -> [Finding] {
         )
     )
 
-    let forbiddenPackageFiles = ["Package.swift", "Package.resolved"]
-    if let enumerator = FileManager.default.enumerator(
-        at: repositoryRoot,
-        includingPropertiesForKeys: [.isRegularFileKey],
-        options: [.skipsHiddenFiles]
-    ) {
-        for case let fileURL as URL in enumerator
-        where forbiddenPackageFiles.contains(fileURL.lastPathComponent) {
+    // Actual Xcode package references are rejected above. Checking the root
+    // names as well catches the ordinary Package.swift/Package.resolved entry
+    // points without granting this build script recursive access to unrelated
+    // repository files.
+    let repositoryEntries = try FileManager.default.contentsOfDirectory(
+        atPath: repositoryRoot.path
+    )
+    for forbiddenName in ["Package.swift", "Package.resolved"]
+    where repositoryEntries.contains(forbiddenName) {
+        let forbiddenFile = repositoryRoot.appendingPathComponent(forbiddenName)
             results.append(
                 Finding(
-                    path: fileURL.path,
+                    path: forbiddenFile.path,
                     line: 1,
                     message: "Swift Package files are forbidden; the project has zero SPM dependencies"
                 )
             )
-        }
     }
 
     return results
