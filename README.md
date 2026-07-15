@@ -5,6 +5,13 @@ pharmacist. It records interventions she has already made and drug-information
 answers she has already completed. It does not calculate, interpret, dose,
 recommend, or advise.
 
+Project direction and delivery evidence live in:
+
+- [`docs/product-vision.md`](docs/product-vision.md)
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/decision-register.md`](docs/decision-register.md)
+- [`docs/roadmap.md`](docs/roadmap.md)
+
 This repository supersedes the discarded calculator-oriented prototype. No code,
 data model, drug exclusion list, or history from that prototype is carried forward.
 
