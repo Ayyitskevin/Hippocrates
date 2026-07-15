@@ -271,10 +271,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)",
-				"$(SRCROOT)/Hippocrates",
-				"$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
-				"$(SRCROOT)/Scripts/NetworkBoundaryScanner.swift",
+				"$(SRCROOT)/",
 			);
 			name = "Enforce Offline Boundary";
 			outputFileListPaths = (
