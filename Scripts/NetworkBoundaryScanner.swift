@@ -1,7 +1,9 @@
 #!/usr/bin/env swift
 
 import Foundation
+#if canImport(FoundationXML)
 import FoundationXML
+#endif
 
 private enum SourceRuleID: String {
     case urlSession
