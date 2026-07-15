@@ -13,7 +13,7 @@ cross a decision or evidence gate.
 | F1 — versioned persistence | Verified | Xcode 16.4 Release build, analyzer, in-memory tests, and file-backed close/reopen test pass on iOS 18.5 CI |
 | F2 — backup foundation | Verified | Populated all-model store restores and logically re-exports identically in hosted tests |
 | F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
-| F4 — policy-neutral configuration and backup evolution | Implemented; hosted verification pending | One configuration owner, unknown/zero separation, strict DI chronology, and backup v2/v1 migration require exact-head hosted CI |
+| F4 — policy-neutral configuration and backup evolution | Verified | Implementation commit `ade0c7f` passed the Xcode 16.4/iOS 18.5 Release build, analyzer, simulator tests, and boundary probe in [hosted run 29439588632](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29439588632) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -44,8 +44,10 @@ Implemented deliverables:
   key mismatches, and legacy duplicate-source conflicts; and
 - in-memory, file-backed, round-trip, compatibility, and boundary-contract tests.
 
-The exit gate closes only when the exact canonical commit passes hosted Release
-build, analysis, simulator tests, and the planted-networking boundary probe.
+Exit gate achieved: implementation commit
+[`ade0c7f`](https://github.com/Ayyitskevin/Hippocrates/commit/ade0c7fc53d480ee03360499f703fd6c87972d67)
+passed the hosted Release build, analysis, simulator tests, and planted-networking
+boundary probe.
 
 ## Feature-specific decision gate
 
