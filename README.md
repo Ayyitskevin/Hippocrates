@@ -81,9 +81,11 @@ xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-The GitHub workflow runs the source boundary directly for recursive orphan
-diagnostics, proves the sandboxed Xcode phase rejects violations in declared
-inputs, and then runs the Xcode 16.4 Release build, static analysis, and
+The GitHub workflow runs the source boundary directly before Xcode mutates its
+project bundle, producing recursive orphan and shadow-scheme diagnostics. It
+then proves the sandboxed Xcode phase rejects violations in declared inputs
+without traversing Xcode's generated `project.xcworkspace`, before running the
+Xcode 16.4 Release build, static analysis, and
 file-backed and in-memory tests on iOS 18.5. Local scanner self-tests are useful,
 but they are not substitutes for an exact-head hosted Apple-platform result.
 

@@ -312,7 +312,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n";
+			shellScript = "exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --sandboxed-build-check \"$SRCROOT\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

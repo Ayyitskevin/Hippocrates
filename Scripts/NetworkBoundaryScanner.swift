@@ -2327,7 +2327,7 @@ private func appTargetSourceFindings(
         ]
     }
 
-    let expectedShellScript = #"exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n"#
+    let expectedShellScript = #"exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --sandboxed-build-check \"$SRCROOT\"\n"#
     guard
         try pbxRequiredScalar("name", in: shellPhase) == "Enforce Offline Boundary",
         try pbxRequiredScalar("alwaysOutOfDate", in: shellPhase) == "1",
@@ -3216,7 +3216,15 @@ private func schemePolicyFindings(
 }
 
 
-private func repositoryFindings(at repositoryRoot: URL) throws -> [Finding] {
+private enum RepositoryInspectionMode {
+    case direct
+    case sandboxedXcode
+}
+
+private func repositoryFindings(
+    at repositoryRoot: URL,
+    mode: RepositoryInspectionMode
+) throws -> [Finding] {
     let sourceRoot = repositoryRoot.appendingPathComponent("Hippocrates", isDirectory: true)
     let projectFile = repositoryRoot
         .appendingPathComponent("Hippocrates.xcodeproj", isDirectory: true)
@@ -3353,24 +3361,31 @@ private func repositoryFindings(at repositoryRoot: URL) throws -> [Finding] {
         .appendingPathComponent("xcschemes", isDirectory: true)
     let expectedScheme = schemeDirectory.appendingPathComponent("Hippocrates.xcscheme")
     let projectBundle = repositoryRoot.appendingPathComponent("Hippocrates.xcodeproj", isDirectory: true)
-    let projectBundleInventory = try filesystemInventory(under: projectBundle)
-    let schemeControlPaths = Set(
-        (projectBundleInventory.regularFiles + projectBundleInventory.symbolicLinks)
-            .filter { file in
-                file.pathExtension.lowercased() == "xcscheme"
-                    || file.lastPathComponent == "xcschememanagement.plist"
-            }
-            .map { $0.standardizedFileURL.path }
-    )
-    if schemeControlPaths != Set([expectedScheme.standardizedFileURL.path])
-        || projectBundleInventory.symbolicLinks.isEmpty == false {
-        results.append(
-            Finding(
-                path: projectBundle.path,
-                line: 1,
-                message: "Only the one reviewed shared scheme and no symbolic links may exist anywhere in the Xcode project bundle"
-            )
+    if case .direct = mode {
+        // Xcode creates project.xcworkspace during build planning. The build
+        // sandbox does not grant recursive access to that generated directory,
+        // so the clean checkout's whole-bundle inventory belongs to the direct
+        // pre-Xcode scan. The sandboxed phase still validates the declared PBX
+        // file, shared-scheme directory and file, sources, tests, and resources.
+        let projectBundleInventory = try filesystemInventory(under: projectBundle)
+        let schemeControlPaths = Set(
+            (projectBundleInventory.regularFiles + projectBundleInventory.symbolicLinks)
+                .filter { file in
+                    file.pathExtension.lowercased() == "xcscheme"
+                        || file.lastPathComponent == "xcschememanagement.plist"
+                }
+                .map { $0.standardizedFileURL.path }
         )
+        if schemeControlPaths != Set([expectedScheme.standardizedFileURL.path])
+            || projectBundleInventory.symbolicLinks.isEmpty == false {
+            results.append(
+                Finding(
+                    path: projectBundle.path,
+                    line: 1,
+                    message: "Only the one reviewed shared scheme and no symbolic links may exist anywhere in the Xcode project bundle"
+                )
+            )
+        }
     }
 
     var schemeDirectoryIsDirectory: ObjCBool = false
@@ -3389,15 +3404,13 @@ private func repositoryFindings(at repositoryRoot: URL) throws -> [Finding] {
             )
         }
         if FileManager.default.fileExists(atPath: expectedScheme.path) {
-            let values = try expectedScheme.resourceValues(
-                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
-            )
+            let values = try expectedScheme.resourceValues(forKeys: [.isRegularFileKey])
             let resolvedScheme = expectedScheme.resolvingSymlinksInPath().standardizedFileURL
             let projectRoot = repositoryRoot
                 .appendingPathComponent("Hippocrates.xcodeproj", isDirectory: true)
                 .resolvingSymlinksInPath().standardizedFileURL
             if values.isRegularFile != true
-                || values.isSymbolicLink == true
+                || fileIsSymbolicLink(expectedScheme)
                 || pathIsBeneath(resolvedScheme.path, rootPath: projectRoot.path) == false {
                 results.append(
                     Finding(path: expectedScheme.path, line: 1, message: "The shared Xcode scheme must be one in-project regular file")
@@ -4208,7 +4221,7 @@ private func runSelfTests() throws {
         333333333333333333333333 = {isa = PBXGroup; children = (AAAAAAAAAAAAAAAAAAAAAAAA,); path = App; sourceTree = "<group>"; };
         444444444444444444444444 = {isa = PBXGroup; children = (CCCCCCCCCCCCCCCCCCCCCCCC,); path = Resources; sourceTree = "<group>"; };
         555555555555555555555555 = {isa = PBXGroup; children = (BBBBBBBBBBBBBBBBBBBBBBBB,); path = HippocratesTests; sourceTree = "<group>"; };
-        666666666666666666666666 = {isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; files = (); inputFileListPaths = (); inputPaths = (\#(fixtureBoundaryInputs)); name = "Enforce Offline Boundary"; outputFileListPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --build-check \"$SRCROOT\"\n"; showEnvVarsInLog = 0; };
+        666666666666666666666666 = {isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; files = (); inputFileListPaths = (); inputPaths = (\#(fixtureBoundaryInputs)); name = "Enforce Offline Boundary"; outputFileListPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --sandboxed-build-check \"$SRCROOT\"\n"; showEnvVarsInLog = 0; };
         777777777777777777777777 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (DDDDDDDDDDDDDDDDDDDDDDDD,); runOnlyForDeploymentPostprocessing = 0; };
         888888888888888888888888 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         999999999999999999999999 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (FFFFFFFFFFFFFFFFFFFFFFFF,); runOnlyForDeploymentPostprocessing = 0; };
@@ -4400,7 +4413,7 @@ private func emit(_ findings: [Finding]) {
 }
 
 private func printUsageAndExit() -> Never {
-    let usage = "Usage: NetworkBoundaryScanner.swift --self-test | --build-check <repository-root>\n"
+    let usage = "Usage: NetworkBoundaryScanner.swift --self-test | --build-check <repository-root> | --sandboxed-build-check <repository-root>\n"
     FileHandle.standardError.write(Data(usage.utf8))
     exit(2)
 }
@@ -4415,7 +4428,17 @@ do {
     case "--build-check" where arguments.count == 2:
         try runSelfTests()
         let repositoryRoot = URL(fileURLWithPath: arguments[1], isDirectory: true)
-        let results = try repositoryFindings(at: repositoryRoot)
+        let results = try repositoryFindings(at: repositoryRoot, mode: .direct)
+        guard results.isEmpty else {
+            emit(results)
+            exit(1)
+        }
+        print("Hippocrates no-network and zero-dependency checks passed.")
+
+    case "--sandboxed-build-check" where arguments.count == 2:
+        try runSelfTests()
+        let repositoryRoot = URL(fileURLWithPath: arguments[1], isDirectory: true)
+        let results = try repositoryFindings(at: repositoryRoot, mode: .sandboxedXcode)
         guard results.isEmpty else {
             emit(results)
             exit(1)

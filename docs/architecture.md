@@ -242,8 +242,11 @@ presentation as a confirmed backup.
 The Xcode build phase is an always-run control with an exact sandbox input
 inventory covering every directory it enumerates and every file it reads. A new
 source or control file therefore fails closed until it is declared deliberately;
-hosted CI also runs the scanner directly so recursive orphan checks receive
-specific diagnostics outside Xcode's non-recursive input sandbox. The scanner's
+hosted CI also runs the scanner directly, before Xcode creates its generated
+`project.xcworkspace`, so recursive orphan and whole-project-bundle checks
+receive specific diagnostics outside Xcode's non-recursive input sandbox. The
+sandboxed build phase revalidates every declared project, scheme, source, test,
+and resource control without traversing that generated workspace. The scanner's
 linear OpenStep-property parser rejects duplicate, missing, nested-string-spoofed,
 or malformed required properties. It then binds the exact app/test target
 identities and dependency, phase order, six Debug/Release build configurations
