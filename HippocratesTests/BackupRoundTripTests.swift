@@ -52,6 +52,15 @@ final class BackupRoundTripTests: XCTestCase {
         case citationQuestion
     }
 
+    private enum DuplicateIdentifierCase: CaseIterable {
+        case interventionType
+        case drugClass
+        case serviceLine
+        case intervention
+        case question
+        case citation
+    }
+
     private var backupCoverageV2: [String: [String: BackupRepresentationV2]] {
         [
             "InterventionType": [
@@ -284,6 +293,61 @@ final class BackupRoundTripTests: XCTestCase {
                 try BackupService.restore(archive, into: destination.mainContext)
             ) { error in
                 XCTAssertEqual(error as? BackupError, expectedError)
+            }
+            try assertEmptyBackupDestination(destination.mainContext)
+        }
+    }
+
+    func testDuplicateIdentifiersAreRejectedBeforeDestinationMutation() throws {
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        let fixture = try insertCompleteFixture(into: source.mainContext)
+
+        for duplicateCase in DuplicateIdentifierCase.allCases {
+            var archive = fixture.expectedArchive
+            let duplicateID: UUID
+            let entity: String
+
+            switch duplicateCase {
+            case .interventionType:
+                let duplicate = archive.payload.interventionTypes[0]
+                duplicateID = duplicate.id
+                entity = "InterventionType"
+                archive.payload.interventionTypes.append(duplicate)
+            case .drugClass:
+                let duplicate = archive.payload.drugClasses[0]
+                duplicateID = duplicate.id
+                entity = "DrugClass"
+                archive.payload.drugClasses.append(duplicate)
+            case .serviceLine:
+                let duplicate = archive.payload.serviceLines[0]
+                duplicateID = duplicate.id
+                entity = "ServiceLine"
+                archive.payload.serviceLines.append(duplicate)
+            case .intervention:
+                let duplicate = archive.payload.interventions[0]
+                duplicateID = duplicate.id
+                entity = "Intervention"
+                archive.payload.interventions.append(duplicate)
+            case .question:
+                let duplicate = archive.payload.questions[0]
+                duplicateID = duplicate.id
+                entity = "DIQuestion"
+                archive.payload.questions.append(duplicate)
+            case .citation:
+                let duplicate = archive.payload.citations[0]
+                duplicateID = duplicate.id
+                entity = "Citation"
+                archive.payload.citations.append(duplicate)
+            }
+
+            let destination = try HippocratesStore.makeContainer(inMemory: true)
+            XCTAssertThrowsError(
+                try BackupService.restore(archive, into: destination.mainContext)
+            ) { error in
+                XCTAssertEqual(
+                    error as? BackupError,
+                    .duplicateIdentifier(entity: entity, id: duplicateID)
+                )
             }
             try assertEmptyBackupDestination(destination.mainContext)
         }
