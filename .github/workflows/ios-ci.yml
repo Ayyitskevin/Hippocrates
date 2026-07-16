@@ -40,7 +40,7 @@ jobs:
       - name: Validate project discovery
         run: xcodebuild -list -json -project Hippocrates.xcodeproj
 
-      - name: Prove the direct scanner rejects planted boundary and backup-contract violations
+      - name: Prove the direct scanner rejects planted boundary, backup-contract, and privacy-manifest violations
         run: |
           probe="$RUNNER_TEMP/HippocratesDirectBoundaryProbe"
           log="$RUNNER_TEMP/HippocratesDirectBoundaryProbe.log"
@@ -63,6 +63,8 @@ jobs:
             > "$probe/Hippocrates/Resources/Unexpected.txt"
           printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
             >> "$probe/HippocratesTests/SchemaContractTests.swift"
+          /usr/bin/perl -0pi -e 's#(<key>NSPrivacyTracking</key>\s*)<false/>#$1<true/># or die "reviewed privacy-manifest tracking value not found\n"' \
+            "$probe/Hippocrates/Resources/PrivacyInfo.xcprivacy"
           /usr/bin/perl -0pi -e 's/SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;/SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;/ or die "reviewed config value not found\n"' \
             "$probe/Hippocrates.xcodeproj/project.pbxproj"
           /usr/bin/perl -0pi -e 's/fileprivate init\(\) \{\}/init() {}/ or die "reviewed AppConfig authority initializer not found\n"' \
@@ -106,6 +108,7 @@ jobs:
             "App-target Swift source exists on disk but is missing from target Sources" \
             "Unreviewed file exists beneath Hippocrates/Resources" \
             "contentsOf URL loading is forbidden" \
+            "PrivacyInfo.xcprivacy must declare exactly no tracking and no collected data" \
             "Xcode build configurations changed outside the reviewed allowlist"
           do
             if ! grep -Fq "$expected" "$log"; then
@@ -115,9 +118,9 @@ jobs:
             fi
           done
 
-          echo "The direct scanner rejected planted network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, source, resource, test-loader, and configuration violations."
+          echo "The direct scanner rejected planted network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, source, resource, test-loader, privacy-manifest, and configuration violations."
 
-      - name: Prove the sandboxed Xcode build rejects declared-input boundary and backup-contract violations
+      - name: Prove the sandboxed Xcode build rejects declared-input boundary, backup-contract, and privacy-manifest violations
         run: |
           probe="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe"
           log="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe.log"
@@ -136,6 +139,8 @@ jobs:
             >> "$probe/Hippocrates/App/RootView.swift"
           printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
             >> "$probe/HippocratesTests/SchemaContractTests.swift"
+          /usr/bin/perl -0pi -e 's#(<key>NSPrivacyTracking</key>\s*)<false/>#$1<true/># or die "reviewed privacy-manifest tracking value not found\n"' \
+            "$probe/Hippocrates/Resources/PrivacyInfo.xcprivacy"
           /usr/bin/perl -0pi -e 's/SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;/SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;/ or die "reviewed config value not found\n"' \
             "$probe/Hippocrates.xcodeproj/project.pbxproj"
           /usr/bin/perl -0pi -e 's/fileprivate init\(\) \{\}/init() {}/ or die "reviewed AppConfig authority initializer not found\n"' \
@@ -183,6 +188,7 @@ jobs:
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \
             "BackupArchive v1 decoder changed outside immutable compatibility contract" \
             "contentsOf URL loading is forbidden" \
+            "PrivacyInfo.xcprivacy must declare exactly no tracking and no collected data" \
             "Xcode build configurations changed outside the reviewed allowlist"
           do
             if ! grep -Fq "$expected" "$log"; then
@@ -192,7 +198,7 @@ jobs:
             fi
           done
 
-          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, loader, and configuration violation."
+          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, loader, privacy-manifest, and configuration violation."
 
       - name: Build release configuration
         run: |

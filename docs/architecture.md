@@ -352,7 +352,10 @@ The physical topology is also closed:
 - every source stays lexically and canonically beneath its reviewed root;
 - the project file and scanner script are regular files that resolve inside the
   repository;
-- PrivacyInfo.xcprivacy is the sole app resource while test resources stay empty.
+- PrivacyInfo.xcprivacy is the sole app resource while test resources stay empty;
+  a scanner-owned XML property-list contract permits exactly one declaration
+  each for Boolean `false` tracking and an empty collected-data array, with no
+  additional keys.
 
 Canonical source privileges are keyed only by exact normalized
 repository-relative paths. A matching basename or path suffix grants no
@@ -383,8 +386,11 @@ contents, and regex contents before matching braces, so literals cannot hide
 later properties. The same Linux control structurally checks the full
 `SchemaV1` persisted-property surface against the reviewed backup-completeness
 contract, while Apple-platform schema metadata independently checks the runtime
-surface. The privacy manifest separately declares no tracking and no collected
-data.
+surface. The portable scanner parses the privacy manifest independently of
+XCTest, requires XML with exactly one declaration per allowed key, and requires
+exactly no tracking and no collected data. The bundled-resource test repeats
+that key-cardinality and typed-value contract against the manifest copied into
+the app.
 
 This is source-verifiable risk reduction, not an iOS network entitlement and not
 a HIPAA compliance program. README language must preserve that distinction.
@@ -406,8 +412,11 @@ a HIPAA compliance program. README language must preserve that distinction.
    Canonical export fixtures invert store insertion and relationship-assignment
    order, reverse all six UUID-bearing payload arrays, and require equal archives
    and encoded bytes.
-3. Source/project contract tests cover no free text in `Intervention`, no network
-   surface, zero packages, manifest contents, and schema/migration registration.
+3. Portable scanner self-tests cover privacy property-list format, malformed
+   roots, missing and duplicate key cardinality, value types, forbidden nonempty
+   arrays, and repository-file integration. Source/project contract tests cover
+   no free text in `Intervention`, no network surface, zero packages, and
+   schema/migration registration.
 4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer
    interposition, and search badges.
 5. Manual device acceptance covers one-handed timing, haptics, airplane mode,

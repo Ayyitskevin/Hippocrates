@@ -73,11 +73,12 @@ The pre-release foundation now contains:
    including exact re-export, both DI inverses, and canonical configuration
    reconstruction, plus a forced save-boundary failure that clears pending work
    and leaves the reopened store empty; and
-7. a fail-closed PBX/configuration/scheme parser plus 257 executable checks and
+7. a fail-closed PBX/configuration/scheme parser plus 270 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,
    target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
-   persisted-schema/backup-shape drift, and historical-decoder drift.
+   persisted-schema/backup-shape drift, historical-decoder drift, and exact
+   privacy-manifest format, key-cardinality, and value semantics.
 
 The three persisted properties intentionally represented without their own
 same-named backup fields are `DIQuestion.citations` (rebuilt from
@@ -108,7 +109,8 @@ The GitHub workflow runs the source boundary directly before Xcode mutates its
 project bundle, producing recursive orphan and shadow-scheme diagnostics. It
 plants network, inferred file-ingress, external-drop, path/stream-loader,
 security-scoped, AppConfig-ownership/lifecycle, persisted-schema/backup-shape,
-historical-decoder, source, resource, test-loader, and configuration violations,
+historical-decoder, source, resource, test-loader, privacy-manifest, and
+configuration violations,
 then proves the sandboxed Xcode phase rejects every declared-input class without
 traversing
 Xcode's generated `project.xcworkspace`, before running the Xcode 16.4 Release
@@ -119,8 +121,11 @@ hosted Apple-platform result.
 ## Privacy manifest and App Store label
 
 `Hippocrates/Resources/PrivacyInfo.xcprivacy` declares no tracking and no collected
-data types. It does not declare a file-timestamp required-reason API because the
-current exporter serializes `Data` to `FileWrapper` without reading file metadata.
+data types. The boundary scanner requires XML, exactly one declaration for each
+of the two allowed keys, Boolean `false` tracking, and an empty collected-data
+array; both direct and sandboxed hosted probes plant and require rejection of
+tracking drift. It does not declare a file-timestamp required-reason API
+because the current exporter serializes `Data` to `FileWrapper` without reading file metadata.
 Add a reason only if shipping code later accesses one of Apple's listed metadata
 APIs. Empty tracking-domain and required-reason arrays are omitted as directed by
 Apple's TN3181.

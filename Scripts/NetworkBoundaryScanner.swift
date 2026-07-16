@@ -3423,6 +3423,152 @@ private func isRegularNonSymlinkFile(_ file: URL, beneath root: URL) throws -> B
         && pathIsBeneath(resolvedFile.path, rootPath: resolvedRoot.path)
 }
 
+private let privacyManifestContractMessage =
+    "PrivacyInfo.xcprivacy must declare exactly no tracking and no collected data"
+
+private struct PrivacyManifestContract: Decodable {
+    let tracking: Bool
+    let collectedDataTypes: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case tracking = "NSPrivacyTracking"
+        case collectedDataTypes = "NSPrivacyCollectedDataTypes"
+    }
+}
+
+private final class PrivacyManifestXMLDelegate: NSObject, XMLParserDelegate {
+    private var elementStack: [String] = []
+    private var currentRootKey: String?
+    private(set) var rootKeyCounts: [String: Int] = [:]
+    private(set) var failed = false
+
+    func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        guard failed == false else { return }
+        if elementName == "key", elementStack == ["plist", "dict"] {
+            currentRootKey = ""
+        }
+        elementStack.append(elementName)
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didEndElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?
+    ) {
+        guard elementStack.last == elementName else {
+            failed = true
+            return
+        }
+        if elementName == "key",
+            elementStack == ["plist", "dict", "key"],
+            let key = currentRootKey {
+            rootKeyCounts[key, default: 0] += 1
+            currentRootKey = nil
+        }
+        elementStack.removeLast()
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        guard currentRootKey != nil else { return }
+        currentRootKey!.append(contentsOf: string)
+    }
+
+    func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
+        guard currentRootKey != nil,
+            let text = String(data: CDATABlock, encoding: .utf8) else {
+            failed = true
+            return
+        }
+        currentRootKey!.append(contentsOf: text)
+    }
+
+    func parser(_ parser: XMLParser, parseErrorOccurred parseError: Error) {
+        failed = true
+    }
+
+    func parser(_ parser: XMLParser, validationErrorOccurred validationError: Error) {
+        failed = true
+    }
+
+    var isComplete: Bool {
+        failed == false && elementStack.isEmpty && currentRootKey == nil
+    }
+}
+
+private func privacyManifestHasExactXMLKeys(_ data: Data) -> Bool {
+    let delegate = PrivacyManifestXMLDelegate()
+    let parser = XMLParser(data: data)
+    parser.shouldProcessNamespaces = false
+    parser.shouldReportNamespacePrefixes = false
+    parser.shouldResolveExternalEntities = false
+    parser.delegate = delegate
+    let expectedCounts = [
+        "NSPrivacyTracking": 1,
+        "NSPrivacyCollectedDataTypes": 1
+    ]
+    return parser.parse()
+        && delegate.isComplete
+        && delegate.rootKeyCounts == expectedCounts
+}
+
+private func privacyManifestContractFinding(path: String) -> Finding {
+    Finding(path: path, line: 1, message: privacyManifestContractMessage)
+}
+
+private func privacyManifestFindings(in data: Data, path: String) -> [Finding] {
+    func violation() -> [Finding] {
+        [privacyManifestContractFinding(path: path)]
+    }
+
+    let object: Any
+    let contract: PrivacyManifestContract
+    var format = PropertyListSerialization.PropertyListFormat.xml
+    do {
+        object = try PropertyListSerialization.propertyList(
+            from: data,
+            options: [],
+            format: &format
+        )
+        contract = try PropertyListDecoder().decode(PrivacyManifestContract.self, from: data)
+    } catch {
+        return violation()
+    }
+
+    guard
+        format == .xml,
+        privacyManifestHasExactXMLKeys(data),
+        let manifest = object as? [String: Any],
+        Set(manifest.keys) == Set(["NSPrivacyTracking", "NSPrivacyCollectedDataTypes"]),
+        contract.tracking == false,
+        contract.collectedDataTypes.isEmpty
+    else {
+        return violation()
+    }
+    return []
+}
+
+private func privacyManifestFileFindings(at file: URL, beneath root: URL) throws -> [Finding] {
+    var isDirectory: ObjCBool = false
+    guard
+        FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory),
+        isDirectory.boolValue == false,
+        try isRegularNonSymlinkFile(file, beneath: root)
+    else {
+        return []
+    }
+    guard let data = FileManager.default.contents(atPath: file.path) else {
+        return [privacyManifestContractFinding(path: file.path)]
+    }
+    return privacyManifestFindings(in: data, path: file.path)
+}
+
 private let expectedBoundaryInputPaths = [
     "$(SRCROOT)",
     "$(SRCROOT)/Hippocrates",
@@ -4494,6 +4640,12 @@ private func repositoryFindings(
     }
 
     var results: [Finding] = []
+    let resourceRoot = sourceRoot.appendingPathComponent("Resources", isDirectory: true)
+    let privacyManifest = resourceRoot.appendingPathComponent("PrivacyInfo.xcprivacy")
+    results.append(
+        contentsOf: try privacyManifestFileFindings(at: privacyManifest, beneath: resourceRoot)
+    )
+
     let boundaryScanner = repositoryRoot
         .appendingPathComponent("Scripts", isDirectory: true)
         .appendingPathComponent("NetworkBoundaryScanner.swift")
@@ -6558,6 +6710,105 @@ private func runSelfTests() throws {
         )
     }
 
+    func privacyManifest(_ root: String) -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        \(root)
+        </plist>
+        """
+    }
+    let compliantPrivacyManifest = privacyManifest(
+        """
+        <dict>
+            <key>NSPrivacyTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypes</key>
+            <array/>
+        </dict>
+        """
+    )
+    try check(
+        privacyManifestFindings(
+            in: Data(compliantPrivacyManifest.utf8),
+            path: "PrivacyInfo.xcprivacy"
+        ).isEmpty,
+        "The exact no-tracking, no-collected-data privacy manifest was rejected"
+    )
+    let binaryPrivacyManifest = try PropertyListSerialization.data(
+        fromPropertyList: [
+            "NSPrivacyTracking": false,
+            "NSPrivacyCollectedDataTypes": [Any]()
+        ] as [String: Any],
+        format: .binary,
+        options: 0
+    )
+    try check(
+        privacyManifestFindings(
+            in: binaryPrivacyManifest,
+            path: "PrivacyInfo.xcprivacy"
+        ).contains(where: { $0.message == privacyManifestContractMessage }),
+        "A binary property list escaped the required XML privacy-manifest contract"
+    )
+    let rejectedPrivacyManifests = [
+        ("malformed property list", "<plist"),
+        ("non-dictionary root", privacyManifest("<array/>")),
+        (
+            "missing collected-data key",
+            privacyManifest("<dict><key>NSPrivacyTracking</key><false/></dict>")
+        ),
+        (
+            "tracking enabled",
+            compliantPrivacyManifest.replacingOccurrences(of: "<false/>", with: "<true/>")
+        ),
+        (
+            "non-Boolean tracking value",
+            compliantPrivacyManifest.replacingOccurrences(of: "<false/>", with: "<integer>0</integer>")
+        ),
+        (
+            "collected data",
+            compliantPrivacyManifest.replacingOccurrences(
+                of: "<array/>",
+                with: "<array><dict/></array>"
+            )
+        ),
+        (
+            "duplicate tracking key",
+            privacyManifest(
+                "<dict><key>NSPrivacyTracking</key><true/><key>NSPrivacyTracking</key><false/><key>NSPrivacyCollectedDataTypes</key><array/></dict>"
+            )
+        ),
+        (
+            "duplicate collected-data key",
+            privacyManifest(
+                "<dict><key>NSPrivacyTracking</key><false/><key>NSPrivacyCollectedDataTypes</key><array><dict/></array><key>NSPrivacyCollectedDataTypes</key><array/></dict>"
+            )
+        ),
+        (
+            "tracking domains",
+            compliantPrivacyManifest.replacingOccurrences(
+                of: "</dict>",
+                with: "<key>NSPrivacyTrackingDomains</key><array/></dict>"
+            )
+        ),
+        (
+            "accessed API reasons",
+            compliantPrivacyManifest.replacingOccurrences(
+                of: "</dict>",
+                with: "<key>NSPrivacyAccessedAPITypes</key><array/></dict>"
+            )
+        )
+    ]
+    for fixture in rejectedPrivacyManifests {
+        try check(
+            privacyManifestFindings(
+                in: Data(fixture.1.utf8),
+                path: "PrivacyInfo.xcprivacy"
+            ).contains(where: { $0.message == privacyManifestContractMessage }),
+            "A \(fixture.0) privacy manifest escaped the exact semantic contract"
+        )
+    }
+
     let fixtureRoot = FileManager.default.temporaryDirectory
         .appendingPathComponent("HippocratesBoundaryScanner-\(UUID().uuidString)", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: fixtureRoot) }
@@ -6576,7 +6827,7 @@ private func runSelfTests() throws {
     let manifestURL = resourceDirectory.appendingPathComponent("PrivacyInfo.xcprivacy")
     try Data("struct FixtureApp {}\n".utf8).write(to: appSourceURL)
     try Data("struct FixtureTests {}\n".utf8).write(to: testSourceURL)
-    try Data("<plist/>\n".utf8).write(to: manifestURL)
+    try Data(compliantPrivacyManifest.utf8).write(to: manifestURL)
     try check(
         try isRegularNonSymlinkFile(appSourceURL, beneath: fixtureRoot),
         "An ordinary in-repository regular file failed the control-file identity gate"
@@ -6690,6 +6941,18 @@ private func runSelfTests() throws {
     }
 
     try check(try topologyFindings().isEmpty, "A complete physical PBX topology fixture was rejected")
+
+    try Data(
+        compliantPrivacyManifest.replacingOccurrences(of: "<false/>", with: "<true/>").utf8
+    ).write(to: manifestURL)
+    try check(
+        try privacyManifestFileFindings(
+            at: manifestURL,
+            beneath: resourceDirectory
+        ).contains(where: { $0.message == privacyManifestContractMessage }),
+        "A privacy manifest with tracking enabled escaped repository semantic inspection"
+    )
+    try Data(compliantPrivacyManifest.utf8).write(to: manifestURL)
 
     let physicalAliasURL = appDirectory.appendingPathComponent("PhysicalAlias.swift")
     try FileManager.default.linkItem(at: appSourceURL, to: physicalAliasURL)
@@ -6834,13 +7097,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 257 else {
+    guard completedChecks == 270 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 257, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 270, completed \(completedChecks)"
             ]
         )
     }
