@@ -53,14 +53,11 @@ enum BackupService {
                         isActive: $0.isActive,
                         sortOrder: $0.sortOrder
                     )
-                }
-                .sorted(by: idOrder),
+                },
             drugClasses: drugClasses
-                .map { .init(id: $0.id, label: $0.label, isActive: $0.isActive, sortOrder: $0.sortOrder) }
-                .sorted(by: idOrder),
+                .map { .init(id: $0.id, label: $0.label, isActive: $0.isActive, sortOrder: $0.sortOrder) },
             serviceLines: serviceLines
-                .map { .init(id: $0.id, label: $0.label, isActive: $0.isActive, sortOrder: $0.sortOrder) }
-                .sorted(by: idOrder),
+                .map { .init(id: $0.id, label: $0.label, isActive: $0.isActive, sortOrder: $0.sortOrder) },
             interventions: interventions
                 .map {
                     .init(
@@ -74,8 +71,7 @@ enum BackupService {
                         minutesSpent: $0.minutesSpent,
                         diQuestionID: $0.diQuestion?.id
                     )
-                }
-                .sorted(by: idOrder),
+                },
             questions: questions
                 .map {
                     .init(
@@ -95,8 +91,7 @@ enum BackupService {
                         tags: $0.tags,
                         verificationHistory: $0.verificationHistory
                     )
-                }
-                .sorted(by: idOrder),
+                },
             citations: citations
                 .map {
                     .init(
@@ -108,8 +103,7 @@ enum BackupService {
                         accessedDate: $0.accessedDate,
                         urlString: $0.urlString
                     )
-                }
-                .sorted(by: idOrder),
+                },
             appConfig: configuration.map {
                 .init(
                     stalenessIntervalMonths: $0.stalenessIntervalMonths,
@@ -118,7 +112,10 @@ enum BackupService {
             }
         )
 
-        let archive = BackupArchive(createdAt: createdAt, payload: payload)
+        let archive = BackupArchive(
+            createdAt: createdAt,
+            payload: canonicalizedForExport(payload)
+        )
         try validate(archive)
         return archive
     }
@@ -421,6 +418,19 @@ enum BackupService {
                 referencedID: referencedID
             )
         }
+    }
+
+    static func canonicalizedForExport(
+        _ payload: BackupArchive.Payload
+    ) -> BackupArchive.Payload {
+        var payload = payload
+        payload.interventionTypes.sort(by: idOrder)
+        payload.drugClasses.sort(by: idOrder)
+        payload.serviceLines.sort(by: idOrder)
+        payload.interventions.sort(by: idOrder)
+        payload.questions.sort(by: idOrder)
+        payload.citations.sort(by: idOrder)
+        return payload
     }
 
     private static func idOrder<Record>(

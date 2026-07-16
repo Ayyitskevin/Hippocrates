@@ -253,6 +253,215 @@ final class BackupRoundTripTests: XCTestCase {
         XCTAssertEqual(restoredQuestion.linkedInterventions.map(\.id), [fixture.interventionID])
     }
 
+    func testBackupExportOrderingIsCanonicalAcrossInsertionOrders() throws {
+        let typeIDs = [
+            try XCTUnwrap(UUID(uuidString: "10000000-0000-0000-0000-000000000001")),
+            try XCTUnwrap(UUID(uuidString: "10000000-0000-0000-0000-000000000002"))
+        ]
+        let drugClassIDs = [
+            try XCTUnwrap(UUID(uuidString: "20000000-0000-0000-0000-000000000001")),
+            try XCTUnwrap(UUID(uuidString: "20000000-0000-0000-0000-000000000002"))
+        ]
+        let serviceLineIDs = [
+            try XCTUnwrap(UUID(uuidString: "30000000-0000-0000-0000-000000000001")),
+            try XCTUnwrap(UUID(uuidString: "30000000-0000-0000-0000-000000000002"))
+        ]
+        let questionIDs = [
+            try XCTUnwrap(UUID(uuidString: "40000000-0000-0000-0000-000000000001")),
+            try XCTUnwrap(UUID(uuidString: "40000000-0000-0000-0000-000000000002"))
+        ]
+        let citationIDs = [
+            try XCTUnwrap(UUID(uuidString: "50000000-0000-0000-0000-000000000001")),
+            try XCTUnwrap(UUID(uuidString: "50000000-0000-0000-0000-000000000002"))
+        ]
+        let interventionIDs = [
+            try XCTUnwrap(UUID(uuidString: "60000000-0000-0000-0000-000000000001")),
+            try XCTUnwrap(UUID(uuidString: "60000000-0000-0000-0000-000000000002"))
+        ]
+        let verifiedOn = Date(timeIntervalSinceReferenceDate: 750_000_000)
+        let reviewAfter = verifiedOn.addingTimeInterval(31_536_000)
+        let createdAt = verifiedOn.addingTimeInterval(-3_600)
+        let answeredAt = verifiedOn.addingTimeInterval(-1_800)
+        let accessedAt = verifiedOn.addingTimeInterval(-900)
+        let interventionAt = verifiedOn.addingTimeInterval(900)
+
+        func makeArchive(reverseInsertionOrder: Bool) throws -> BackupArchive {
+            let container = try HippocratesStore.makeContainer(inMemory: true)
+            let context = container.mainContext
+            let types = [
+                InterventionType(
+                    id: typeIDs[0],
+                    label: "Type low",
+                    defaultCostAvoidanceCents: 1_000,
+                    isActive: true,
+                    sortOrder: 9
+                ),
+                InterventionType(
+                    id: typeIDs[1],
+                    label: "Type high",
+                    defaultCostAvoidanceCents: 2_000,
+                    isActive: false,
+                    sortOrder: 1
+                )
+            ]
+            let drugClasses = [
+                DrugClass(
+                    id: drugClassIDs[0],
+                    label: "Class low",
+                    isActive: true,
+                    sortOrder: 9
+                ),
+                DrugClass(
+                    id: drugClassIDs[1],
+                    label: "Class high",
+                    isActive: false,
+                    sortOrder: 1
+                )
+            ]
+            let serviceLines = [
+                ServiceLine(
+                    id: serviceLineIDs[0],
+                    label: "Service low",
+                    isActive: true,
+                    sortOrder: 9
+                ),
+                ServiceLine(
+                    id: serviceLineIDs[1],
+                    label: "Service high",
+                    isActive: false,
+                    sortOrder: 1
+                )
+            ]
+            let questions = [
+                DIQuestion(
+                    id: questionIDs[0],
+                    createdAt: createdAt.addingTimeInterval(1),
+                    answeredAt: answeredAt.addingTimeInterval(1),
+                    questionText: "Question low",
+                    background: "Background low",
+                    answerText: "Answer low",
+                    searchStrategy: "Search low",
+                    requestorRole: .resident,
+                    questionClass: .dosing,
+                    urgency: .routine,
+                    verifiedOn: verifiedOn,
+                    reviewAfter: reviewAfter,
+                    didFollowUp: false,
+                    tags: ["low"],
+                    verificationHistory: [verifiedOn]
+                ),
+                DIQuestion(
+                    id: questionIDs[1],
+                    createdAt: createdAt,
+                    answeredAt: answeredAt,
+                    questionText: "Question high",
+                    background: "Background high",
+                    answerText: "Answer high",
+                    searchStrategy: "Search high",
+                    requestorRole: .pharmacist,
+                    questionClass: .toxicology,
+                    urgency: .stat,
+                    verifiedOn: verifiedOn,
+                    reviewAfter: reviewAfter,
+                    didFollowUp: true,
+                    tags: ["high"],
+                    verificationHistory: [verifiedOn]
+                )
+            ]
+            let citations = [
+                Citation(
+                    id: citationIDs[0],
+                    tier: .primary,
+                    title: "Citation low",
+                    locator: "Locator low",
+                    accessedDate: accessedAt.addingTimeInterval(1)
+                ),
+                Citation(
+                    id: citationIDs[1],
+                    tier: .guideline,
+                    title: "Citation high",
+                    locator: "Locator high",
+                    accessedDate: accessedAt
+                )
+            ]
+            let interventions = [
+                Intervention(
+                    id: interventionIDs[0],
+                    timestamp: interventionAt,
+                    acceptance: .accepted,
+                    costAvoidanceCents: 1_000,
+                    minutesSpent: 1
+                ),
+                Intervention(
+                    id: interventionIDs[1],
+                    timestamp: interventionAt.addingTimeInterval(-1),
+                    acceptance: .rejected,
+                    costAvoidanceCents: 2_000,
+                    minutesSpent: 2
+                )
+            ]
+
+            let insertionOrder = reverseInsertionOrder ? [1, 0] : [0, 1]
+            for index in insertionOrder {
+                context.insert(types[index])
+                context.insert(drugClasses[index])
+                context.insert(serviceLines[index])
+                context.insert(questions[index])
+                context.insert(citations[index])
+                context.insert(interventions[index])
+            }
+
+            for index in insertionOrder {
+                let relatedIndex = 1 - index
+                citations[index].question = questions[relatedIndex]
+                interventions[index].type = types[relatedIndex]
+                interventions[index].drugClass = drugClasses[relatedIndex]
+                interventions[index].serviceLine = serviceLines[relatedIndex]
+                interventions[index].diQuestion = questions[relatedIndex]
+            }
+
+            try context.save()
+            return try BackupService.makeArchive(
+                from: context,
+                createdAt: exportDate
+            )
+        }
+
+        func assertCanonicalOrder(_ archive: BackupArchive) {
+            XCTAssertEqual(archive.payload.interventionTypes.map(\.id), typeIDs)
+            XCTAssertEqual(archive.payload.drugClasses.map(\.id), drugClassIDs)
+            XCTAssertEqual(archive.payload.serviceLines.map(\.id), serviceLineIDs)
+            XCTAssertEqual(archive.payload.questions.map(\.id), questionIDs)
+            XCTAssertEqual(archive.payload.citations.map(\.id), citationIDs)
+            XCTAssertEqual(archive.payload.interventions.map(\.id), interventionIDs)
+            XCTAssertNil(archive.payload.appConfig)
+        }
+
+        let ascendingInsertionArchive = try makeArchive(reverseInsertionOrder: false)
+        let descendingInsertionArchive = try makeArchive(reverseInsertionOrder: true)
+
+        assertCanonicalOrder(ascendingInsertionArchive)
+        assertCanonicalOrder(descendingInsertionArchive)
+        XCTAssertEqual(ascendingInsertionArchive, descendingInsertionArchive)
+
+        var reversedPayload = ascendingInsertionArchive.payload
+        reversedPayload.interventionTypes.reverse()
+        reversedPayload.drugClasses.reverse()
+        reversedPayload.serviceLines.reverse()
+        reversedPayload.interventions.reverse()
+        reversedPayload.questions.reverse()
+        reversedPayload.citations.reverse()
+        XCTAssertEqual(
+            BackupService.canonicalizedForExport(reversedPayload),
+            ascendingInsertionArchive.payload
+        )
+
+        XCTAssertEqual(
+            try BackupCodec.encode(ascendingInsertionArchive),
+            try BackupCodec.encode(descendingInsertionArchive)
+        )
+    }
+
     func testDanglingReferenceIsRejectedBeforeDestinationMutation() throws {
         let source = try HippocratesStore.makeContainer(inMemory: true)
         let fixture = try insertCompleteFixture(into: source.mainContext)

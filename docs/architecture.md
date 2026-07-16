@@ -217,6 +217,12 @@ the schema, exporter, archive, and restore path together:
 - The populated fixture constructs its expected `BackupArchive` independently
   from `BackupService.makeArchive`, so exporter omissions cannot pass by being
   compared only with exporter output.
+- Store export orders all six UUID-bearing top-level record arrays by
+  `UUID.uuidString` before validation and encoding. A direct reversed-payload
+  test proves each array sort independently of SwiftData fetch order, while two
+  stores built in opposite insertion and relationship-assignment orders must
+  produce equal archives and encoded bytes. The singular optional `appConfig`
+  record and record-internal arrays retain their semantic order.
 - After restore, tests fetch every destination model and assert each scalar,
   relationship, inverse, and reconstructed value directly. Re-export equality
   remains useful evidence, but it is not the sole restore oracle.
@@ -397,6 +403,9 @@ a HIPAA compliance program. README language must preserve that distinction.
    complete backup restore across container teardown without a caller-side save.
    The same fixture also forces a save-boundary failure, requires rollback to
    clear pending work, discards the failed context, and reopens an empty store.
+   Canonical export fixtures invert store insertion and relationship-assignment
+   order, reverse all six UUID-bearing payload arrays, and require equal archives
+   and encoded bytes.
 3. Source/project contract tests cover no free text in `Intervention`, no network
    surface, zero packages, manifest contents, and schema/migration registration.
 4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer
