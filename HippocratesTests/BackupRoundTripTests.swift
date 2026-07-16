@@ -450,6 +450,64 @@ final class BackupRoundTripTests: XCTestCase {
         }
     }
 
+    func testNegativeMinutesSpentIsRejectedAtExportAndRestoreBoundaries() throws {
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        let fixture = try insertCompleteFixture(into: source.mainContext)
+        let sourceContext = source.mainContext
+        let sourceIntervention = try XCTUnwrap(
+            sourceContext.fetch(FetchDescriptor<Intervention>()).first
+        )
+        sourceIntervention.minutesSpent = -1
+        try sourceContext.save()
+        XCTAssertFalse(sourceContext.hasChanges)
+
+        XCTAssertThrowsError(
+            try BackupService.makeArchive(
+                from: sourceContext,
+                createdAt: exportDate
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .invalidMinutesSpentValue(
+                    interventionID: sourceIntervention.id,
+                    value: -1
+                )
+            )
+        }
+        XCTAssertFalse(sourceContext.hasChanges)
+        XCTAssertEqual(sourceIntervention.minutesSpent, -1)
+
+        var invalidArchive = fixture.expectedArchive
+        let interventionID = try XCTUnwrap(
+            invalidArchive.payload.interventions.first?.id
+        )
+        invalidArchive.payload.interventions[0].minutesSpent = -1
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        let destinationContext = destination.mainContext
+        try assertEmptyBackupDestination(destinationContext)
+
+        XCTAssertThrowsError(
+            try BackupService.restore(invalidArchive, into: destinationContext)
+        ) { error in
+            XCTAssertEqual(
+                error as? BackupError,
+                .invalidMinutesSpentValue(
+                    interventionID: interventionID,
+                    value: -1
+                )
+            )
+        }
+        try assertEmptyBackupDestination(destinationContext)
+
+        let validMinutesSpent: [Int?] = [nil, 0, 1]
+        for minutesSpent in validMinutesSpent {
+            var validArchive = fixture.expectedArchive
+            validArchive.payload.interventions[0].minutesSpent = minutesSpent
+            XCTAssertNoThrow(try BackupService.validate(validArchive))
+        }
+    }
+
     func testRestoreRefusesEveryNonemptyDestinationWithoutMutation() throws {
         let source = try HippocratesStore.makeContainer(inMemory: true)
         let archive = try insertCompleteFixture(into: source.mainContext).expectedArchive

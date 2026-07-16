@@ -261,10 +261,10 @@ on synthesized `Codable`; its format-v1 contract likewise rejects defaults,
 mutable fields, current-format record reuse, custom members, and extensions.
 
 Validation precedes mutation and rejects unknown versions, duplicate IDs,
-dangling references, negative cost values, nonpositive configured staleness,
-non-increasing verification history, and review dates that do not follow
-verification. A migrated development-format v1 archive must satisfy these
-hardened invariants; migration never invents clinical dates. Backup format
+dangling references, negative cost or intervention-duration values, nonpositive
+configured staleness, non-increasing verification history, and review dates that
+do not follow verification. A migrated development-format v1 archive must satisfy
+these hardened invariants; migration never invents clinical dates. Backup format
 evolution is independent of SwiftData schema version evolution.
 
 Restore never silently merges. The product decision register tracks whether it is

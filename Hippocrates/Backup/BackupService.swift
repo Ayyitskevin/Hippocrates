@@ -8,6 +8,7 @@ enum BackupError: Error, Equatable {
     case invalidCostAvoidanceKey(String)
     case conflictingLegacyCostAvoidanceValue(typeID: UUID, typeValue: Int, configValue: Int)
     case invalidCostAvoidanceValue(entity: String, id: UUID, value: Int)
+    case invalidMinutesSpentValue(interventionID: UUID, value: Int)
     case verificationHistoryDoesNotEndAtVerifiedOn(questionID: UUID)
     case verificationHistoryNotChronological(questionID: UUID)
     case reviewDateMustFollowVerification(questionID: UUID)
@@ -291,6 +292,13 @@ enum BackupService {
                 entity: "Intervention",
                 id: intervention.id
             )
+            if let minutesSpent = intervention.minutesSpent,
+               minutesSpent < 0 {
+                throw BackupError.invalidMinutesSpentValue(
+                    interventionID: intervention.id,
+                    value: minutesSpent
+                )
+            }
         }
 
         for question in archive.payload.questions
