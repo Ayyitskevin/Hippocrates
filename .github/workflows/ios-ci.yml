@@ -40,7 +40,7 @@ jobs:
       - name: Validate project discovery
         run: xcodebuild -list -json -project Hippocrates.xcodeproj
 
-      - name: Prove the direct scanner rejects planted boundary and backup-shape violations
+      - name: Prove the direct scanner rejects planted boundary and backup-contract violations
         run: |
           probe="$RUNNER_TEMP/HippocratesDirectBoundaryProbe"
           log="$RUNNER_TEMP/HippocratesDirectBoundaryProbe.log"
@@ -71,6 +71,8 @@ jobs:
             "$probe/Hippocrates/Persistence/SchemaV1.swift"
           /usr/bin/perl -0pi -e 's/(    var payload: Payload\n)/$1\n    private enum CodingKeys: String, CodingKey { case formatVersion = "version"; case createdAt; case payload }\n/ or die "reviewed BackupArchive payload anchor not found\n"' \
             "$probe/Hippocrates/Backup/BackupArchive.swift"
+          /usr/bin/perl -0pi -e 's/(        struct InterventionTypeRecord: Decodable \{\n            let id: UUID\n)            let label: String/$1            var label: String/ or die "reviewed BackupArchive v1 record anchor not found\n"' \
+            "$probe/Hippocrates/Backup/BackupCodec.swift"
 
           set +e
           /usr/bin/xcrun swift "$probe/Scripts/NetworkBoundaryScanner.swift" \
@@ -100,6 +102,7 @@ jobs:
             "SwiftData backing-data APIs bypass reviewed model initialization" \
             "SchemaV1 persisted-property surface changed without backup-format review" \
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \
+            "BackupArchive v1 decoder changed outside immutable compatibility contract" \
             "App-target Swift source exists on disk but is missing from target Sources" \
             "Unreviewed file exists beneath Hippocrates/Resources" \
             "contentsOf URL loading is forbidden" \
@@ -112,9 +115,9 @@ jobs:
             fi
           done
 
-          echo "The direct scanner rejected planted network, file-ingress, AppConfig-ownership, persisted-schema/backup-shape, source, resource, test-loader, and configuration violations."
+          echo "The direct scanner rejected planted network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, source, resource, test-loader, and configuration violations."
 
-      - name: Prove the sandboxed Xcode build rejects declared-input boundary and backup-shape violations
+      - name: Prove the sandboxed Xcode build rejects declared-input boundary and backup-contract violations
         run: |
           probe="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe"
           log="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe.log"
@@ -142,6 +145,8 @@ jobs:
             "$probe/Hippocrates/Persistence/SchemaV1.swift"
           /usr/bin/perl -0pi -e 's/(    var payload: Payload\n)/$1\n    private enum CodingKeys: String, CodingKey { case formatVersion = "version"; case createdAt; case payload }\n/ or die "reviewed BackupArchive payload anchor not found\n"' \
             "$probe/Hippocrates/Backup/BackupArchive.swift"
+          /usr/bin/perl -0pi -e 's/(        struct InterventionTypeRecord: Decodable \{\n            let id: UUID\n)            let label: String/$1            var label: String/ or die "reviewed BackupArchive v1 record anchor not found\n"' \
+            "$probe/Hippocrates/Backup/BackupCodec.swift"
           set +e
           xcodebuild build \
             -project "$probe/Hippocrates.xcodeproj" \
@@ -176,6 +181,7 @@ jobs:
             "SwiftData backing-data APIs bypass reviewed model initialization" \
             "SchemaV1 persisted-property surface changed without backup-format review" \
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \
+            "BackupArchive v1 decoder changed outside immutable compatibility contract" \
             "contentsOf URL loading is forbidden" \
             "Xcode build configurations changed outside the reviewed allowlist"
           do
@@ -186,7 +192,7 @@ jobs:
             fi
           done
 
-          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, AppConfig-ownership, persisted-schema/backup-shape, loader, and configuration violation."
+          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, loader, and configuration violation."
 
       - name: Build release configuration
         run: |

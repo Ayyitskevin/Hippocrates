@@ -32,7 +32,8 @@ data model, drug exclusion list, or history from that prototype is carried forwa
   file-picker/document-browser and external drop/paste/item-provider surfaces,
   security-scoped or reviewed path-content access, AppConfig ownership or
   unreviewed model-deletion drift, persisted-schema changes without backup-format
-  review, iCloud surfaces, compiler injection, linked frameworks, external
+  review, historical backup-decoder drift, iCloud surfaces, compiler injection,
+  linked frameworks, external
   address literals, altered build configurations or schemes, project-bundle
   symlinks, physical-file aliases, or package dependencies.
 
@@ -61,18 +62,19 @@ The pre-release foundation now contains:
    source-forbidden and normal creation is allowed only from a clean context;
 4. one type-owned cost-default source, with unknown cost kept distinct from an
    explicit zero-dollar value;
-5. backup format v2, explicit value-space migration from format v1, and validated
-   empty-store restoration;
+5. backup format v2, a private format-owned, let-only format-v1 decoder with
+   explicit full-field value-space migration and validated empty-store
+   restoration;
 6. hybrid backup-completeness coverage that reconciles live SwiftData metadata
    with an explicit no-ignored-field representation manifest, compares export
    against an independently constructed archive, and asserts every restored
    field directly; plus file-backed close/reopen coverage for the core store,
    relationship, and configuration seams; and
-7. a fail-closed PBX/configuration/scheme parser plus 242 executable checks and
+7. a fail-closed PBX/configuration/scheme parser plus 255 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,
    target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
-   and persisted-schema/backup-shape drift.
+   persisted-schema/backup-shape drift, and historical-decoder drift.
 
 The three persisted properties intentionally represented without their own
 same-named backup fields are `DIQuestion.citations` (rebuilt from
@@ -103,8 +105,9 @@ The GitHub workflow runs the source boundary directly before Xcode mutates its
 project bundle, producing recursive orphan and shadow-scheme diagnostics. It
 plants network, inferred file-ingress, external-drop, path/stream-loader,
 security-scoped, AppConfig-ownership/lifecycle, persisted-schema/backup-shape,
-source, resource, test-loader, and configuration violations, then proves the
-sandboxed Xcode phase rejects every declared-input class without traversing
+historical-decoder, source, resource, test-loader, and configuration violations,
+then proves the sandboxed Xcode phase rejects every declared-input class without
+traversing
 Xcode's generated `project.xcworkspace`, before running the Xcode 16.4 Release
 build, static analysis, and file-backed and in-memory tests on iOS 18.5. Local
 scanner self-tests are useful, but they are not substitutes for an exact-head

@@ -50,13 +50,35 @@ enum BackupCodec {
         let payload: Payload
 
         struct Payload: Decodable {
-            let interventionTypes: [BackupArchive.InterventionTypeRecord]
-            let drugClasses: [BackupArchive.DrugClassRecord]
-            let serviceLines: [BackupArchive.ServiceLineRecord]
+            let interventionTypes: [InterventionTypeRecord]
+            let drugClasses: [DrugClassRecord]
+            let serviceLines: [ServiceLineRecord]
             let interventions: [InterventionRecord]
-            let questions: [BackupArchive.DIQuestionRecord]
-            let citations: [BackupArchive.CitationRecord]
+            let questions: [DIQuestionRecord]
+            let citations: [CitationRecord]
             let appConfig: AppConfigRecord?
+        }
+
+        struct InterventionTypeRecord: Decodable {
+            let id: UUID
+            let label: String
+            let defaultCostAvoidanceCents: Int?
+            let isActive: Bool
+            let sortOrder: Int
+        }
+
+        struct DrugClassRecord: Decodable {
+            let id: UUID
+            let label: String
+            let isActive: Bool
+            let sortOrder: Int
+        }
+
+        struct ServiceLineRecord: Decodable {
+            let id: UUID
+            let label: String
+            let isActive: Bool
+            let sortOrder: Int
         }
 
         struct InterventionRecord: Decodable {
@@ -69,6 +91,34 @@ enum BackupCodec {
             let costAvoidanceCents: Int
             let minutesSpent: Int?
             let diQuestionID: UUID?
+        }
+
+        struct DIQuestionRecord: Decodable {
+            let id: UUID
+            let createdAt: Date
+            let answeredAt: Date?
+            let questionText: String
+            let background: String
+            let answerText: String
+            let searchStrategy: String
+            let requestorRole: SchemaV1Vocabulary.RequestorRole
+            let questionClass: SchemaV1Vocabulary.DIQuestionClass
+            let urgency: SchemaV1Vocabulary.Urgency
+            let verifiedOn: Date
+            let reviewAfter: Date
+            let didFollowUp: Bool
+            let tags: [String]
+            let verificationHistory: [Date]
+        }
+
+        struct CitationRecord: Decodable {
+            let id: UUID
+            let questionID: UUID?
+            let tier: SchemaV1Vocabulary.SourceTier
+            let title: String
+            let locator: String
+            let accessedDate: Date
+            let urlString: String?
         }
 
         struct AppConfigRecord: Decodable {
@@ -85,17 +135,20 @@ enum BackupCodec {
             throw BackupError.unsupportedFormatVersion(legacy.formatVersion)
         }
 
-        var interventionTypes = legacy.payload.interventionTypes
+        let legacyTypeIDs = Set(legacy.payload.interventionTypes.map(\.id))
+        var migratedCostAvoidanceValues: [UUID: Int] = [:]
         if let configuration = legacy.payload.appConfig {
             for (key, value) in configuration.costAvoidanceValues {
                 guard
                     let typeID = UUID(uuidString: key),
-                    let index = interventionTypes.firstIndex(where: { $0.id == typeID })
+                    legacyTypeIDs.contains(typeID)
                 else {
                     throw BackupError.invalidCostAvoidanceKey(key)
                 }
 
-                if let existingValue = interventionTypes[index].defaultCostAvoidanceCents,
+                if let existingValue = legacy.payload.interventionTypes
+                    .first(where: { $0.id == typeID })?
+                    .defaultCostAvoidanceCents,
                    existingValue != value {
                     throw BackupError.conflictingLegacyCostAvoidanceValue(
                         typeID: typeID,
@@ -103,7 +156,16 @@ enum BackupCodec {
                         configValue: value
                     )
                 }
-                interventionTypes[index].defaultCostAvoidanceCents = value
+
+                if let existingValue = migratedCostAvoidanceValues[typeID],
+                   existingValue != value {
+                    throw BackupError.conflictingLegacyCostAvoidanceValue(
+                        typeID: typeID,
+                        typeValue: existingValue,
+                        configValue: value
+                    )
+                }
+                migratedCostAvoidanceValues[typeID] = value
             }
         }
 
@@ -111,9 +173,33 @@ enum BackupCodec {
             formatVersion: BackupArchive.currentFormatVersion,
             createdAt: legacy.createdAt,
             payload: .init(
-                interventionTypes: interventionTypes,
-                drugClasses: legacy.payload.drugClasses,
-                serviceLines: legacy.payload.serviceLines,
+                interventionTypes: legacy.payload.interventionTypes.map {
+                    .init(
+                        id: $0.id,
+                        label: $0.label,
+                        defaultCostAvoidanceCents:
+                            $0.defaultCostAvoidanceCents
+                            ?? migratedCostAvoidanceValues[$0.id],
+                        isActive: $0.isActive,
+                        sortOrder: $0.sortOrder
+                    )
+                },
+                drugClasses: legacy.payload.drugClasses.map {
+                    .init(
+                        id: $0.id,
+                        label: $0.label,
+                        isActive: $0.isActive,
+                        sortOrder: $0.sortOrder
+                    )
+                },
+                serviceLines: legacy.payload.serviceLines.map {
+                    .init(
+                        id: $0.id,
+                        label: $0.label,
+                        isActive: $0.isActive,
+                        sortOrder: $0.sortOrder
+                    )
+                },
                 interventions: legacy.payload.interventions.map {
                     .init(
                         id: $0.id,
@@ -127,8 +213,36 @@ enum BackupCodec {
                         diQuestionID: $0.diQuestionID
                     )
                 },
-                questions: legacy.payload.questions,
-                citations: legacy.payload.citations,
+                questions: legacy.payload.questions.map {
+                    .init(
+                        id: $0.id,
+                        createdAt: $0.createdAt,
+                        answeredAt: $0.answeredAt,
+                        questionText: $0.questionText,
+                        background: $0.background,
+                        answerText: $0.answerText,
+                        searchStrategy: $0.searchStrategy,
+                        requestorRole: $0.requestorRole,
+                        questionClass: $0.questionClass,
+                        urgency: $0.urgency,
+                        verifiedOn: $0.verifiedOn,
+                        reviewAfter: $0.reviewAfter,
+                        didFollowUp: $0.didFollowUp,
+                        tags: $0.tags,
+                        verificationHistory: $0.verificationHistory
+                    )
+                },
+                citations: legacy.payload.citations.map {
+                    .init(
+                        id: $0.id,
+                        questionID: $0.questionID,
+                        tier: $0.tier,
+                        title: $0.title,
+                        locator: $0.locator,
+                        accessedDate: $0.accessedDate,
+                        urlString: $0.urlString
+                    )
+                },
                 appConfig: legacy.payload.appConfig.map {
                     .init(
                         stalenessIntervalMonths: $0.stalenessIntervalMonths,

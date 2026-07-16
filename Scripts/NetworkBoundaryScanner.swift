@@ -1417,9 +1417,14 @@ private func backupParityTopLevelSurface(_ body: String) -> String {
     return String(result)
 }
 
+private enum BackupStoredPropertyMode {
+    case model
+    case synthesized(binding: String)
+}
+
 private func backupParityStoredProperties(
     in body: String,
-    synthesizedDTO: Bool
+    mode: BackupStoredPropertyMode
 ) throws -> [String: String] {
     let surface = backupParityTopLevelSurface(body)
     let bindingExpression = try NSRegularExpression(pattern: #"\b(?:var|let)\b"#)
@@ -1427,9 +1432,17 @@ private func backupParityStoredProperties(
     let modelPropertyExpression = try NSRegularExpression(
         pattern: #"^(?:var|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=;{}\n]+?)(?:\s*=\s*[^;{}\n]+)?\s*$"#
     )
-    let dtoPropertyExpression = try NSRegularExpression(
-        pattern: #"^var\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=;{}\n]+?)\s*$"#
-    )
+    let synthesizedPropertyExpression: NSRegularExpression?
+    switch mode {
+    case .model:
+        synthesizedPropertyExpression = nil
+    case let .synthesized(binding):
+        let escapedBinding = NSRegularExpression.escapedPattern(for: binding)
+        synthesizedPropertyExpression = try NSRegularExpression(
+            pattern: "^\(escapedBinding)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*([^=;{}\\n]+?)\\s*$"
+        )
+    }
+
     var properties: [String: String] = [:]
 
     for lineSlice in surface.split(separator: "\n", omittingEmptySubsequences: false) {
@@ -1441,7 +1454,7 @@ private func backupParityStoredProperties(
         let lineRange = NSRange(line.startIndex..<line.endIndex, in: line)
         let bindingMatches = bindingExpression.matches(in: line, range: lineRange)
 
-        if synthesizedDTO {
+        if let dtoPropertyExpression = synthesizedPropertyExpression {
             guard
                 bindingMatches.count == 1,
                 let bindingRange = Range(bindingMatches[0].range, in: line),
@@ -1793,7 +1806,7 @@ private func backupParityFindings(
     }
     for declaration in modelDeclarations {
         do {
-            let actual = try backupParityStoredProperties(in: declaration.body, synthesizedDTO: false)
+            let actual = try backupParityStoredProperties(in: declaration.body, mode: .model)
             guard actual == expectedModels[declaration.name] else {
                 return schemaDriftFindings()
             }
@@ -1812,7 +1825,7 @@ private func backupParityFindings(
             nameCapture: 1
         ),
         outerDeclarations.count == 1,
-        (try? backupParityStoredProperties(in: outerDeclarations[0].body, synthesizedDTO: false))
+        (try? backupParityStoredProperties(in: outerDeclarations[0].body, mode: .model))
             == ["formatVersion": "Int", "createdAt": "Date", "payload": "Payload"]
     else {
         return [Finding(path: archivePath, line: 1, message: archiveMessage)]
@@ -1877,7 +1890,10 @@ private func backupParityFindings(
     ]
     for declaration in dtoDeclarations {
         do {
-            let actual = try backupParityStoredProperties(in: declaration.body, synthesizedDTO: true)
+            let actual = try backupParityStoredProperties(
+                in: declaration.body,
+                mode: .synthesized(binding: "var")
+            )
             let expected = declaration.name == "Payload"
                 ? expectedPayload
                 : expectedRecords[declaration.name]
@@ -1886,6 +1902,230 @@ private func backupParityFindings(
             }
         } catch {
             return [Finding(path: archivePath, line: 1, message: dtoMessage)]
+        }
+    }
+
+    return []
+}
+
+private func immutableBackupV1Findings(
+    in source: String,
+    path: String
+) throws -> [Finding] {
+    let message = "BackupArchive v1 decoder changed outside immutable compatibility contract"
+    let codec = sourceForStructure(source)
+    let codecRange = NSRange(codec.startIndex..<codec.endIndex, in: codec)
+
+    func finding() -> [Finding] {
+        [Finding(path: path, line: 1, message: message)]
+    }
+
+    guard
+        let codecDeclarations = try backupParityDeclarations(
+            in: codec,
+            pattern: #"\benum\s+(BackupCodec)\s*\{"#,
+            nameCapture: 1
+        ),
+        codecDeclarations.count == 1
+    else {
+        return finding()
+    }
+    let codecBody = codecDeclarations[0].body
+    let codecTopLevel = backupParityTopLevelSurface(codecBody)
+    let codecTopLevelRange = NSRange(
+        codecTopLevel.startIndex..<codecTopLevel.endIndex,
+        in: codecTopLevel
+    )
+    let v1HeaderPattern =
+        #"\bprivate\s+struct\s+(BackupArchiveV1)\s*:\s*Decodable\s*\{"#
+    let directV1HeaderExpression = try NSRegularExpression(pattern: v1HeaderPattern)
+    let anyV1DeclarationExpression = try NSRegularExpression(
+        pattern: #"\b(?:struct|class|enum|typealias)\s+BackupArchiveV1\b"#
+    )
+    let extensionExpression = try NSRegularExpression(pattern: #"\bextension\b"#)
+    guard
+        directV1HeaderExpression.matches(
+            in: codecTopLevel,
+            range: codecTopLevelRange
+        ).count == 1,
+        anyV1DeclarationExpression.matches(in: codec, range: codecRange).count == 1,
+        extensionExpression.firstMatch(in: codec, range: codecRange) == nil,
+        let v1Declarations = try backupParityDeclarations(
+            in: codecBody,
+            pattern: v1HeaderPattern,
+            nameCapture: 1
+        ),
+        v1Declarations.count == 1
+    else {
+        return finding()
+    }
+    let v1Body = v1Declarations[0].body
+
+    let expectedOuter: [String: String] = [
+        "formatVersion": "Int",
+        "createdAt": "Date",
+        "payload": "Payload"
+    ]
+    let expectedPayload: [String: String] = [
+        "interventionTypes": "[InterventionTypeRecord]",
+        "drugClasses": "[DrugClassRecord]",
+        "serviceLines": "[ServiceLineRecord]",
+        "interventions": "[InterventionRecord]",
+        "questions": "[DIQuestionRecord]",
+        "citations": "[CitationRecord]",
+        "appConfig": "AppConfigRecord?"
+    ]
+    let expectedRecords: [String: [String: String]] = [
+        "InterventionTypeRecord": [
+            "id": "UUID",
+            "label": "String",
+            "defaultCostAvoidanceCents": "Int?",
+            "isActive": "Bool",
+            "sortOrder": "Int"
+        ],
+        "DrugClassRecord": [
+            "id": "UUID",
+            "label": "String",
+            "isActive": "Bool",
+            "sortOrder": "Int"
+        ],
+        "ServiceLineRecord": [
+            "id": "UUID",
+            "label": "String",
+            "isActive": "Bool",
+            "sortOrder": "Int"
+        ],
+        "InterventionRecord": [
+            "id": "UUID",
+            "timestamp": "Date",
+            "typeID": "UUID?",
+            "drugClassID": "UUID?",
+            "serviceLineID": "UUID?",
+            "acceptance": "SchemaV1Vocabulary.Acceptance",
+            "costAvoidanceCents": "Int",
+            "minutesSpent": "Int?",
+            "diQuestionID": "UUID?"
+        ],
+        "DIQuestionRecord": [
+            "id": "UUID",
+            "createdAt": "Date",
+            "answeredAt": "Date?",
+            "questionText": "String",
+            "background": "String",
+            "answerText": "String",
+            "searchStrategy": "String",
+            "requestorRole": "SchemaV1Vocabulary.RequestorRole",
+            "questionClass": "SchemaV1Vocabulary.DIQuestionClass",
+            "urgency": "SchemaV1Vocabulary.Urgency",
+            "verifiedOn": "Date",
+            "reviewAfter": "Date",
+            "didFollowUp": "Bool",
+            "tags": "[String]",
+            "verificationHistory": "[Date]"
+        ],
+        "CitationRecord": [
+            "id": "UUID",
+            "questionID": "UUID?",
+            "tier": "SchemaV1Vocabulary.SourceTier",
+            "title": "String",
+            "locator": "String",
+            "accessedDate": "Date",
+            "urlString": "String?"
+        ],
+        "AppConfigRecord": [
+            "costAvoidanceValues": "[String:Int]",
+            "stalenessIntervalMonths": "Int",
+            "lastExportAt": "Date?"
+        ]
+    ]
+    let expectedNestedNames = Set(["Payload"] + Array(expectedRecords.keys))
+    let nestedPattern =
+        #"\bstruct\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*Decodable\s*\{"#
+    guard
+        let nestedDeclarations = try backupParityDeclarations(
+            in: v1Body,
+            pattern: nestedPattern,
+            nameCapture: 1
+        ),
+        nestedDeclarations.count == expectedNestedNames.count,
+        Set(nestedDeclarations.map(\.name)) == expectedNestedNames
+    else {
+        return finding()
+    }
+
+    let v1TopLevel = backupParityTopLevelSurface(v1Body)
+    let v1TopLevelRange = NSRange(
+        v1TopLevel.startIndex..<v1TopLevel.endIndex,
+        in: v1TopLevel
+    )
+    let directNestedExpression = try NSRegularExpression(pattern: nestedPattern)
+    let directNestedNames = directNestedExpression.matches(
+        in: v1TopLevel,
+        range: v1TopLevelRange
+    ).compactMap { match -> String? in
+        guard let range = Range(match.range(at: 1), in: v1TopLevel) else {
+            return nil
+        }
+        return String(v1TopLevel[range])
+    }
+    let anyStructExpression = try NSRegularExpression(
+        pattern: #"\bstruct\s+([A-Za-z_][A-Za-z0-9_]*)\b"#
+    )
+    let v1BodyRange = NSRange(v1Body.startIndex..<v1Body.endIndex, in: v1Body)
+    let allStructNames = anyStructExpression.matches(
+        in: v1Body,
+        range: v1BodyRange
+    ).compactMap { match -> String? in
+        guard let range = Range(match.range(at: 1), in: v1Body) else {
+            return nil
+        }
+        return String(v1Body[range])
+    }
+    guard
+        directNestedNames.count == expectedNestedNames.count,
+        Set(directNestedNames) == expectedNestedNames,
+        allStructNames.count == expectedNestedNames.count,
+        Set(allStructNames) == expectedNestedNames
+    else {
+        return finding()
+    }
+
+    var outerPropertySurface = directNestedExpression.stringByReplacingMatches(
+        in: v1TopLevel,
+        range: v1TopLevelRange,
+        withTemplate: ""
+    )
+    outerPropertySurface = outerPropertySurface
+        .replacingOccurrences(of: "{", with: "")
+        .replacingOccurrences(of: "}", with: "")
+    do {
+        guard
+            try backupParityStoredProperties(
+                in: outerPropertySurface,
+                mode: .synthesized(binding: "let")
+            ) == expectedOuter
+        else {
+            return finding()
+        }
+    } catch {
+        return finding()
+    }
+
+    for declaration in nestedDeclarations {
+        let expected = declaration.name == "Payload"
+            ? expectedPayload
+            : expectedRecords[declaration.name]
+        do {
+            guard
+                try backupParityStoredProperties(
+                    in: declaration.body,
+                    mode: .synthesized(binding: "let")
+                ) == expected
+            else {
+                return finding()
+            }
+        } catch {
+            return finding()
         }
     }
 
@@ -4361,6 +4601,23 @@ private func repositoryFindings(
         )
     }
 
+    let backupCodecFile = sourceRoot
+        .appendingPathComponent("Backup", isDirectory: true)
+        .appendingPathComponent("BackupCodec.swift")
+    if FileManager.default.fileExists(atPath: backupCodecFile.path) {
+        let codecSource = try String(contentsOf: backupCodecFile, encoding: .utf8)
+        results.append(
+            contentsOf: try immutableBackupV1Findings(
+                in: codecSource,
+                path: backupCodecFile.path
+            )
+        )
+    } else {
+        results.append(
+            Finding(path: backupCodecFile.path, line: 1, message: "Versioned backup codec source is missing")
+        )
+    }
+
     let storeFile = sourceRoot
         .appendingPathComponent("Persistence", isDirectory: true)
         .appendingPathComponent("HippocratesStore.swift")
@@ -5904,6 +6161,263 @@ private func runSelfTests() throws {
         "A comment or string decoy changed the structural backup-parity result"
     )
 
+    let compliantImmutableBackupV1 = """
+    enum BackupCodec {
+        private struct BackupArchiveV1: Decodable {
+            let formatVersion: Int
+            let createdAt: Date
+            let payload: Payload
+
+            struct Payload: Decodable {
+                let interventionTypes: [InterventionTypeRecord]
+                let drugClasses: [DrugClassRecord]
+                let serviceLines: [ServiceLineRecord]
+                let interventions: [InterventionRecord]
+                let questions: [DIQuestionRecord]
+                let citations: [CitationRecord]
+                let appConfig: AppConfigRecord?
+            }
+
+            struct InterventionTypeRecord: Decodable {
+                let id: UUID
+                let label: String
+                let defaultCostAvoidanceCents: Int?
+                let isActive: Bool
+                let sortOrder: Int
+            }
+
+            struct DrugClassRecord: Decodable {
+                let id: UUID
+                let label: String
+                let isActive: Bool
+                let sortOrder: Int
+            }
+
+            struct ServiceLineRecord: Decodable {
+                let id: UUID
+                let label: String
+                let isActive: Bool
+                let sortOrder: Int
+            }
+
+            struct InterventionRecord: Decodable {
+                let id: UUID
+                let timestamp: Date
+                let typeID: UUID?
+                let drugClassID: UUID?
+                let serviceLineID: UUID?
+                let acceptance: SchemaV1Vocabulary.Acceptance
+                let costAvoidanceCents: Int
+                let minutesSpent: Int?
+                let diQuestionID: UUID?
+            }
+
+            struct DIQuestionRecord: Decodable {
+                let id: UUID
+                let createdAt: Date
+                let answeredAt: Date?
+                let questionText: String
+                let background: String
+                let answerText: String
+                let searchStrategy: String
+                let requestorRole: SchemaV1Vocabulary.RequestorRole
+                let questionClass: SchemaV1Vocabulary.DIQuestionClass
+                let urgency: SchemaV1Vocabulary.Urgency
+                let verifiedOn: Date
+                let reviewAfter: Date
+                let didFollowUp: Bool
+                let tags: [String]
+                let verificationHistory: [Date]
+            }
+
+            struct CitationRecord: Decodable {
+                let id: UUID
+                let questionID: UUID?
+                let tier: SchemaV1Vocabulary.SourceTier
+                let title: String
+                let locator: String
+                let accessedDate: Date
+                let urlString: String?
+            }
+
+            struct AppConfigRecord: Decodable {
+                let costAvoidanceValues: [String: Int]
+                let stalenessIntervalMonths: Int
+                let lastExportAt: Date?
+            }
+        }
+    }
+    """
+
+    func v1Findings(_ source: String) throws -> [Finding] {
+        try immutableBackupV1Findings(in: source, path: "BackupCodec.swift")
+    }
+    let v1Message = "BackupArchive v1 decoder changed outside immutable compatibility contract"
+    func hasV1Drift(_ source: String) throws -> Bool {
+        try v1Findings(source).contains(where: { $0.message == v1Message })
+    }
+    func replacingV1(
+        _ source: String,
+        _ target: String,
+        _ replacement: String
+    ) throws -> String {
+        guard
+            source.components(separatedBy: target).count == 2,
+            let range = source.range(of: target)
+        else {
+            throw NSError(
+                domain: "NetworkBoundaryScannerTests",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Immutable v1 mutation anchor is not unique"]
+            )
+        }
+        var result = source
+        result.replaceSubrange(range, with: replacement)
+        return result
+    }
+
+    try check(
+        try v1Findings(compliantImmutableBackupV1).isEmpty,
+        "The compliant immutable v1 backup fixture was rejected"
+    )
+    let addedV1Scalar = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let label: String\n            let defaultCostAvoidanceCents: Int?",
+        "            let label: String\n            let detail: String\n            let defaultCostAvoidanceCents: Int?"
+    )
+    try check(
+        try hasV1Drift(addedV1Scalar),
+        "A legacy record scalar addition escaped the immutable v1 contract"
+    )
+    let changedV1Type = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let costAvoidanceCents: Int\n",
+        "            let costAvoidanceCents: Int?\n"
+    )
+    try check(
+        try hasV1Drift(changedV1Type),
+        "A legacy record field-type change escaped the immutable v1 contract"
+    )
+    let renamedV1Record = try replacingV1(
+        compliantImmutableBackupV1,
+        "        struct CitationRecord: Decodable {",
+        "        struct ReferenceRecord: Decodable {"
+    )
+    try check(
+        try hasV1Drift(renamedV1Record),
+        "A legacy record declaration change escaped the immutable v1 contract"
+    )
+    let changedV1Payload = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let appConfig: AppConfigRecord?",
+        "            let appConfig: AppConfigRecord?\n            let metadata: String"
+    )
+    try check(
+        try hasV1Drift(changedV1Payload),
+        "A legacy Payload shape change escaped the immutable v1 contract"
+    )
+    let changedV1Outer = try replacingV1(
+        compliantImmutableBackupV1,
+        "        let payload: Payload",
+        "        let payload: Payload\n        let sourceBuild: String"
+    )
+    try check(
+        try hasV1Drift(changedV1Outer),
+        "A legacy outer archive shape change escaped the immutable v1 contract"
+    )
+    let mutableV1Field = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let label: String\n            let defaultCostAvoidanceCents: Int?",
+        "            var label: String\n            let defaultCostAvoidanceCents: Int?"
+    )
+    try check(
+        try hasV1Drift(mutableV1Field),
+        "A mutable legacy record field escaped the immutable v1 contract"
+    )
+    let defaultedV1Field = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let label: String\n            let defaultCostAvoidanceCents: Int?",
+        "            let label: String = \"legacy\"\n            let defaultCostAvoidanceCents: Int?"
+    )
+    try check(
+        try hasV1Drift(defaultedV1Field),
+        "A defaulted legacy record field escaped the synthesized v1 contract"
+    )
+    let reusedCurrentDTO = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let interventionTypes: [InterventionTypeRecord]",
+        "            let interventionTypes: [BackupArchive.InterventionTypeRecord]"
+    )
+    try check(
+        try hasV1Drift(reusedCurrentDTO),
+        "Current BackupArchive DTO reuse escaped the immutable v1 contract"
+    )
+
+    let v1CustomDecodingDeclarations = [
+        "            enum CodingKeys: String, CodingKey { case lastExportAt }",
+        "            init(from decoder: Decoder) throws { fatalError() }",
+        "            func encode(to encoder: Encoder) throws { fatalError() }"
+    ]
+    let v1CustomDecodingIsRejected = try v1CustomDecodingDeclarations.allSatisfy {
+        declaration in
+        let mutation = try replacingV1(
+            compliantImmutableBackupV1,
+            "            let lastExportAt: Date?\n        }\n    }\n}",
+            "            let lastExportAt: Date?\n\(declaration)\n        }\n    }\n}"
+        )
+        return try hasV1Drift(mutation)
+    }
+    try check(
+        v1CustomDecodingIsRejected,
+        "Custom v1 CodingKeys, decoder, or encoder escaped the synthesized contract"
+    )
+
+    let v1CustomMemberDeclarations = [
+        "            init(lastExportAt: Date?) { self.lastExportAt = lastExportAt }",
+        "            func helper() {}"
+    ]
+    let v1CustomMembersAreRejected = try v1CustomMemberDeclarations.allSatisfy {
+        declaration in
+        let mutation = try replacingV1(
+            compliantImmutableBackupV1,
+            "            let lastExportAt: Date?\n        }\n    }\n}",
+            "            let lastExportAt: Date?\n\(declaration)\n        }\n    }\n}"
+        )
+        return try hasV1Drift(mutation)
+    }
+    try check(
+        v1CustomMembersAreRejected,
+        "A custom v1 initializer or method escaped the synthesized contract"
+    )
+
+    let nestedV1Extra = try replacingV1(
+        compliantImmutableBackupV1,
+        "            let lastExportAt: Date?\n        }\n    }\n}",
+        "            let lastExportAt: Date?\n            struct Helper {}\n        }\n    }\n}"
+    )
+    let extendedV1Sources = [
+        compliantImmutableBackupV1
+            + "\nextension BackupCodec.BackupArchiveV1 {}\n",
+        compliantImmutableBackupV1
+            + "\ntypealias LegacyBackup = BackupCodec.BackupArchiveV1\n"
+            + "extension LegacyBackup {}\n"
+    ]
+    let v1ExtensionsAreRejected = try extendedV1Sources.allSatisfy(hasV1Drift)
+    try check(
+        try hasV1Drift(nestedV1Extra) && v1ExtensionsAreRejected,
+        "A nested v1 declaration or extension escaped the immutable compatibility contract"
+    )
+
+    let v1Decoys = compliantImmutableBackupV1 + #"""
+    // private struct BackupArchiveV1: Decodable { let formatVersion: String }
+    // extension BackupCodec.BackupArchiveV1 {}
+    let note = "struct Payload: Decodable { var metadata: String }"
+    """#
+    try check(
+        try v1Findings(v1Decoys).isEmpty,
+        "A comment or string decoy changed the immutable v1 structural result"
+    )
+
     let quotedPropertyTrap =
         #"{ isa = PBXNativeTarget; name = "productType = com.apple.product-type.application;"; }"#
     try check(
@@ -6300,13 +6814,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 242 else {
+    guard completedChecks == 255 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 242, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 255, completed \(completedChecks)"
             ]
         )
     }

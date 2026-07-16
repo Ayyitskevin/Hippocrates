@@ -200,10 +200,12 @@ amber/red interstitial is view-local and lasts only for the current presentation
 
 Backups serialize versioned value records and foreign UUIDs, never `@Model`
 instances. The codec reads a minimal version envelope before the payload. Backup
-format v2 is current; the immutable format-v1 decoder migrates values before any
-store mutation. Its duplicate app-wide cost map is folded into the matching
-type-owned default, and a missing type or conflicting duplicate fails loudly
-instead of choosing a source silently.
+format v2 is current. Format v1 owns private, let-only historical records for its
+payload and all seven model representations; it never reuses the mutable current
+format's records. Synthesized `Decodable` reads that frozen shape, and migration
+maps every field explicitly before any store mutation. Its duplicate app-wide
+cost map is folded into the matching type-owned default, and a missing type or
+conflicting duplicate fails loudly instead of choosing a source silently.
 
 Backup completeness is a hybrid contract because no single comparison proves
 the schema, exporter, archive, and restore path together:
@@ -218,9 +220,17 @@ the schema, exporter, archive, and restore path together:
 - After restore, tests fetch every destination model and assert each scalar,
   relationship, inverse, and reconstructed value directly. Re-export equality
   remains useful evidence, but it is not the sole restore oracle.
+- A literal development-format-v1 archive populates every historical record
+  shape, frozen enum value, forward relationship, and inverse seam. Its expected
+  v2 archive is constructed independently before validation, restore, direct
+  field assertions, and deterministic re-export.
 - The Linux source-shape gate pins the persisted-property surface to this
   reviewed backup-format contract and emits `SchemaV1 persisted-property surface
   changed without backup-format review` when a model field drifts.
+- The same gate pins the private format-v1 outer archive, payload, and seven
+  records to let-only synthesized decoding and emits `BackupArchive v1 decoder
+  changed outside immutable compatibility contract` on any shape, mutability,
+  reuse, default, customization, extension, or nested-declaration drift.
 
 The three deliberate non-record representations are
 `DIQuestion.citations`, reconstructed from `Citation.questionID`;
@@ -229,14 +239,16 @@ The three deliberate non-record representations are
 canonical `"app"` constant. They remain explicit entries in the manifest rather
 than ignored fields.
 
-Synthesized `Codable` supplies archive record-shape and value-type decoding for
-represented fields; it does not prove cross-record references or clinical/domain
-semantics. `BackupService.validate(_:)` separately rejects graph defects and
-domain-invalid values before restore mutates a store.
+Synthesized `Codable` supplies current-format archive record-shape and value-type
+decoding; synthesized `Decodable` does the same for the frozen format-v1 records.
+Neither proves cross-record references or clinical/domain semantics.
+`BackupService.validate(_:)` separately rejects graph defects and domain-invalid
+values before restore mutates a store.
 
 The Linux gate also rejects custom `CodingKeys`, decoder initializers, and
 encoder methods in `BackupArchive.swift`, keeping the reviewed v2 archive shape
-on synthesized `Codable`.
+on synthesized `Codable`; its format-v1 contract likewise rejects defaults,
+mutable fields, current-format record reuse, custom members, and extensions.
 
 Validation precedes mutation and rejects unknown versions, duplicate IDs,
 dangling references, negative cost values, nonpositive configured staleness,
@@ -369,8 +381,8 @@ a HIPAA compliance program. README language must preserve that distinction.
    ranges, and backup graph validation.
 2. In-memory SwiftData tests cover relationships, delete rules, configuration
    singleton behavior, save/undo transactions, re-verification history, runtime
-   schema-to-backup coverage, exporter-independent archive expectations, and
-   direct full-field restore assertions plus re-export.
+   schema-to-backup coverage, exporter-independent current and literal-v1 archive
+   expectations, and direct full-field restore assertions plus re-export.
 3. Source/project contract tests cover no free text in `Intervention`, no network
    surface, zero packages, manifest contents, and schema/migration registration.
 4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer

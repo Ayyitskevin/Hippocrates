@@ -18,6 +18,7 @@ cross a decision or evidence gate.
 | F5.1 — local-file ingress hardening | Verified | Implementation commit [`901508d`](https://github.com/Ayyitskevin/Hippocrates/commit/901508df17bb1a2577a721785d174c4bed403a56) passed 180 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613) |
 | F6 — configuration ownership enforcement | Verified | Implementation commit [`a47401c`](https://github.com/Ayyitskevin/Hippocrates/commit/a47401ce718acf76734c90a5740a189d30393997) passed 230 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29505198470](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29505198470) |
 | F7 — backup completeness enforcement | Verified | Implementation commit [`7825f1c`](https://github.com/Ayyitskevin/Hippocrates/commit/7825f1cf2fc9d491a11ed734122b442206f6885c) passed 242 scanner checks, both planted backup-shape probes, Release build, analyzer, and simulator tests in [hosted run 29511769913](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29511769913) |
+| F8 — immutable development-backup compatibility | Awaiting hosted verification | Private let-only format-v1 records, explicit migration mapping, complete literal compatibility coverage, and 255 local scanner checks are implemented; exact-head Apple-platform evidence remains pending |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -43,7 +44,7 @@ Implemented deliverables:
 - `nil` policy state for unanswered DI staleness and cost values;
 - one type-owned cost default with optional intervention snapshots, preserving
   unknown separately from explicit zero;
-- backup format v2 plus an immutable development-format-v1 value-space migration;
+- backup format v2 plus an explicit development-format-v1 value-space migration;
 - validation for negative cost, nonpositive staleness, freshness ordering, legacy
   key mismatches, and legacy duplicate-source conflicts; and
 - in-memory, file-backed, round-trip, compatibility, and boundary-contract tests.
@@ -178,6 +179,38 @@ Verification: implementation commit [`7825f1c`](https://github.com/Ayyitskevin/H
 passed both planted diagnostics, all 242 scanner checks, the Xcode 16.4 Release
 build, static analysis, and iOS 18.5 simulator tests in
 [hosted run 29511769913](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29511769913).
+
+## Foundation hardening — immutable development-backup compatibility
+
+The original format-v1 migration borrowed five mutable current-format record
+types even though the architecture described the decoder as immutable. That
+created latent compatibility coupling: a future v2 record edit could silently
+change which historical JSON format v1 accepts. F8 makes the historical shape a
+format-owned contract instead of a documentation promise.
+
+Implemented deliverables:
+
+- the private format-v1 decoder owns exact let-only records for its outer archive,
+  payload, and all seven historical model representations;
+- every historical field maps explicitly into format v2, including the intended
+  widening of intervention cost and staleness values to optional current fields;
+- normalized UUID aliases in the legacy cost map coalesce only when their values
+  agree and fail loudly on conflict without a duplicate-key trap;
+- one literal format-v1 fixture covers every historical field, all frozen enum
+  values, mixed optional state, every forward UUID relationship, inverse recovery,
+  validation, restore, direct destination assertions, and deterministic re-export;
+- the source scanner rejects shape, type, mutability, default, current-DTO reuse,
+  custom-decoding, member, nested-declaration, and extension drift; and
+- both hosted negative probes plant a fail-loud format-v1 mutation and require the
+  dedicated immutable-compatibility diagnostic.
+
+No persisted field, schema version, backup JSON shape, product default, UI,
+network surface, or distribution setting changed.
+
+Local verification: the Swift 6.1 parser accepts the changed Swift sources, the
+repository build check passes, and all 255 scanner self-tests pass. Exact-head
+Xcode 16.4 Release build, analysis, iOS 18.5 simulator tests, and both hosted
+negative probes remain pending.
 
 ## Feature-specific decision gate
 
