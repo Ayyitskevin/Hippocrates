@@ -18,7 +18,7 @@ cross a decision or evidence gate.
 | F5.1 — local-file ingress hardening | Verified | Implementation commit [`901508d`](https://github.com/Ayyitskevin/Hippocrates/commit/901508df17bb1a2577a721785d174c4bed403a56) passed 180 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613) |
 | F6 — configuration ownership enforcement | Verified | Implementation commit [`a47401c`](https://github.com/Ayyitskevin/Hippocrates/commit/a47401ce718acf76734c90a5740a189d30393997) passed 230 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29505198470](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29505198470) |
 | F7 — backup completeness enforcement | Verified | Implementation commit [`7825f1c`](https://github.com/Ayyitskevin/Hippocrates/commit/7825f1cf2fc9d491a11ed734122b442206f6885c) passed 242 scanner checks, both planted backup-shape probes, Release build, analyzer, and simulator tests in [hosted run 29511769913](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29511769913) |
-| F8 — immutable development-backup compatibility | Awaiting hosted verification | Private let-only format-v1 records, explicit migration mapping, complete literal compatibility coverage, and 255 local scanner checks are implemented; exact-head Apple-platform evidence remains pending |
+| F8 — immutable development-backup compatibility | Verified | Implementation commit [`6da9ef4`](https://github.com/Ayyitskevin/Hippocrates/commit/6da9ef497e55e443ad083b88c217979da6be9cb0) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29515673481](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29515673481) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -207,10 +207,10 @@ Implemented deliverables:
 No persisted field, schema version, backup JSON shape, product default, UI,
 network surface, or distribution setting changed.
 
-Local verification: the Swift 6.1 parser accepts the changed Swift sources, the
-repository build check passes, and all 255 scanner self-tests pass. Exact-head
-Xcode 16.4 Release build, analysis, iOS 18.5 simulator tests, and both hosted
-negative probes remain pending.
+Verification: implementation commit [`6da9ef4`](https://github.com/Ayyitskevin/Hippocrates/commit/6da9ef497e55e443ad083b88c217979da6be9cb0)
+passed both planted backup-contract probes, all 255 scanner checks, the Xcode 16.4
+Release build, static analysis, and iOS 18.5 simulator tests in
+[hosted run 29515673481](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29515673481).
 
 ## Feature-specific decision gate
 
