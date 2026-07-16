@@ -19,7 +19,7 @@ cross a decision or evidence gate.
 | F6 — configuration ownership enforcement | Verified | Implementation commit [`a47401c`](https://github.com/Ayyitskevin/Hippocrates/commit/a47401ce718acf76734c90a5740a189d30393997) passed 230 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29505198470](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29505198470) |
 | F7 — backup completeness enforcement | Verified | Implementation commit [`7825f1c`](https://github.com/Ayyitskevin/Hippocrates/commit/7825f1cf2fc9d491a11ed734122b442206f6885c) passed 242 scanner checks, both planted backup-shape probes, Release build, analyzer, and simulator tests in [hosted run 29511769913](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29511769913) |
 | F8 — immutable development-backup compatibility | Verified | Implementation commit [`6da9ef4`](https://github.com/Ayyitskevin/Hippocrates/commit/6da9ef497e55e443ad083b88c217979da6be9cb0) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29515673481](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29515673481) |
-| F9 — file-backed restore durability | Awaiting hosted verification | A complete current-format restore/close/reopen fixture is implemented and locally parse/scanner verified; exact-head Apple-platform execution remains pending |
+| F9 — file-backed restore durability | Verified | Implementation commit [`dfa4593`](https://github.com/Ayyitskevin/Hippocrates/commit/dfa45931d7ff898b9ff90229b0211bc1a5955088) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29517118694](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29517118694) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -236,10 +236,10 @@ Implemented deliverables:
 No shipping source, persisted field, schema version, migration, backup format,
 product default, UI, network surface, or distribution setting changed.
 
-Local verification: the Swift 6.1 parser accepts the changed test source, the
-repository build checks pass, and all 255 scanner self-tests pass. Exact-head
-Xcode 16.4 Release build, static analysis, and iOS 18.5 simulator execution
-remain pending.
+Verification: implementation commit [`dfa4593`](https://github.com/Ayyitskevin/Hippocrates/commit/dfa45931d7ff898b9ff90229b0211bc1a5955088)
+passed both planted backup-contract probes, all 255 scanner checks, the Xcode 16.4
+Release build, static analysis, and iOS 18.5 simulator tests in
+[hosted run 29517118694](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29517118694).
 
 ## Feature-specific decision gate
 
