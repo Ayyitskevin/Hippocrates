@@ -22,7 +22,7 @@ cross a decision or evidence gate.
 | F9 — file-backed restore durability | Verified | Implementation commit [`dfa4593`](https://github.com/Ayyitskevin/Hippocrates/commit/dfa45931d7ff898b9ff90229b0211bc1a5955088) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29517118694](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29517118694) |
 | F10 — duplicate-identifier restore validation | Verified | Implementation commit [`2f48f95`](https://github.com/Ayyitskevin/Hippocrates/commit/2f48f950498776d270cc15f02e5ea93c7adbbf51) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29518121878](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29518121878) |
 | F11 — restore destination isolation | Verified | Implementation commit [`82d08da`](https://github.com/Ayyitskevin/Hippocrates/commit/82d08da4a8bb1f01f30fab7a6dac13084239975a) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29519234311](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29519234311) |
-| F12 — restore save-failure rollback | Awaiting hosted verification | A complete file-backed restore is forced through the save boundary and locally proves rollback clears pending work and leaves disk empty; exact-head Apple-platform execution remains pending |
+| F12 — restore save-failure rollback | Verified | Implementation series through [`b01a491`](https://github.com/Ayyitskevin/Hippocrates/commit/b01a491cea6e9e5429851e27c2208ea3ed3982d2) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29521705988](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29521705988) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -315,9 +315,12 @@ Implemented deliverables:
 context. No shipping behavior, persisted field, schema version, migration, backup
 format, product default, UI, network surface, or distribution setting changed.
 
-Local verification: the Swift 6.1 parser accepts the changed sources, repository
-build checks pass, and all 257 scanner self-tests pass. Exact-head Xcode 16.4
-Release build, static analysis, and iOS 18.5 simulator execution remain pending.
+Verification: implementation series through [`b01a491`](https://github.com/Ayyitskevin/Hippocrates/commit/b01a491cea6e9e5429851e27c2208ea3ed3982d2)
+passed both planted backup-contract probes, all 257 scanner checks, the Xcode 16.4
+Release build, static analysis, and iOS 18.5 simulator tests in
+[hosted run 29521705988](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29521705988).
+The hosted log contains no `vnode unlinked` or `invalidated open fd` cleanup
+diagnostics.
 
 ## Feature-specific decision gate
 
