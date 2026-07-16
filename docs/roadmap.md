@@ -17,7 +17,7 @@ cross a decision or evidence gate.
 | F5 — boundary-control hardening | Verified | Implementation series through [`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98) passed its original scanner probes, Release build, analyzer, and simulator tests in [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562) |
 | F5.1 — local-file ingress hardening | Verified | Implementation commit [`901508d`](https://github.com/Ayyitskevin/Hippocrates/commit/901508df17bb1a2577a721785d174c4bed403a56) passed 180 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613) |
 | F6 — configuration ownership enforcement | Verified | Implementation commit [`a47401c`](https://github.com/Ayyitskevin/Hippocrates/commit/a47401ce718acf76734c90a5740a189d30393997) passed 230 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29505198470](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29505198470) |
-| F7 — backup completeness enforcement | Implemented / awaiting hosted evidence | Hybrid schema/backup completeness contract and planted persisted-field drift probes are implemented; exact-head hosted Release build, analyzer, and simulator evidence remains pending |
+| F7 — backup completeness enforcement | Verified | Implementation commit [`7825f1c`](https://github.com/Ayyitskevin/Hippocrates/commit/7825f1cf2fc9d491a11ed734122b442206f6885c) passed 242 scanner checks, both planted backup-shape probes, Release build, analyzer, and simulator tests in [hosted run 29511769913](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29511769913) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -174,9 +174,10 @@ Implemented deliverables:
 No persisted field, schema version, migration, backup format, product default,
 or UI changed.
 
-Exit gate pending: the exact implementation head must pass both planted
-diagnostics, the Xcode 16.4 Release build, static analysis, and the iOS 18.5
-simulator tests in hosted CI before F7 may be marked Verified.
+Verification: implementation commit [`7825f1c`](https://github.com/Ayyitskevin/Hippocrates/commit/7825f1cf2fc9d491a11ed734122b442206f6885c)
+passed both planted diagnostics, all 242 scanner checks, the Xcode 16.4 Release
+build, static analysis, and iOS 18.5 simulator tests in
+[hosted run 29511769913](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29511769913).
 
 ## Feature-specific decision gate
 

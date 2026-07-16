@@ -68,7 +68,7 @@ The pre-release foundation now contains:
    against an independently constructed archive, and asserts every restored
    field directly; plus file-backed close/reopen coverage for the core store,
    relationship, and configuration seams; and
-7. a fail-closed PBX/configuration/scheme parser plus executable checks and
+7. a fail-closed PBX/configuration/scheme parser plus 242 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,
    target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
