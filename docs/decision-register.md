@@ -24,6 +24,15 @@ requirements.
 | A-013 | Type-owned defaults and optional intervention snapshots are the only cost representation | Unknown/unassigned remains `nil`, explicit zero remains zero, and no app-wide duplicate map exists |
 | A-014 | Backup format dispatch and migration happen in value space | Format v2 is current; development-format v1 owns private let-only historical records, never reuses current-format DTOs, explicitly maps every field before validation or store mutation, and rejects conflicts |
 
+## Accepted product decisions
+
+No product decision is accepted yet. A P-ID enters this table only after the
+named owner or institutional authority reviews an explicit answer. Accepted rows
+use the following canonical schema:
+
+| ID | Decision | Deciding authority role | Decision date | Non-sensitive provenance | Implementation consequence |
+|---|---|---|---|---|---|
+
 ## Accepted implementation decisions
 
 | ID | Resolution |
@@ -42,6 +51,51 @@ requirements.
 | P-004 | Jenn | Is the default review/export cadence annual or quarterly? | No default summary range is shipped |
 | P-005 | Jenn | Is DI staleness 12 months or 6 months? | `AppConfig.stalenessIntervalMonths` remains `nil`; freshness-default UI does not ship |
 | P-006 | Jenn | Do the frozen DI requestor, question-class, urgency, and source-tier values match the intended workflow? | No DI UI or distributed schema containing this vocabulary ships |
+
+### D0 response worksheet
+
+Use this worksheet to collect P-001 through P-006 without turning a plausible
+default or an informal comment into product policy. For each P-ID, provide:
+
+- **Disposition:** select one listed answer, request an exact change, or defer.
+- **Answer:** the selected option or the precise replacement requested.
+- **Deciding authority:** role or approving body, without private contact details.
+- **Decision date:** an ISO `YYYY-MM-DD` date.
+- **Non-sensitive provenance:** a public citation, repository commit/handoff, or
+  stable owner-held locator such as `offline-review:<id>`.
+- **Affected IDs and follow-up:** any still-open P/I dependencies.
+
+| ID | Answer requested | Required authority/provenance |
+|---|---|---|
+| P-001 | `permitted`, `not permitted`, or `defer` | Name the deciding institutional role/body and record only a non-sensitive or opaque offline reference |
+| P-002 | `official values exist` with an owner-supplied list reference, `no official values`, or `defer` | Name the institutional authority; do not infer values or copy an unapproved/private schedule into the repository |
+| P-003 | `department taxonomy supplied`, an explicitly named alternative submitted for approval, or `defer` | Jenn approves the exact referenced list; this repository preapproves no ASHP-derived taxonomy |
+| P-004 | `annual`, `quarterly`, or `defer` | Jenn's dated response is sufficient provenance |
+| P-005 | `12 months`, `6 months`, or `defer` | Jenn's dated response is sufficient provenance |
+| P-006 | approve the listed raw vocabulary unchanged, request exact raw-value changes, or `defer` | Jenn reviews all four groups below; partial approval leaves P-006 pending |
+
+P-006 currently asks Jenn to review these persisted raw values:
+
+- requestor role: `resident`, `nurse`, `attending`, `pharmacist`,
+  `student`, `careTeam`, `other`;
+- DI question class: `dosing`, `adverseEffect`, `interaction`,
+  `compatibility`, `availability`, `administration`,
+  `pregnancyLactation`, `therapeutics`, `toxicology`,
+  `pharmacokinetics`, `other`;
+- urgency: `routine`, `sameDay`, `stat`; and
+- source tier: `tertiary`, `secondary`, `primary`, `guideline`, `label`,
+  `institutionPolicy`.
+
+Hippocrates is public. Never commit hospital policy documents, internal cost
+schedules, private correspondence, credentials, patient data, or other sensitive
+source material. Sensitive evidence stays outside the repository; record only
+the deciding authority, date, and a stable non-sensitive locator. The generic
+phrase `private evidence reviewed offline` alone is not sufficient provenance.
+
+A completed worksheet is still advisory until human review. Once accepted, add
+one row to **Accepted product decisions**, remove that P-ID from the pending
+table, and update D0 plus the affected milestone. Missing authority, date,
+provenance, or a partial answer leaves the existing safe state in force.
 
 ## Pending implementation decisions
 

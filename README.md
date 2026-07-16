@@ -144,6 +144,11 @@ by this repository milestone.
 6. Whether the frozen DI requestor, question-class, urgency, and source-tier
    vocabulary matches the intended workflow. DI UI does not ship until confirmed.
 
+Supply and record these answers through the canonical
+[D0 response worksheet](docs/decision-register.md#d0-response-worksheet). It
+requires a deciding authority, date, and non-sensitive provenance, and it forbids
+committing private institutional material to this public repository.
+
 The accepted implementation decisions and remaining gates—including restore
 readiness, editable-label identifier risk, metric semantics, local-file import,
 and `lastExportAt` meaning—are tracked in
