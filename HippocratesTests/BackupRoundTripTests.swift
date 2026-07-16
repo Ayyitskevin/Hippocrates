@@ -61,6 +61,16 @@ final class BackupRoundTripTests: XCTestCase {
         case citation
     }
 
+    private enum NonemptyDestinationCase: CaseIterable {
+        case interventionType
+        case drugClass
+        case serviceLine
+        case intervention
+        case question
+        case citation
+        case appConfig
+    }
+
     private var backupCoverageV2: [String: [String: BackupRepresentationV2]] {
         [
             "InterventionType": [
@@ -371,20 +381,32 @@ final class BackupRoundTripTests: XCTestCase {
         }
     }
 
-    func testRestoreRefusesToMergeIntoNonemptyStore() throws {
+    func testRestoreRefusesEveryNonemptyDestinationWithoutMutation() throws {
         let source = try HippocratesStore.makeContainer(inMemory: true)
-        _ = try insertCompleteFixture(into: source.mainContext)
-        let archive = try BackupService.makeArchive(from: source.mainContext, createdAt: exportDate)
+        let archive = try insertCompleteFixture(into: source.mainContext).expectedArchive
 
-        let destination = try HippocratesStore.makeContainer(inMemory: true)
-        destination.mainContext.insert(DrugClass(label: "Existing configuration"))
-        try destination.mainContext.save()
+        for destinationCase in NonemptyDestinationCase.allCases {
+            let destination = try HippocratesStore.makeContainer(inMemory: true)
+            let context = destination.mainContext
+            try insertExistingDestination(destinationCase, into: context)
+            try context.save()
+            XCTAssertFalse(context.hasChanges)
+            let before = try BackupService.makeArchive(
+                from: context,
+                createdAt: exportDate
+            )
 
-        XCTAssertThrowsError(try BackupService.restore(archive, into: destination.mainContext)) { error in
-            XCTAssertEqual(error as? BackupError, .destinationNotEmpty)
+            XCTAssertThrowsError(try BackupService.restore(archive, into: context)) { error in
+                XCTAssertEqual(error as? BackupError, .destinationNotEmpty)
+            }
+
+            XCTAssertFalse(context.hasChanges)
+            let after = try BackupService.makeArchive(
+                from: context,
+                createdAt: exportDate
+            )
+            XCTAssertEqual(after, before)
         }
-        XCTAssertEqual(try destination.mainContext.fetchCount(FetchDescriptor<DrugClass>()), 1)
-        XCTAssertEqual(try destination.mainContext.fetchCount(FetchDescriptor<Intervention>()), 0)
     }
 
     func testRestoreRefusesContextWithPendingInsertWithoutDiscardingIt() throws {
@@ -421,6 +443,37 @@ final class BackupRoundTripTests: XCTestCase {
         }
 
         XCTAssertTrue(destination.mainContext.hasChanges)
+    }
+
+    func testRestoreRefusesContextWithPendingUpdateWithoutDiscardingIt() throws {
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        _ = try insertCompleteFixture(into: source.mainContext)
+        let archive = try BackupService.makeArchive(from: source.mainContext, createdAt: exportDate)
+
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        let existing = DrugClass(
+            label: "Saved configuration",
+            isActive: true,
+            sortOrder: 7
+        )
+        destination.mainContext.insert(existing)
+        try destination.mainContext.save()
+        existing.label = "Unsaved configuration"
+        existing.isActive = false
+        XCTAssertTrue(destination.mainContext.hasChanges)
+
+        XCTAssertThrowsError(try BackupService.restore(archive, into: destination.mainContext)) { error in
+            XCTAssertEqual(error as? BackupError, .destinationHasPendingChanges)
+        }
+
+        XCTAssertTrue(destination.mainContext.hasChanges)
+        let fetched = try XCTUnwrap(
+            destination.mainContext.fetch(FetchDescriptor<DrugClass>()).first
+        )
+        XCTAssertEqual(fetched.id, existing.id)
+        XCTAssertEqual(fetched.label, "Unsaved configuration")
+        XCTAssertFalse(fetched.isActive)
+        XCTAssertEqual(fetched.sortOrder, 7)
     }
 
     func testVerificationHistoryMustEndAtCurrentVerificationDate() throws {
@@ -1609,6 +1662,84 @@ final class BackupRoundTripTests: XCTestCase {
             }
             """.utf8
         )
+    }
+
+    private func insertExistingDestination(
+        _ destinationCase: NonemptyDestinationCase,
+        into context: ModelContext
+    ) throws {
+        switch destinationCase {
+        case .interventionType:
+            context.insert(
+                InterventionType(
+                    label: "Existing intervention type",
+                    defaultCostAvoidanceCents: 2_500,
+                    isActive: false,
+                    sortOrder: 1
+                )
+            )
+        case .drugClass:
+            context.insert(
+                DrugClass(
+                    label: "Existing drug class",
+                    isActive: false,
+                    sortOrder: 2
+                )
+            )
+        case .serviceLine:
+            context.insert(
+                ServiceLine(
+                    label: "Existing service line",
+                    isActive: false,
+                    sortOrder: 3
+                )
+            )
+        case .intervention:
+            context.insert(
+                Intervention(
+                    timestamp: exportDate.addingTimeInterval(-300),
+                    acceptance: .notApplicable,
+                    costAvoidanceCents: 0,
+                    minutesSpent: 4
+                )
+            )
+        case .question:
+            let verifiedOn = exportDate.addingTimeInterval(-86_400)
+            context.insert(
+                DIQuestion(
+                    createdAt: verifiedOn.addingTimeInterval(-3_600),
+                    answeredAt: verifiedOn.addingTimeInterval(-900),
+                    questionText: "Existing de-identified question",
+                    background: "Existing professional context",
+                    answerText: "Existing answer",
+                    searchStrategy: "Existing source sequence",
+                    requestorRole: .nurse,
+                    questionClass: .administration,
+                    urgency: .sameDay,
+                    verifiedOn: verifiedOn,
+                    reviewAfter: exportDate,
+                    didFollowUp: true,
+                    tags: ["existing"],
+                    verificationHistory: [verifiedOn]
+                )
+            )
+        case .citation:
+            context.insert(
+                Citation(
+                    tier: .guideline,
+                    title: "Existing source",
+                    locator: "Section 1",
+                    accessedDate: exportDate.addingTimeInterval(-600),
+                    urlString: "local-reference-id"
+                )
+            )
+        case .appConfig:
+            _ = try AppConfigService.insertForRestore(
+                stalenessIntervalMonths: 9,
+                lastExportAt: exportDate.addingTimeInterval(-60),
+                into: context
+            )
+        }
     }
 
     private func insertCompleteFixture(
