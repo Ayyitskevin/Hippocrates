@@ -13,6 +13,26 @@ enum AppConfigServiceError: Error, Equatable {
 /// `AppConfig` and hoping for a uniqueness failure.
 @MainActor
 enum AppConfigService {
+    /// A compiler-enforced capability for the model's construction and mutation
+    /// seams in safe Swift. The type is visible to SchemaV1, but only this file
+    /// can create an instance and only this service retains one.
+    final class Authority: Sendable {
+        fileprivate static let canonical = Authority()
+
+        fileprivate init() {}
+    }
+
+    private static let authority = Authority.canonical
+
+    /// Validates identity as well as static type so a distinct `Authority`
+    /// instance cannot satisfy the capability seam.
+    nonisolated static func requireAuthority(_ candidate: Authority) {
+        precondition(
+            candidate === Authority.canonical,
+            "Only AppConfigService may construct or mutate AppConfig"
+        )
+    }
+
     static func existing(in context: ModelContext) throws -> AppConfig? {
         let configurations = try context.fetch(FetchDescriptor<AppConfig>())
         guard configurations.count <= 1 else {
@@ -34,7 +54,11 @@ enum AppConfigService {
             throw AppConfigServiceError.creationRequiresCleanContext
         }
 
-        let configuration = AppConfig()
+        let configuration = AppConfig(
+            stalenessIntervalMonths: nil,
+            lastExportAt: nil,
+            authority: authority
+        )
         context.insert(configuration)
         do {
             try context.save()
@@ -62,7 +86,8 @@ enum AppConfigService {
 
         let configuration = AppConfig(
             stalenessIntervalMonths: stalenessIntervalMonths,
-            lastExportAt: lastExportAt
+            lastExportAt: lastExportAt,
+            authority: authority
         )
         context.insert(configuration)
         return configuration
@@ -72,7 +97,10 @@ enum AppConfigService {
         _ stalenessIntervalMonths: Int?,
         on configuration: AppConfig
     ) throws {
-        try configuration.updateStalenessIntervalMonths(stalenessIntervalMonths)
+        try configuration.updateStalenessIntervalMonths(
+            stalenessIntervalMonths,
+            authority: authority
+        )
     }
 
     nonisolated static func validate(stalenessIntervalMonths: Int?) throws {

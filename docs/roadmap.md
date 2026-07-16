@@ -16,6 +16,7 @@ cross a decision or evidence gate.
 | F4 — policy-neutral configuration and backup evolution | Verified | Implementation commit `ade0c7f` passed the Xcode 16.4/iOS 18.5 Release build, analyzer, simulator tests, and boundary probe in [hosted run 29439588632](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29439588632) |
 | F5 — boundary-control hardening | Verified | Implementation series through [`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98) passed its original scanner probes, Release build, analyzer, and simulator tests in [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562) |
 | F5.1 — local-file ingress hardening | Verified | Implementation commit [`901508d`](https://github.com/Ayyitskevin/Hippocrates/commit/901508df17bb1a2577a721785d174c4bed403a56) passed 180 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613) |
+| F6 — configuration ownership enforcement | Awaiting hosted evidence | Checked service-only authority plus 230 isolated checks pin exact model-callable, synthesized-mutation, and model-lifecycle seams while dual probes plant integrated bypasses |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -110,6 +111,44 @@ Exit gate achieved: implementation commit
 passed the exact-head direct/sandboxed diagnostics, Xcode 16.4 Release build,
 static analysis, and iOS 18.5 simulator tests in
 [hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613).
+
+## Foundation hardening — configuration ownership enforcement
+
+A red-team review showed that a spelling-only `AppConfig(` scanner rule could
+not prove service ownership: Swift contextual initialization, aliases,
+metatypes, extensions, and bound method references offer valid alternate forms.
+The boundary now relies on compiler-enforced capability access for safe Swift,
+reference-identity validation for the capability object, and source rejection
+for unsafe memory, restricted SwiftData backing/direct-value mutations, and
+unreviewed model deletion.
+
+Implemented deliverables:
+
+- `AppConfigService` owns the only instance of a final, checked-`Sendable`
+  `Authority` class whose initializer is file-private;
+- both `AppConfig` construction paths and its staleness mutator require that
+  authority, validate its canonical object identity, and remove initializer
+  defaults;
+- exact normalized model/service identities pin the three persisted properties,
+  initializer/mutator bodies and assignment semantics, two service constructions,
+  two inserts, and one service mutation;
+- app and test scans reject explicit authority, constructor, mutation, alias,
+  metatype, shadow, extension, unsafe-memory, opaque-pointer,
+  `PersistentModel.setValue`, and backing-data escape spellings; all model
+  deletion is closed outside one exact pending-delete test fixture;
+- scanner inventory increased from 180 to 230 executable checks;
+- isolated self-tests relocate authority checks, mutate every protected
+  right-hand side, reject literal-smuggled callable decoys and property
+  observers, and exercise direct-value and model-lifecycle bypasses; and
+- both hosted probes weaken the authority initializer and plant direct plus
+  opaque-pointer/contextual construction, generated backing-data copying,
+  direct-value mutation, and unreviewed deletion, then require every diagnostic.
+
+No persisted property, schema version, migration, product default, or UI changed.
+
+Exit gate pending: the implementation commit and its documentation head must
+pass the exact-head direct/sandboxed diagnostics, Xcode 16.4 Release build,
+static analysis, and iOS 18.5 simulator tests before this row becomes Verified.
 
 ## Feature-specific decision gate
 

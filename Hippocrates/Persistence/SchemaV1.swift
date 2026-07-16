@@ -296,9 +296,11 @@ enum SchemaV1: VersionedSchema {
         private(set) var lastExportAt: Date?
 
         init(
-            stalenessIntervalMonths: Int? = nil,
-            lastExportAt: Date? = nil
+            stalenessIntervalMonths: Int?,
+            lastExportAt: Date?,
+            authority: AppConfigService.Authority
         ) {
+            AppConfigService.requireAuthority(authority)
             precondition(
                 stalenessIntervalMonths.map { $0 > 0 } ?? true,
                 "The staleness interval must be positive when configured."
@@ -308,7 +310,11 @@ enum SchemaV1: VersionedSchema {
             self.lastExportAt = lastExportAt
         }
 
-        func updateStalenessIntervalMonths(_ value: Int?) throws {
+        func updateStalenessIntervalMonths(
+            _ value: Int?,
+            authority: AppConfigService.Authority
+        ) throws {
+            AppConfigService.requireAuthority(authority)
             try AppConfigService.validate(stalenessIntervalMonths: value)
             stalenessIntervalMonths = value
         }

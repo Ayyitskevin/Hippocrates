@@ -30,9 +30,9 @@ data model, drug exclusion list, or history from that prototype is carried forwa
   source/resource phases, and fails on duplicate or escaped paths, networking
   APIs, network-opening UI, unreviewed imports, Foundation URL loading,
   file-picker/document-browser and external drop/paste/item-provider surfaces,
-  security-scoped or reviewed path-content access, iCloud surfaces, compiler
-  injection, linked frameworks, external
-  address literals, altered build configurations or schemes,
+  security-scoped or reviewed path-content access, AppConfig ownership or
+  unreviewed model-deletion drift, iCloud surfaces, compiler injection, linked
+  frameworks, external address literals, altered build configurations or schemes,
   project-bundle symlinks, physical-file aliases, or package dependencies.
 
 Hippocrates contains no networking code and declares "Data Not Collected." Data
@@ -55,8 +55,9 @@ The pre-release foundation now contains:
 1. one iOS 18 Xcode project with an app target and test target;
 2. `SchemaV1`, `HippocratesMigrationPlan`, and explicit local-only
    `ModelContainer` wiring from commit one;
-3. one main-actor `AppConfigService` that creates a policy-neutral singleton
-   only from a clean context;
+3. one main-actor `AppConfigService` whose file-private authority owns
+   configuration construction and mutation, while unreviewed model deletion is
+   source-forbidden and normal creation is allowed only from a clean context;
 4. one type-owned cost-default source, with unknown cost kept distinct from an
    explicit zero-dollar value;
 5. backup format v2, explicit value-space migration from format v1, and validated
@@ -64,10 +65,11 @@ The pre-release foundation now contains:
 6. lossless in-memory tests for every model and relationship, plus file-backed
    close/reopen coverage for the core store, relationship, and configuration
    seams; and
-7. a fail-closed PBX/configuration/scheme parser plus 180 executable checks and
+7. a fail-closed PBX/configuration/scheme parser plus 230 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,
-   target-dependency, local-store, and persisted-schema drift.
+   target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
+   and persisted-schema drift.
 
 This hardens persistence without inventing product policy. Taxonomy editors,
 capture, summary, DI, and restore UI remain gated by the affected product and
@@ -89,7 +91,8 @@ xcodebuild test \
 The GitHub workflow runs the source boundary directly before Xcode mutates its
 project bundle, producing recursive orphan and shadow-scheme diagnostics. It
 plants network, inferred file-ingress, external-drop, path/stream-loader,
-security-scoped, source, resource, test-loader, and configuration violations,
+security-scoped, AppConfig-ownership/lifecycle, source, resource, test-loader,
+and configuration violations,
 then proves the sandboxed Xcode phase
 rejects every declared-input class without traversing Xcode's generated
 `project.xcworkspace`, before running the Xcode 16.4 Release build, static

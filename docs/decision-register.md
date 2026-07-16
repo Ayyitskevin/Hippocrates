@@ -20,7 +20,7 @@ requirements.
 | A-009 | TestFlight/App Store submission is a human action | Autonomous development does not imply autonomous distribution |
 | A-010 | CSV output follows RFC 4180 and neutralizes spreadsheet formula cells | Manager exports remain portable without letting editable labels become executable spreadsheet input |
 | A-011 | iOS backup-state messaging is explicitly best-effort | No public API reliably proves device/iCloud backup state, so the app never claims it verified enabled/disabled status |
-| A-012 | `AppConfigService` is the only configuration-row owner | Main-actor fetch-or-create requires a clean context; restore inserts without saving inside its own transaction |
+| A-012 | `AppConfigService` is the only configuration-row owner | Its file-private authority is identity-checked by every model initializer and mutator; exact model initializer/mutator bodies and reviewed service seams are pinned, while direct SwiftData value/backing mutation and unreviewed model deletion are source-forbidden; main-actor fetch-or-create requires a clean context, while restore inserts without saving inside its own transaction |
 | A-013 | Type-owned defaults and optional intervention snapshots are the only cost representation | Unknown/unassigned remains `nil`, explicit zero remains zero, and no app-wide duplicate map exists |
 | A-014 | Backup format dispatch and migration happen in value space | Format v2 is current; the immutable development-format v1 decoder migrates before validation or store mutation and rejects conflicts |
 
@@ -29,7 +29,7 @@ requirements.
 | ID | Resolution |
 |---|---|
 | I-001 | `InterventionType.defaultCostAvoidanceCents` is the single configurable source; each intervention stores an optional historical snapshot |
-| I-002 | One main-actor `AppConfigService` owns lookup, clean-context creation, validation, and transactional restore insertion |
+| I-002 | One main-actor `AppConfigService` owns lookup, clean-context creation, validation, transactional restore insertion, and the canonical identity-checked authority required for model construction and mutation; unreviewed model deletion remains closed at the source boundary |
 | I-006 | Decode each supported backup version explicitly and migrate value DTOs before store mutation |
 
 ## Pending product decisions — required before affected features

@@ -60,6 +60,28 @@ ad hoc. Normal creation requires a clean `ModelContext`, saves only its own
 insert, and rolls back that insert on failure. Restore uses a separate no-save
 entry point inside its already-validated transaction.
 
+`AppConfigService` retains the only instance of a nested `Authority` class whose
+initializer is file-private. Every `AppConfig` initializer and its staleness
+mutator requires that authority, has no defaulted argument, and checks reference
+identity against the canonical instance. Consequently safe contextual
+initialization, aliases, metatypes, extensions, and bound mutators outside the
+service cannot create or mutate a configuration row. A distinct `Authority`
+instance fails the identity check; unsafe-memory spellings are independently
+source-forbidden rather than treated as supported runtime behavior.
+
+All model-deletion spellings are closed outside one exact pending-delete test
+fixture. Any future shipping deletion path requires a reviewed, service-specific
+exception, so configuration cannot be deleted ad hoc.
+
+SwiftData also synthesizes restricted backing-data construction and mutation
+seams that do not call the handwritten initializer. The scanner therefore pins
+the exact AppConfig initializer/mutator bodies and assignment semantics plus the
+reviewed service authority, construction, insert, and mutation seams; it rejects
+explicit authority, constructor, mutation, alias, metatype, shadow, extension,
+unsafe-memory, direct `PersistentModel.setValue`, and backing-data spellings
+across both app and test sources. This is an access-control change only: no
+persisted property, schema version, migration, or product default changed.
+
 `AppConfig.stalenessIntervalMonths` is optional: `nil` is the durable safe
 state while P-005 is unanswered. A positive value must be explicitly supplied;
 the persistence layer contains no six- or twelve-month default.
@@ -278,17 +300,18 @@ store, schema, interpolation, URL, citation, typealias, or extension exception.
 Shipping imports are allowlisted to the five frameworks the current foundation
 uses. `SchemaContractTests` may use Foundation `URL` only in three exact
 `storeLocation` declaration/call seams for its file-backed SwiftData fixture;
-`BackupRoundTripTests` contains one reserved `https://example.invalid/`
-citation literal. `PrivacyManifestTests` alone owns one exact bundled-byte read
-through `FileManager.contents(atPath:)`. The scanner rejects Foundation URL
+`BackupRoundTripTests` contains one reserved `https://example.invalid/` citation
+literal and one exact pending-delete fixture. `PrivacyManifestTests` alone owns
+one exact bundled-byte read. The scanner rejects Foundation URL
 tokens; `contentsOf` URL/file initializers; contextual URL initializers;
 URL/path streams; FileHandle,
 FileWrapper, keyed-unarchive, FileManager content/enumeration seams;
 file-picker/document-browser and drop/paste/item-provider surfaces;
 security-scoped/bookmark APIs; coordinated file access; external-opening UI;
+AppConfig authority/construction/mutation drift; unreviewed model deletion;
 transport imports; and external address literals. Low-level socket and
 host-lookup APIs, iCloud/ubiquity surfaces,
-rich-text links, dynamic invocation, conditional compilation, bare
+rich-text links, dynamic invocation and unsafe memory, conditional compilation, bare
 slashes, backticked identifiers, and Unicode escapes are closed source surfaces.
 Executable string interpolation is an exact per-file expression allowlist.
 

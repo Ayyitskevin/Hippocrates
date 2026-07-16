@@ -30,6 +30,7 @@ private enum SourceRuleID: String {
     case managedCloudKit
     case conditionalCompilation
     case dynamicInvocation
+    case modelDeletion
     case implicitResourceLoader
     case richTextLink
     case asyncImage
@@ -380,8 +381,13 @@ private let sourceRules: [SourceRule] = [
     ),
     SourceRule(
         id: .dynamicInvocation,
-        pattern: #"@\s*_[A-Za-z0-9_]+|\b(?:NSExpression|NSPredicate|NSInvocation|NSProxy|NSMethodSignature|NSClassFromString|NSSelectorFromString|Selector|unsafeBitCast|dlopen|dlsym|objc_msgSend|class_getMethodImplementation|method_getImplementation|valueForKey|valueForKeyPath|setValue|setValuesForKeys|mutableArrayValue|mutableSetValue|mutableOrderedSetValue|dictionaryWithValues)\b|\.\s*(?:perform|method)\s*\(|\.\s*(?:value|mutableArrayValue|mutableSetValue|mutableOrderedSetValue|dictionaryWithValues)\s*\(\s*(?:forKey|forKeyPath|forKeys)\s*:"#,
-        message: "Dynamic invocation and runtime symbol lookup are forbidden inside the reviewed source boundary"
+        pattern: #"@\s*_[A-Za-z0-9_]+|\b(?:NSExpression|NSPredicate|NSInvocation|NSProxy|NSMethodSignature|NSClassFromString|NSSelectorFromString|Selector|Unmanaged|Unsafe[A-Za-z0-9_]*|unsafe[A-Z][A-Za-z0-9_]*|withUnsafe(?!(?:Continuation|ThrowingContinuation|CurrentTask)\b)[A-Za-z0-9_]*|withContiguousStorageIfAvailable|copyBytes|withVaList|CFBridgingRetain|CFBridgingRelease|dlopen|dlsym|objc_msgSend|class_createInstance|objc_allocateClassPair|object_getClass|class_getMethodImplementation|method_getImplementation|valueForKey|valueForKeyPath|setValue|setValuesForKeys|mutableArrayValue|mutableSetValue|mutableOrderedSetValue|dictionaryWithValues)\b|\.\s*(?:fromOpaque|toOpaque|assumingMemoryBound|bindMemory|withMemoryRebound|load|loadUnaligned|storeBytes|copyMemory|perform|method)\s*\(|\.\s*(?:value|mutableArrayValue|mutableSetValue|mutableOrderedSetValue|dictionaryWithValues)\s*\(\s*(?:forKey|forKeyPath|forKeys)\s*:"#,
+        message: "Dynamic invocation, unsafe memory, and runtime symbol lookup are forbidden inside the reviewed source boundary"
+    ),
+    SourceRule(
+        id: .modelDeletion,
+        pattern: #"\.\s*delete\b"#,
+        message: "Model deletion requires an explicitly reviewed lifecycle service"
     ),
     SourceRule(
         id: .implicitResourceLoader,
@@ -579,6 +585,7 @@ private enum ReviewedSourceIdentity: String {
     case hippocratesApp = "Hippocrates/App/HippocratesApp.swift"
     case domainEnums = "Hippocrates/Models/DomainEnums.swift"
     case schemaV1 = "Hippocrates/Persistence/SchemaV1.swift"
+    case appConfigService = "Hippocrates/Persistence/AppConfigService.swift"
     case hippocratesStore = "Hippocrates/Persistence/HippocratesStore.swift"
     case backupArchive = "Hippocrates/Backup/BackupArchive.swift"
     case backupService = "Hippocrates/Backup/BackupService.swift"
@@ -641,6 +648,11 @@ private func testFindings(
         maskExactlyOnce(
             citationSeam,
             with: #"            urlString: "reviewed-citation.invalid""#
+        )
+        let pendingDeleteSeam = "        destination.mainContext.delete(existing)"
+        maskExactlyOnce(
+            pendingDeleteSeam,
+            with: "        reviewedPendingDelete(existing)"
         )
     } else if identity == .privacyManifestTests {
         let manifestReadSeam =
@@ -903,6 +915,419 @@ private func architectureSemanticFindings(
         )
     }
     return results
+}
+
+private func appConfigOwnershipFindings(
+    in source: String,
+    path: String,
+    identity: ReviewedSourceIdentity
+) throws -> [Finding] {
+    let visibleSource = sourceForStructure(source)
+
+    func count(_ pattern: String, in text: String = visibleSource) throws -> Int {
+        let expression = try NSRegularExpression(pattern: pattern)
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return expression.matches(in: text, range: range).count
+    }
+
+    func hasExactlyOnce(_ pattern: String, in text: String = visibleSource) throws -> Bool {
+        try count(pattern, in: text) == 1
+    }
+
+    func matchesEntire(_ pattern: String, in text: String) throws -> Bool {
+        let expression = try NSRegularExpression(pattern: pattern)
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let matches = expression.matches(in: text, range: range)
+        guard matches.count == 1 else {
+            return false
+        }
+        return matches[0].range.location == range.location
+            && matches[0].range.length == range.length
+    }
+
+    let appConfigModelDeclaration = #"@Model\s+final\s+class\s+AppConfig\b"#
+    let serviceDeclaration = #"@MainActor\s+enum\s+AppConfigService\b"#
+    let appConfigExtension = #"\bextension\s+(?:SchemaV1\s*\.\s*)?AppConfig\b"#
+
+    if identity == .schemaV1 {
+        let declarationExpression = try NSRegularExpression(
+            pattern: appConfigModelDeclaration
+        )
+        let sourceRange = NSRange(
+            visibleSource.startIndex..<visibleSource.endIndex,
+            in: visibleSource
+        )
+        let declarations = declarationExpression.matches(
+            in: visibleSource,
+            range: sourceRange
+        )
+        guard declarations.count == 1,
+              let declarationRange = Range(declarations[0].range, in: visibleSource),
+              let openingBrace = visibleSource[declarationRange.upperBound...].firstIndex(of: "{")
+        else {
+            return [
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "Canonical AppConfig model authority contract changed"
+                )
+            ]
+        }
+
+        var depth = 0
+        var cursor = openingBrace
+        var closingBrace: String.Index?
+        while cursor < visibleSource.endIndex {
+            let character = visibleSource[cursor]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    closingBrace = cursor
+                    break
+                }
+            }
+            cursor = visibleSource.index(after: cursor)
+        }
+        guard let closingBrace else {
+            return [
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "Canonical AppConfig model authority contract changed"
+                )
+            ]
+        }
+
+        let body = String(visibleSource[openingBrace...closingBrace])
+        let literalSource = sourceWithoutComments(source)
+        let openingOffset = visibleSource.distance(
+            from: visibleSource.startIndex,
+            to: openingBrace
+        )
+        let closingOffset = visibleSource.distance(
+            from: visibleSource.startIndex,
+            to: closingBrace
+        )
+        guard literalSource.count == visibleSource.count,
+              let literalOpeningBrace = literalSource.index(
+                  literalSource.startIndex,
+                  offsetBy: openingOffset,
+                  limitedBy: literalSource.endIndex
+              ),
+              let literalClosingBrace = literalSource.index(
+                  literalSource.startIndex,
+                  offsetBy: closingOffset,
+                  limitedBy: literalSource.endIndex
+              )
+        else {
+            return [
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "Canonical AppConfig model authority contract changed"
+                )
+            ]
+        }
+        let literalBody = String(literalSource[literalOpeningBrace...literalClosingBrace])
+        let bodyCharacters = Array(body)
+        var topLevelCharacters = bodyCharacters
+        var immediateChildOpeningOffsets: [Int] = []
+        var bodyDepth = 0
+        for index in bodyCharacters.indices {
+            let character = bodyCharacters[index]
+            if character == "{" {
+                if bodyDepth == 1 {
+                    immediateChildOpeningOffsets.append(index)
+                }
+                bodyDepth += 1
+                topLevelCharacters[index] = " "
+            } else if character == "}" {
+                topLevelCharacters[index] = " "
+                bodyDepth -= 1
+            } else if bodyDepth != 1 && character != "\n" {
+                topLevelCharacters[index] = " "
+            }
+        }
+        let topLevelBody = String(topLevelCharacters)
+
+        func callableSpan(
+            matching signaturePattern: String
+        ) throws -> (literal: String, openingOffset: Int)? {
+            guard literalBody.count == body.count else {
+                return nil
+            }
+            let expression = try NSRegularExpression(pattern: signaturePattern)
+            let fullRange = NSRange(
+                topLevelBody.startIndex..<topLevelBody.endIndex,
+                in: topLevelBody
+            )
+            let matches = expression.matches(in: topLevelBody, range: fullRange)
+            guard matches.count == 1,
+                  let signatureRange = Range(matches[0].range, in: topLevelBody)
+            else {
+                return nil
+            }
+
+            let signatureStartOffset = topLevelBody.distance(
+                from: topLevelBody.startIndex,
+                to: signatureRange.lowerBound
+            )
+            let signatureEndOffset = topLevelBody.distance(
+                from: topLevelBody.startIndex,
+                to: signatureRange.upperBound
+            )
+            guard let bodyAfterSignature = body.index(
+                body.startIndex,
+                offsetBy: signatureEndOffset,
+                limitedBy: body.endIndex
+            ),
+            let callableOpeningBrace = body[bodyAfterSignature...].firstIndex(of: "{"),
+            body[bodyAfterSignature..<callableOpeningBrace].allSatisfy({ $0.isWhitespace })
+            else {
+                return nil
+            }
+
+            var callableDepth = 0
+            var callableCursor = callableOpeningBrace
+            var callableClosingBrace: String.Index?
+            while callableCursor < body.endIndex {
+                let character = body[callableCursor]
+                if character == "{" {
+                    callableDepth += 1
+                } else if character == "}" {
+                    callableDepth -= 1
+                    if callableDepth == 0 {
+                        callableClosingBrace = callableCursor
+                        break
+                    }
+                }
+                callableCursor = body.index(after: callableCursor)
+            }
+            guard let callableClosingBrace else {
+                return nil
+            }
+
+            let callableOpeningOffset = body.distance(
+                from: body.startIndex,
+                to: callableOpeningBrace
+            )
+            let callableClosingOffset = body.distance(
+                from: body.startIndex,
+                to: callableClosingBrace
+            )
+            guard let literalSignatureStart = literalBody.index(
+                literalBody.startIndex,
+                offsetBy: signatureStartOffset,
+                limitedBy: literalBody.endIndex
+            ),
+            let literalCallableEnd = literalBody.index(
+                literalBody.startIndex,
+                offsetBy: callableClosingOffset,
+                limitedBy: literalBody.endIndex
+            )
+            else {
+                return nil
+            }
+            return (
+                String(literalBody[literalSignatureStart...literalCallableEnd]),
+                callableOpeningOffset
+            )
+        }
+
+        let requiredPropertyPatterns = [
+            #"@Attribute\s*\(\s*\.unique\s*\)\s*private\s*\(\s*set\s*\)\s+var\s+singletonKey\s*:\s*String\b"#,
+            #"private\s*\(\s*set\s*\)\s+var\s+stalenessIntervalMonths\s*:\s*Int\?"#,
+            #"private\s*\(\s*set\s*\)\s+var\s+lastExportAt\s*:\s*Date\?"#
+        ]
+        let requiredInitializer = #"(?m)^[ \t]*init\s*\(\s*stalenessIntervalMonths\s*:\s*Int\?\s*,\s*lastExportAt\s*:\s*Date\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)"#
+        let requiredMutator = #"(?m)^[ \t]*func\s+updateStalenessIntervalMonths\s*\(\s*_\s+value\s*:\s*Int\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s+throws\b"#
+        let exactInitializer = #"(?s)[ \t]*init\s*\(\s*stalenessIntervalMonths\s*:\s*Int\?\s*,\s*lastExportAt\s*:\s*Date\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s*\{\s*AppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)\s*precondition\s*\(\s*stalenessIntervalMonths\s*\.\s*map\s*\{\s*\$0\s*>\s*0\s*\}\s*\?\?\s*true\s*,\s*"The staleness interval must be positive when configured\."\s*\)\s*self\s*\.\s*singletonKey\s*=\s*"app"\s*self\s*\.\s*stalenessIntervalMonths\s*=\s*stalenessIntervalMonths\s*self\s*\.\s*lastExportAt\s*=\s*lastExportAt\s*\}"#
+        let exactMutator = #"(?s)[ \t]*func\s+updateStalenessIntervalMonths\s*\(\s*_\s+value\s*:\s*Int\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s+throws\s*\{\s*AppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)\s*try\s+AppConfigService\s*\.\s*validate\s*\(\s*stalenessIntervalMonths\s*:\s*value\s*\)\s*stalenessIntervalMonths\s*=\s*value\s*\}"#
+        let initializerSpan = try callableSpan(matching: requiredInitializer)
+        let mutatorSpan = try callableSpan(matching: requiredMutator)
+        let callableBodiesAreExact: Bool
+        if let initializerSpan, let mutatorSpan {
+            let initializerIsExact = try matchesEntire(
+                exactInitializer,
+                in: initializerSpan.literal
+            )
+            let mutatorIsExact = try matchesEntire(
+                exactMutator,
+                in: mutatorSpan.literal
+            )
+            callableBodiesAreExact = initializerIsExact
+                && mutatorIsExact
+                && immediateChildOpeningOffsets
+                    == [initializerSpan.openingOffset, mutatorSpan.openingOffset].sorted()
+        } else {
+            callableBodiesAreExact = false
+        }
+        let hasRequiredProperties = try requiredPropertyPatterns.allSatisfy {
+            try hasExactlyOnce($0, in: topLevelBody)
+        }
+        let propertySurfaceIsExact = try count(#"\b(?:var|let)\b"#, in: topLevelBody) == 3
+            && hasRequiredProperties
+        let callableSurfaceIsExact = try count(#"\binit\s*\("#, in: topLevelBody) == 1
+            && count(#"\bfunc\b"#, in: topLevelBody) == 1
+            && count(#"\bsubscript\b"#, in: topLevelBody) == 0
+            && count(#"\b(?:static|class)\s+(?:func|var|let|subscript)\b"#, in: topLevelBody) == 0
+            && hasExactlyOnce(requiredInitializer, in: topLevelBody)
+            && hasExactlyOnce(requiredMutator, in: topLevelBody)
+            && callableBodiesAreExact
+        let authorityTypeCount = try count(#"\bAuthority\b"#, in: body)
+        let authorityValueCount = try count(#"\bauthority\b"#, in: body)
+        let mutatorCount = try count(#"\bupdateStalenessIntervalMonths\b"#, in: body)
+        let authorityCheckCount = try count(
+            #"\bAppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)"#,
+            in: body
+        )
+        let validationCount = try count(#"\bAppConfigService\s*\.\s*validate\b"#, in: body)
+        let stalenessAssignmentCount = try count(
+            #"(?:self\s*\.\s*)?stalenessIntervalMonths\s*="#,
+            in: body
+        )
+        let lastExportAssignmentCount = try count(
+            #"self\s*\.\s*lastExportAt\s*="#,
+            in: body
+        )
+        let singletonKeyAssignmentCount = try count(
+            #"self\s*\.\s*singletonKey\s*="#,
+            in: body
+        )
+        let extensionCount = try count(appConfigExtension)
+        let modelBodyIsExact = propertySurfaceIsExact
+            && callableSurfaceIsExact
+            && authorityTypeCount == 2
+            && authorityValueCount == 4
+            && mutatorCount == 1
+            && authorityCheckCount == 2
+            && validationCount == 1
+            && stalenessAssignmentCount == 2
+            && lastExportAssignmentCount == 1
+            && singletonKeyAssignmentCount == 1
+            && extensionCount == 0
+        if modelBodyIsExact == false {
+            return [
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "Canonical AppConfig model authority contract changed"
+                )
+            ]
+        }
+        return []
+    }
+
+    if identity == .appConfigService {
+        let requiredPatterns = [
+            #"@MainActor\s+enum\s+AppConfigService\s*\{"#,
+            #"final\s+class\s+Authority\s*:\s*Sendable\s*\{\s*fileprivate\s+static\s+let\s+canonical\s*=\s*Authority\s*\(\s*\)\s*fileprivate\s+init\s*\(\s*\)\s*\{\s*\}\s*\}"#,
+            #"private\s+static\s+let\s+authority\s*=\s*Authority\s*\.\s*canonical"#,
+            #"nonisolated\s+static\s+func\s+requireAuthority\s*\(\s*_\s+candidate\s*:\s*Authority\s*\)\s*\{\s*precondition\s*\(\s*candidate\s*===\s*Authority\s*\.\s*canonical\s*,\s*\)\s*\}"#,
+            #"AppConfig\s*\(\s*stalenessIntervalMonths\s*:\s*nil\s*,\s*lastExportAt\s*:\s*nil\s*,\s*authority\s*:\s*authority\s*\)"#,
+            #"AppConfig\s*\(\s*stalenessIntervalMonths\s*:\s*stalenessIntervalMonths\s*,\s*lastExportAt\s*:\s*lastExportAt\s*,\s*authority\s*:\s*authority\s*\)"#,
+            #"configuration\s*\.\s*updateStalenessIntervalMonths\s*\(\s*stalenessIntervalMonths\s*,\s*authority\s*:\s*authority\s*\)"#
+        ]
+        let hasRequiredServicePatterns = try requiredPatterns.allSatisfy {
+            try hasExactlyOnce($0)
+        }
+        let serviceIsExact = try count(serviceDeclaration) == 1
+            && count(#"\bAuthority\b"#) == 5
+            && count(#"\bauthority\b"#) == 7
+            && count(#"\brequireAuthority\b"#) == 1
+            && count(#"\bAppConfig\s*(?:\.\s*init\s*)?\("#) == 2
+            && count(#"\bupdateStalenessIntervalMonths\b"#) == 1
+            && count(#"\bcontext\s*\.\s*insert\s*\(\s*configuration\s*\)"#) == 2
+            && hasRequiredServicePatterns
+        if serviceIsExact == false {
+            return [
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "AppConfig authority changed outside the reviewed service seam"
+                )
+            ]
+        }
+        return []
+    }
+
+    var results: [Finding] = []
+    let explicitConstruction = try count(
+        #"\b(?:SchemaV1\s*\.\s*)?AppConfig\s*(?:\.\s*init\s*)?\("#
+    ) > 0
+    let constructorReference = try count(
+        #"\b(?:SchemaV1\s*\.\s*)?AppConfig\s*\.\s*(?:init|self|Type)\b"#
+    ) > 0
+    let appConfigAlias = try count(
+        #"\btypealias\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?:SchemaV1\s*\.\s*)?AppConfig\b"#
+    ) > 0
+    if explicitConstruction || constructorReference || appConfigAlias {
+        results.append(
+            Finding(
+                path: path,
+                line: 1,
+                message: "AppConfig construction is owned exclusively by AppConfigService"
+            )
+        )
+    }
+    if try count(#"\bupdateStalenessIntervalMonths\b"#) > 0 {
+        results.append(
+            Finding(
+                path: path,
+                line: 1,
+                message: "AppConfig staleness mutation is owned exclusively by AppConfigService"
+            )
+        )
+    }
+    if try count(#"\bAppConfigService\s*\.\s*Authority\b"#) > 0 {
+        results.append(
+            Finding(
+                path: path,
+                line: 1,
+                message: "AppConfig authority is reserved to the canonical model and service"
+            )
+        )
+    }
+    let shadowDeclaration = try count(
+        #"\b(?:typealias|class|struct|enum|protocol|actor|macro|func|let|var)\s+(?:\x{60})?(?:SchemaV1|AppConfig|AppConfigService)(?:\x{60})?(?![\p{L}\p{N}_])"#
+    ) > 0
+    let appConfigExtensionCount = try count(appConfigExtension)
+    if shadowDeclaration || appConfigExtensionCount > 0 {
+        results.append(
+            Finding(
+                path: path,
+                line: 1,
+                message: "AppConfig ownership symbols may only be declared by the canonical model and service"
+            )
+        )
+    }
+    return results
+}
+
+private func persistentModelBackingFindings(
+    in source: String,
+    path: String
+) throws -> [Finding] {
+    let visibleSource = sourceForStructure(source)
+    let expression = try NSRegularExpression(
+        pattern: #"\b(?:BackingData|backingData|persistentBackingData|createBackingData|setValue|setTransformableValue)\b"#
+    )
+    let range = NSRange(
+        visibleSource.startIndex..<visibleSource.endIndex,
+        in: visibleSource
+    )
+    guard let match = expression.firstMatch(in: visibleSource, range: range) else {
+        return []
+    }
+    return [
+        Finding(
+            path: path,
+            line: lineNumber(in: visibleSource, at: match.range.location),
+            message: "SwiftData backing-data APIs bypass reviewed model initialization"
+        )
+    ]
 }
 
 private func interventionArchitectureFindings(in source: String, path: String) throws -> [Finding] {
@@ -3290,6 +3715,8 @@ private func repositoryFindings(
         results.append(contentsOf: try findings(in: source, path: file.path))
         results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try architectureSemanticFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: try appConfigOwnershipFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: try persistentModelBackingFindings(in: source, path: file.path))
         results.append(
             contentsOf: try importFindings(
                 in: source,
@@ -3324,6 +3751,8 @@ private func repositoryFindings(
         results.append(contentsOf: try testFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try testPersistenceBoundaryFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: try appConfigOwnershipFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: try persistentModelBackingFindings(in: source, path: file.path))
         results.append(
             contentsOf: try importFindings(
                 in: source,
@@ -3594,6 +4023,8 @@ private func runSelfTests() throws {
         Case(name: "CFURL constructor", source: "let value = CFURLCreateWithString(nil, text, nil)", expectedFindingCount: 1),
         Case(name: "managed CloudKit disabled", source: "cloudKitDatabase: \n    .none", expectedFindingCount: 0),
         Case(name: "managed CloudKit enabled", source: "cloudKitDatabase: .automatic", expectedFindingCount: 1),
+        Case(name: "model deletion call", source: "context.delete(configuration)", expectedFindingCount: 1),
+        Case(name: "model deletion method reference", source: "let remove = context.delete", expectedFindingCount: 1),
         Case(name: "bare regex literal", source: "let regex = /harmless/", expectedFindingCount: 1),
         Case(name: "low-level socket alias", source: "let makeSocket = socket", expectedFindingCount: 1),
         Case(name: "host resolver alias", source: "let resolver = gethostbyaddr", expectedFindingCount: 1),
@@ -3617,6 +4048,17 @@ private func runSelfTests() throws {
             source: #"let selector = "start" + "DownloadingUbiquitousItemAtURL:"; NSExpression(forFunction: target, selectorName: selector, arguments: [])"#,
             expectedFindingCount: 1
         ),
+        Case(name: "unmanaged reference", source: "let reference: Unmanaged<Decoy>", expectedFindingCount: 1),
+        Case(name: "opaque reference recovery", source: "let value = box.fromOpaque(pointer)", expectedFindingCount: 1),
+        Case(name: "unsafe downcast", source: "let value = unsafeDowncast(object, to: Target.self)", expectedFindingCount: 1),
+        Case(name: "unsafe raw pointer", source: "let pointer: UnsafeRawPointer", expectedFindingCount: 1),
+        Case(name: "unsafe byte access", source: "withUnsafeBytes(of: value) { bytes in consume(bytes) }", expectedFindingCount: 1),
+        Case(name: "unsafe memory rebinding", source: "pointer.withMemoryRebound(to: Target.self, capacity: 1) { consume($0) }", expectedFindingCount: 1),
+        Case(name: "unsafe raw buffer", source: "let bytes: UnsafeRawBufferPointer", expectedFindingCount: 1),
+        Case(name: "unsafe uninitialized capacity", source: "Array(unsafeUninitializedCapacity: 1) { _, count in count = 0 }", expectedFindingCount: 1),
+        Case(name: "contiguous storage access", source: "values.withContiguousStorageIfAvailable { consume($0) }", expectedFindingCount: 1),
+        Case(name: "raw byte copy", source: "source.copyBytes(to: destination)", expectedFindingCount: 1),
+        Case(name: "unsafe continuation is not memory access", source: "withUnsafeContinuation { continuation in continuation.resume() }", expectedFindingCount: 0),
         Case(name: "dynamic predicate", source: "let filter: NSPredicate", expectedFindingCount: 1),
         Case(name: "KVC lookup", source: "let result = object.value(forKey: key)", expectedFindingCount: 1),
         Case(name: "Unicode escape", source: #"let marker = "\u{5B}""#, expectedFindingCount: 1),
@@ -3654,6 +4096,7 @@ private func runSelfTests() throws {
         .hippocratesApp,
         .domainEnums,
         .schemaV1,
+        .appConfigService,
         .hippocratesStore,
         .backupArchive,
         .backupService,
@@ -3677,6 +4120,460 @@ private func runSelfTests() throws {
             return reviewedSourceIdentity(for: file, repositoryRoot: identityFixtureRoot) == .other
         },
         "A nested suffix-collision source inherited a canonical identity"
+    )
+
+    let compliantAppConfigModel = """
+    @Model
+    final class AppConfig {
+        @Attribute(.unique) private(set) var singletonKey: String
+        private(set) var stalenessIntervalMonths: Int?
+        private(set) var lastExportAt: Date?
+
+        init(
+            stalenessIntervalMonths: Int?,
+            lastExportAt: Date?,
+            authority: AppConfigService.Authority
+        ) {
+            AppConfigService.requireAuthority(authority)
+            precondition(
+                stalenessIntervalMonths.map { $0 > 0 } ?? true,
+                "The staleness interval must be positive when configured."
+            )
+            self.singletonKey = "app"
+            self.stalenessIntervalMonths = stalenessIntervalMonths
+            self.lastExportAt = lastExportAt
+        }
+
+        func updateStalenessIntervalMonths(
+            _ value: Int?,
+            authority: AppConfigService.Authority
+        ) throws {
+            AppConfigService.requireAuthority(authority)
+            try AppConfigService.validate(stalenessIntervalMonths: value)
+            stalenessIntervalMonths = value
+        }
+    }
+    """
+    try check(
+        try appConfigOwnershipFindings(
+            in: compliantAppConfigModel,
+            path: "canonical AppConfig model",
+            identity: .schemaV1
+        ).isEmpty,
+        "The canonical AppConfig model authority contract was rejected"
+    )
+    let defaultedAppConfigInitializer = compliantAppConfigModel.replacingOccurrences(
+        of: "stalenessIntervalMonths: Int?,",
+        with: "stalenessIntervalMonths: Int? = nil,"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: defaultedAppConfigInitializer,
+            path: "defaulted AppConfig initializer",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "A defaulted AppConfig initializer escaped the authority contract"
+    )
+    let extraAppConfigInitializer = compliantAppConfigModel.replacingOccurrences(
+        of: "    func updateStalenessIntervalMonths(",
+        with: "    init(authority: AppConfigService.Authority) { fatalError() }\n\n    func updateStalenessIntervalMonths("
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: extraAppConfigInitializer,
+            path: "extra AppConfig initializer",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "An extra AppConfig initializer escaped the authority contract"
+    )
+    let unguardedAppConfigMutator = compliantAppConfigModel.replacingOccurrences(
+        of: "        _ value: Int?,\n        authority: AppConfigService.Authority",
+        with: "        _ value: Int?"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: unguardedAppConfigMutator,
+            path: "unguarded AppConfig mutator",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "An AppConfig mutator without authority escaped the model contract"
+    )
+    let uncheckedAppConfigAuthority = compliantAppConfigModel.replacingOccurrences(
+        of: "AppConfigService.requireAuthority(authority)\n",
+        with: ""
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: uncheckedAppConfigAuthority,
+            path: "unchecked AppConfig authority",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "An AppConfig capability without identity checks escaped the model contract"
+    )
+    let relocatedAuthorityChecks = compliantAppConfigModel
+        .replacingOccurrences(
+            of: "        self.singletonKey = \"app\"",
+            with: "        AppConfigService.requireAuthority(authority)\n        self.singletonKey = \"app\""
+        )
+        .replacingOccurrences(
+            of: "    ) throws {\n        AppConfigService.requireAuthority(authority)\n        try AppConfigService.validate",
+            with: "    ) throws {\n        try AppConfigService.validate"
+        )
+    try check(
+        try appConfigOwnershipFindings(
+            in: relocatedAuthorityChecks,
+            path: "relocated AppConfig authority checks",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "Count-preserving relocation removed the AppConfig mutator's authority check"
+    )
+    let exactAppConfigBodyMutations: [(
+        name: String,
+        original: String,
+        replacement: String
+    )] = [
+        (
+            "singleton assignment",
+            "        self.singletonKey = \"app\"",
+            "        self.singletonKey = \"rogue\""
+        ),
+        (
+            "initializer staleness assignment",
+            "        self.stalenessIntervalMonths = stalenessIntervalMonths",
+            "        self.stalenessIntervalMonths = nil"
+        ),
+        (
+            "initializer export assignment",
+            "        self.lastExportAt = lastExportAt",
+            "        self.lastExportAt = nil"
+        ),
+        (
+            "mutator assignment",
+            "        stalenessIntervalMonths = value",
+            "        stalenessIntervalMonths = nil"
+        ),
+        (
+            "initializer validation predicate",
+            "stalenessIntervalMonths.map { $0 > 0 } ?? true",
+            "stalenessIntervalMonths.map { $0 >= 0 } ?? true"
+        )
+    ]
+    for mutation in exactAppConfigBodyMutations {
+        let mutatedModel = compliantAppConfigModel.replacingOccurrences(
+            of: mutation.original,
+            with: mutation.replacement
+        )
+        try check(
+            try appConfigOwnershipFindings(
+                in: mutatedModel,
+                path: mutation.name,
+                identity: .schemaV1
+            ).isEmpty == false,
+            "A changed AppConfig \(mutation.name) escaped the exact model contract"
+        )
+    }
+    let canonicalInitializerText = """
+    init(
+        stalenessIntervalMonths: Int?,
+        lastExportAt: Date?,
+        authority: AppConfigService.Authority
+    ) {
+        AppConfigService.requireAuthority(authority)
+        precondition(
+            stalenessIntervalMonths.map { $0 > 0 } ?? true,
+            "The staleness interval must be positive when configured."
+        )
+        self.singletonKey = "app"
+        self.stalenessIntervalMonths = stalenessIntervalMonths
+        self.lastExportAt = lastExportAt
+    }
+    """
+    let smuggledCanonicalInitializer = compliantAppConfigModel.replacingOccurrences(
+        of: "        self.singletonKey = \"app\"",
+        with:
+            "        self.singletonKey = \"rogue\"\n" +
+            "        _ = #\"\"\"\n" +
+            canonicalInitializerText +
+            "\n        \"\"\"#"
+    )
+    guard smuggledCanonicalInitializer != compliantAppConfigModel else {
+        throw NSError(
+            domain: "NetworkBoundaryScannerTests",
+            code: 13,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "The initializer-smuggling fixture did not change the canonical model"
+            ]
+        )
+    }
+    try check(
+        try appConfigOwnershipFindings(
+            in: smuggledCanonicalInitializer,
+            path: "literal-smuggled AppConfig initializer",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "Canonical initializer text inside an inert literal hid executable body drift"
+    )
+    let observedAppConfigProperty = compliantAppConfigModel.replacingOccurrences(
+        of: "    private(set) var stalenessIntervalMonths: Int?",
+        with: """
+            private(set) var stalenessIntervalMonths: Int? {
+                didSet {
+                    fatalError("unreviewed observer")
+                }
+            }
+            """
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: observedAppConfigProperty,
+            path: "observed AppConfig property",
+            identity: .schemaV1
+        ).isEmpty == false,
+        "An AppConfig property observer escaped the exact model contract"
+    )
+
+    let compliantAppConfigService = """
+    @MainActor
+    enum AppConfigService {
+        final class Authority: Sendable {
+            fileprivate static let canonical = Authority()
+
+            fileprivate init() {}
+        }
+
+        private static let authority = Authority.canonical
+
+        nonisolated static func requireAuthority(_ candidate: Authority) {
+            precondition(
+                candidate === Authority.canonical,
+                "Only AppConfigService may construct or mutate AppConfig"
+            )
+        }
+
+        static func create(in context: ModelContext) -> AppConfig {
+            let configuration = AppConfig(
+                stalenessIntervalMonths: nil,
+                lastExportAt: nil,
+                authority: authority
+            )
+            context.insert(configuration)
+            return configuration
+        }
+
+        static func restore(
+            stalenessIntervalMonths: Int?,
+            lastExportAt: Date?,
+            into context: ModelContext
+        ) -> AppConfig {
+            let configuration = AppConfig(
+                stalenessIntervalMonths: stalenessIntervalMonths,
+                lastExportAt: lastExportAt,
+                authority: authority
+            )
+            context.insert(configuration)
+            return configuration
+        }
+
+        static func mutate(
+            _ stalenessIntervalMonths: Int?,
+            on configuration: AppConfig
+        ) throws {
+            try configuration.updateStalenessIntervalMonths(
+                stalenessIntervalMonths,
+                authority: authority
+            )
+        }
+    }
+    """
+    try check(
+        try appConfigOwnershipFindings(
+            in: compliantAppConfigService,
+            path: "canonical AppConfig service",
+            identity: .appConfigService
+        ).isEmpty,
+        "The canonical AppConfig service authority contract was rejected"
+    )
+    let forgeableAuthority = compliantAppConfigService.replacingOccurrences(
+        of: "fileprivate init()",
+        with: "init()"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: forgeableAuthority,
+            path: "forgeable AppConfig authority",
+            identity: .appConfigService
+        ).isEmpty == false,
+        "A forgeable AppConfig authority escaped the service contract"
+    )
+    let leakedAuthority = compliantAppConfigService.replacingOccurrences(
+        of: "    private static let authority = Authority.canonical",
+        with: "    private static let authority = Authority.canonical\n    static var leaked: Any { authority }"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: leakedAuthority,
+            path: "leaked AppConfig authority",
+            identity: .appConfigService
+        ).isEmpty == false,
+        "An AppConfig authority leak escaped the service contract"
+    )
+    let uncheckedServiceAuthority = compliantAppConfigService.replacingOccurrences(
+        of: "candidate === Authority.canonical",
+        with: "true"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: uncheckedServiceAuthority,
+            path: "unchecked service authority",
+            identity: .appConfigService
+        ).isEmpty == false,
+        "A service capability without identity validation escaped the contract"
+    )
+    let extraServiceConstruction = compliantAppConfigService.replacingOccurrences(
+        of: "        context.insert(configuration)\n        return configuration",
+        with: "        context.insert(configuration)\n        _ = AppConfig(stalenessIntervalMonths: nil, lastExportAt: nil, authority: authority)\n        return configuration"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: extraServiceConstruction,
+            path: "extra service construction",
+            identity: .appConfigService
+        ).isEmpty == false,
+        "An extra AppConfig construction escaped the service contract"
+    )
+
+    let ownershipUsageCases: [(name: String, source: String, message: String)] = [
+        (
+            "direct AppConfig construction",
+            "let value = AppConfig(stalenessIntervalMonths: nil, lastExportAt: nil, authority: token)",
+            "AppConfig construction is owned exclusively by AppConfigService"
+        ),
+        (
+            "qualified AppConfig initializer reference",
+            "let constructor = SchemaV1.AppConfig.init",
+            "AppConfig construction is owned exclusively by AppConfigService"
+        ),
+        (
+            "AppConfig metatype escape",
+            "let modelType = AppConfig.self",
+            "AppConfig construction is owned exclusively by AppConfigService"
+        ),
+        (
+            "AppConfig typealias escape",
+            "typealias Configuration = SchemaV1.AppConfig",
+            "AppConfig construction is owned exclusively by AppConfigService"
+        ),
+        (
+            "AppConfig authority use",
+            "let token: AppConfigService.Authority",
+            "AppConfig authority is reserved to the canonical model and service"
+        ),
+        (
+            "bound AppConfig mutator",
+            "let mutate = configuration.updateStalenessIntervalMonths",
+            "AppConfig staleness mutation is owned exclusively by AppConfigService"
+        ),
+        (
+            "AppConfig shadow declaration",
+            "struct AppConfig {}",
+            "AppConfig ownership symbols may only be declared by the canonical model and service"
+        ),
+        (
+            "AppConfig extension factory",
+            "extension SchemaV1.AppConfig { static func rogue() -> Self { fatalError() } }",
+            "AppConfig ownership symbols may only be declared by the canonical model and service"
+        )
+    ]
+    for usageCase in ownershipUsageCases {
+        try check(
+            try appConfigOwnershipFindings(
+                in: usageCase.source,
+                path: usageCase.name,
+                identity: .other
+            ).contains(where: { $0.message == usageCase.message }),
+            "\(usageCase.name) escaped the AppConfig ownership boundary"
+        )
+    }
+    let persistentBackingCases: [(name: String, source: String)] = [
+        ("SwiftData backing protocol", "let storage: BackingData<Model>"),
+        ("SwiftData backing initializer", ".init(backingData: storage)"),
+        ("SwiftData persistent backing copy", "let storage = model.persistentBackingData"),
+        ("SwiftData backing factory", "let make = AppConfig.createBackingData"),
+        ("SwiftData direct value mutation", "model.setValue(forKey: key, to: value)"),
+        ("SwiftData transformable mutation", "model.setTransformableValue(forKey: key, to: value)")
+    ]
+    for backingCase in persistentBackingCases {
+        try check(
+            try persistentModelBackingFindings(
+                in: backingCase.source,
+                path: backingCase.name
+            ).count == 1,
+            "\(backingCase.name) escaped the restricted SwiftData backing boundary"
+        )
+    }
+    let opaqueAuthorityFabrication = """
+    final class Decoy {}
+
+    func fabricate<T: AnyObject>(_ object: AnyObject) -> T {
+        Unmanaged<T>
+            .fromOpaque(Unmanaged.passUnretained(object).toOpaque())
+            .takeUnretainedValue()
+    }
+
+    func rogue() -> AppConfig {
+        .init(
+            stalenessIntervalMonths: 6,
+            lastExportAt: nil,
+            authority: fabricate(Decoy())
+        )
+    }
+    """
+    try check(
+        try findings(
+            in: opaqueAuthorityFabrication,
+            path: "opaque AppConfig authority fabrication"
+        ).contains(where: { $0.sourceRuleID == .dynamicInvocation }),
+        "Unsafe opaque-pointer fabrication escaped the AppConfig authority boundary"
+    )
+    let inertOwnershipSource = #"""
+    // AppConfig() Authority updateStalenessIntervalMonths backingData
+    let note = "SchemaV1.AppConfig.init persistentBackingData"
+    """#
+    let inertAppConfigFindings = try appConfigOwnershipFindings(
+        in: inertOwnershipSource,
+        path: "inert ownership text",
+        identity: .other
+    )
+    let inertBackingFindings = try persistentModelBackingFindings(
+        in: inertOwnershipSource,
+        path: "inert backing text"
+    )
+    try check(
+        inertAppConfigFindings.isEmpty && inertBackingFindings.isEmpty,
+        "Comments or strings triggered the AppConfig ownership boundary"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: "struct Authority {}; let descriptor = FetchDescriptor<AppConfig>(); let value = try AppConfigService.existing(in: context); _ = value?.stalenessIntervalMonths",
+            path: "reviewed AppConfig reads",
+            identity: .other
+        ).isEmpty,
+        "Legitimate AppConfig reads or service use were rejected"
+    )
+    let nestedAppConfigServiceFile = identityFixtureRoot.appendingPathComponent(
+        "Hippocrates/Collision/Hippocrates/Persistence/AppConfigService.swift"
+    )
+    try check(
+        try appConfigOwnershipFindings(
+            in: compliantAppConfigService,
+            path: nestedAppConfigServiceFile.path,
+            identity: reviewedSourceIdentity(
+                for: nestedAppConfigServiceFile,
+                repositoryRoot: identityFixtureRoot
+            )
+        ).isEmpty == false,
+        "A suffix-collision file inherited the AppConfig service authority"
     )
 
     let appInterpolationPath = "/tmp/Hippocrates/App/HippocratesApp.swift"
@@ -3901,6 +4798,8 @@ private func runSelfTests() throws {
         "        to storeLocation: URL,\n" +
         "        at storeLocation: URL,"
     let citationFixture = #"            urlString: "https://example.invalid/source""#
+    let pendingDeleteFixture = "        destination.mainContext.delete(existing)"
+    let backupBoundaryFixture = citationFixture + "\n" + pendingDeleteFixture
     let manifestReadFixture =
         "        let data = try XCTUnwrap(FileManager.default.contents(atPath: manifestPath))"
     try check(
@@ -3908,8 +4807,16 @@ private func runSelfTests() throws {
         "The reviewed local URL value was rejected in SchemaContractTests.swift"
     )
     try check(
-        try testFindings(in: citationFixture, path: "BackupRoundTripTests.swift", identity: .backupRoundTripTests).isEmpty,
+        try testFindings(in: backupBoundaryFixture, path: "BackupRoundTripTests.swift", identity: .backupRoundTripTests).isEmpty,
         "The reserved example.invalid citation was rejected in BackupRoundTripTests.swift"
+    )
+    try check(
+        try testFindings(
+            in: backupBoundaryFixture + "\n" + pendingDeleteFixture,
+            path: "BackupRoundTripTests.swift",
+            identity: .backupRoundTripTests
+        ).contains(where: { $0.sourceRuleID == .modelDeletion }),
+        "A duplicate pending-delete test seam inherited the exact deletion exception"
     )
     try check(
         try testFindings(
@@ -3932,7 +4839,7 @@ private func runSelfTests() throws {
     )
     try check(
         try testFindings(
-            in: citationFixture,
+            in: backupBoundaryFixture,
             path: nestedBackupTestFile.path,
             identity: reviewedSourceIdentity(for: nestedBackupTestFile, repositoryRoot: identityFixtureRoot)
         ).contains(where: { $0.sourceRuleID == .externalAddressLiteral }),
@@ -4499,13 +5406,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 180 else {
+    guard completedChecks == 230 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 180, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 230, completed \(completedChecks)"
             ]
         )
     }
