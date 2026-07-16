@@ -22,6 +22,7 @@ cross a decision or evidence gate.
 | F9 — file-backed restore durability | Verified | Implementation commit [`dfa4593`](https://github.com/Ayyitskevin/Hippocrates/commit/dfa45931d7ff898b9ff90229b0211bc1a5955088) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29517118694](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29517118694) |
 | F10 — duplicate-identifier restore validation | Verified | Implementation commit [`2f48f95`](https://github.com/Ayyitskevin/Hippocrates/commit/2f48f950498776d270cc15f02e5ea93c7adbbf51) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29518121878](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29518121878) |
 | F11 — restore destination isolation | Verified | Implementation commit [`82d08da`](https://github.com/Ayyitskevin/Hippocrates/commit/82d08da4a8bb1f01f30fab7a6dac13084239975a) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29519234311](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29519234311) |
+| F12 — restore save-failure rollback | Awaiting hosted verification | A complete file-backed restore is forced through the save boundary and locally proves rollback leaves memory and disk empty; exact-head Apple-platform execution remains pending |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -292,6 +293,29 @@ Verification: implementation commit [`82d08da`](https://github.com/Ayyitskevin/H
 passed both planted backup-contract probes, all 255 scanner checks, the Xcode 16.4
 Release build, static analysis, and iOS 18.5 simulator tests in
 [hosted run 29519234311](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29519234311).
+
+## Foundation hardening — restore save-failure rollback
+
+`BackupService.restore` rolled its context back after a save error, but no test
+forced a complete archive past validation and insertion into that catch path.
+F12 adds this failure-path evidence without changing restore behavior or exposing
+restore UI.
+
+Implemented deliverables:
+
+- the complete current-format seven-model archive attempts restore into a
+  pre-created file-backed test store with saving disabled;
+- `ModelContext.willSave` observes all seven pending inserts, proving the forced
+  failure occurs at the save boundary; and
+- the thrown storage error leaves the context clean and all seven model counts at
+  zero, while a later writable reopen confirms no durable residue.
+
+No shipping source, persisted field, schema version, migration, backup format,
+product default, UI, network surface, or distribution setting changed.
+
+Local verification: the Swift 6.1 parser accepts the changed sources, repository
+build checks pass, and all 257 scanner self-tests pass. Exact-head Xcode 16.4
+Release build, static analysis, and iOS 18.5 simulator execution remain pending.
 
 ## Feature-specific decision gate
 

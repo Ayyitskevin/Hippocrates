@@ -200,6 +200,121 @@ final class SchemaContractTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let restoreStoreLocation = directory.appendingPathComponent("HippocratesRestore.store")
+        let archive = try makeCompleteBackupRestoreArchive()
+        let archiveCreatedAt = archive.createdAt
+        let citationID = try XCTUnwrap(archive.payload.citations.first?.id)
+        let interventionID = try XCTUnwrap(archive.payload.interventions.first?.id)
+        try BackupService.validate(archive)
+
+        func restoreArchive() throws {
+            let container = try makeFileBackedContainer(at: restoreStoreLocation)
+            let context = container.mainContext
+            try BackupService.restore(archive, into: context)
+            XCTAssertFalse(context.hasChanges)
+        }
+
+        func assertReopenedArchive() throws {
+            let container = try makeFileBackedContainer(at: restoreStoreLocation)
+            let context = container.mainContext
+            XCTAssertFalse(context.hasChanges)
+
+            let reexportedArchive = try BackupService.makeArchive(
+                from: context,
+                createdAt: archiveCreatedAt
+            )
+            XCTAssertEqual(reexportedArchive, archive)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<InterventionType>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrugClass>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<ServiceLine>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<Intervention>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<DIQuestion>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<Citation>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 1)
+
+            let question = try XCTUnwrap(
+                context.fetch(FetchDescriptor<DIQuestion>()).first
+            )
+            XCTAssertEqual(question.citations.count, 1)
+            XCTAssertEqual(question.citations.first?.id, citationID)
+            XCTAssertEqual(question.linkedInterventions.count, 1)
+            XCTAssertEqual(question.linkedInterventions.first?.id, interventionID)
+            let configuration = try XCTUnwrap(
+                context.fetch(FetchDescriptor<AppConfig>()).first
+            )
+            XCTAssertEqual(configuration.singletonKey, "app")
+        }
+
+        try restoreArchive()
+        try assertReopenedArchive()
+    }
+
+    func testCompleteBackupRestoreSaveFailureRollsBackMemoryAndDisk() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HippocratesRestoreRollback", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeLocation = directory.appendingPathComponent("HippocratesRestoreRollback.store")
+        let archive = try makeCompleteBackupRestoreArchive()
+
+        func createEmptyWritableStore() throws {
+            let container = try makeFileBackedContainer(at: storeLocation)
+            XCTAssertTrue(try XCTUnwrap(container.configurations.first).allowsSave)
+            let context = ModelContext(container)
+            XCTAssertFalse(context.autosaveEnabled)
+            try assertEmpty(context)
+        }
+
+        func attemptReadOnlyRestore() throws {
+            let container = try makeFileBackedContainer(
+                at: storeLocation,
+                allowsSave: false
+            )
+            XCTAssertFalse(try XCTUnwrap(container.configurations.first).allowsSave)
+            let context = ModelContext(container)
+            XCTAssertFalse(context.autosaveEnabled)
+
+            let willSave = expectation(
+                forNotification: ModelContext.willSave,
+                object: context
+            ) { notification in
+                guard let savingContext = notification.object as? ModelContext else {
+                    return false
+                }
+                XCTAssertEqual(savingContext.insertedModelsArray.count, 7)
+                return true
+            }
+
+            XCTAssertThrowsError(
+                try BackupService.restore(archive, into: context)
+            ) { error in
+                XCTAssertFalse(error is BackupError)
+                XCTAssertFalse(error is AppConfigServiceError)
+            }
+            wait(for: [willSave], timeout: 1)
+
+            try assertEmpty(context)
+        }
+
+        func assertReopenedWritableStoreIsEmpty() throws {
+            let container = try makeFileBackedContainer(at: storeLocation)
+            XCTAssertTrue(try XCTUnwrap(container.configurations.first).allowsSave)
+            let context = ModelContext(container)
+            XCTAssertFalse(context.autosaveEnabled)
+            try assertEmpty(context)
+        }
+
+        try createEmptyWritableStore()
+        try attemptReadOnlyRestore()
+        try assertReopenedWritableStoreIsEmpty()
+    }
+
+    private func makeCompleteBackupRestoreArchive() throws -> BackupArchive {
         let typeID = try XCTUnwrap(
             UUID(uuidString: "11000000-0000-0000-0000-000000000001")
         )
@@ -227,7 +342,7 @@ final class SchemaContractTests: XCTestCase {
         let interventionTimestamp = Date(timeIntervalSinceReferenceDate: 780_001_800.5)
         let accessedDate = Date(timeIntervalSinceReferenceDate: 780_000_100.875)
         let lastExportAt = Date(timeIntervalSinceReferenceDate: 809_000_000.25)
-        let archive = BackupArchive(
+        return BackupArchive(
             createdAt: archiveCreatedAt,
             payload: .init(
                 interventionTypes: [
@@ -304,57 +419,27 @@ final class SchemaContractTests: XCTestCase {
                 )
             )
         )
-        try BackupService.validate(archive)
-
-        func restoreArchive() throws {
-            let container = try makeFileBackedContainer(at: restoreStoreLocation)
-            let context = container.mainContext
-            try BackupService.restore(archive, into: context)
-            XCTAssertFalse(context.hasChanges)
-        }
-
-        func assertReopenedArchive() throws {
-            let container = try makeFileBackedContainer(at: restoreStoreLocation)
-            let context = container.mainContext
-            XCTAssertFalse(context.hasChanges)
-
-            let reexportedArchive = try BackupService.makeArchive(
-                from: context,
-                createdAt: archiveCreatedAt
-            )
-            XCTAssertEqual(reexportedArchive, archive)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<InterventionType>()), 1)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrugClass>()), 1)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<ServiceLine>()), 1)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<Intervention>()), 1)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<DIQuestion>()), 1)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<Citation>()), 1)
-            XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 1)
-
-            let question = try XCTUnwrap(
-                context.fetch(FetchDescriptor<DIQuestion>()).first
-            )
-            XCTAssertEqual(question.citations.count, 1)
-            XCTAssertEqual(question.citations.first?.id, citationID)
-            XCTAssertEqual(question.linkedInterventions.count, 1)
-            XCTAssertEqual(question.linkedInterventions.first?.id, interventionID)
-            let configuration = try XCTUnwrap(
-                context.fetch(FetchDescriptor<AppConfig>()).first
-            )
-            XCTAssertEqual(configuration.singletonKey, "app")
-        }
-
-        try restoreArchive()
-        try assertReopenedArchive()
     }
 
-    private func makeFileBackedContainer(at storeLocation: URL) throws -> ModelContainer {
+    private func assertEmpty(_ context: ModelContext) throws {
+        XCTAssertFalse(context.hasChanges)
+        XCTAssertTrue(context.insertedModelsArray.isEmpty)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<InterventionType>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrugClass>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ServiceLine>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Intervention>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DIQuestion>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Citation>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 0)
+    }
+
+    private func makeFileBackedContainer(at storeLocation: URL, allowsSave: Bool = true) throws -> ModelContainer {
         let schema = Schema(versionedSchema: SchemaV1.self)
         let configuration = ModelConfiguration(
             "HippocratesPersistenceTest",
             schema: schema,
             url: storeLocation,
-            allowsSave: true,
+            allowsSave: allowsSave,
             cloudKitDatabase: .none
         )
         return try ModelContainer(

@@ -225,6 +225,10 @@ the schema, exporter, archive, and restore path together:
   and reopens the same store before requiring exact re-export, all seven model
   counts, both reconstructed DI inverses, and the canonical configuration
   singleton.
+- The same complete archive is attempted against a pre-created file-backed test
+  store with saving disabled. `ModelContext.willSave` must observe all seven
+  pending inserts, then the storage failure must leave both the context and a
+  later writable reopen empty.
 - A literal development-format-v1 archive populates every historical record
   shape, frozen enum value, forward relationship, and inverse seam. Its expected
   v2 archive is constructed independently before validation, restore, direct
@@ -390,6 +394,8 @@ a HIPAA compliance program. README language must preserve that distinction.
    literal-v1 archive expectations, and direct full-field restore assertions plus
    re-export. File-backed fixtures cover core close/reopen persistence and a
    complete backup restore across container teardown without a caller-side save.
+   The same fixture also forces a save-boundary failure and requires rollback to
+   leave memory and reopened disk empty.
 3. Source/project contract tests cover no free text in `Intervention`, no network
    surface, zero packages, manifest contents, and schema/migration registration.
 4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer

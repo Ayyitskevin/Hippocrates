@@ -633,7 +633,7 @@ private func testFindings(
 
     if identity == .schemaContractTests {
         let localStoreSeams = [
-            "    private func makeFileBackedContainer(at storeLocation: URL) throws -> ModelContainer {",
+            "    private func makeFileBackedContainer(at storeLocation: URL, allowsSave: Bool = true) throws -> ModelContainer {",
             "        to storeLocation: URL,",
             "        at storeLocation: URL,"
         ]
@@ -2452,7 +2452,7 @@ private func testStoreArchitectureFindings(in source: String, path: String) thro
     let visibleSource = sourceWithoutComments(source)
     let sourceRange = NSRange(visibleSource.startIndex..<visibleSource.endIndex, in: visibleSource)
     let canonicalTestStore = try NSRegularExpression(
-        pattern: #"(?s)\bprivate\s+func\s+makeFileBackedContainer\s*\(\s*at\s+storeLocation\s*:\s*URL\s*\)\s*throws\s*->\s*ModelContainer\s*\{\s*let\s+schema\s*=\s*Schema\s*\(\s*versionedSchema\s*:\s*SchemaV1\.self\s*\)\s*let\s+configuration\s*=\s*ModelConfiguration\s*\(\s*"HippocratesPersistenceTest"\s*,\s*schema\s*:\s*schema\s*,\s*url\s*:\s*storeLocation\s*,\s*allowsSave\s*:\s*true\s*,\s*cloudKitDatabase\s*:\s*\.none\s*\)\s*return\s+try\s+ModelContainer\s*\(\s*for\s*:\s*schema\s*,\s*migrationPlan\s*:\s*HippocratesMigrationPlan\.self\s*,\s*configurations\s*:\s*\[\s*configuration\s*\]\s*\)\s*\}"#
+        pattern: #"(?s)\bprivate\s+func\s+makeFileBackedContainer\s*\(\s*at\s+storeLocation\s*:\s*URL\s*,\s*allowsSave\s*:\s*Bool\s*=\s*true\s*\)\s*throws\s*->\s*ModelContainer\s*\{\s*let\s+schema\s*=\s*Schema\s*\(\s*versionedSchema\s*:\s*SchemaV1\.self\s*\)\s*let\s+configuration\s*=\s*ModelConfiguration\s*\(\s*"HippocratesPersistenceTest"\s*,\s*schema\s*:\s*schema\s*,\s*url\s*:\s*storeLocation\s*,\s*allowsSave\s*:\s*allowsSave\s*,\s*cloudKitDatabase\s*:\s*\.none\s*\)\s*return\s+try\s+ModelContainer\s*\(\s*for\s*:\s*schema\s*,\s*migrationPlan\s*:\s*HippocratesMigrationPlan\.self\s*,\s*configurations\s*:\s*\[\s*configuration\s*\]\s*\)\s*\}"#
     )
     let modelConfigurationExpression = try NSRegularExpression(pattern: #"\bModelConfiguration\b"#)
     let modelContainerExpression = try NSRegularExpression(pattern: #"\bModelContainer\b"#)
@@ -5547,13 +5547,13 @@ private func runSelfTests() throws {
     )
 
     let canonicalTestStoreFixture = """
-    private func makeFileBackedContainer(at storeLocation: URL) throws -> ModelContainer {
+    private func makeFileBackedContainer(at storeLocation: URL, allowsSave: Bool = true) throws -> ModelContainer {
         let schema = Schema(versionedSchema: SchemaV1.self)
         let configuration = ModelConfiguration(
             "HippocratesPersistenceTest",
             schema: schema,
             url: storeLocation,
-            allowsSave: true,
+            allowsSave: allowsSave,
             cloudKitDatabase: .none
         )
         return try ModelContainer(
@@ -5579,6 +5579,26 @@ private func runSelfTests() throws {
             path: "/tmp/HippocratesTests/SchemaContractTests.swift"
         ).count == 1,
         "A CloudKit-enabled test store escaped the exact local-only seam"
+    )
+    try check(
+        try testStoreArchitectureFindings(
+            in: canonicalTestStoreFixture.replacingOccurrences(
+                of: "allowsSave: Bool = true",
+                with: "allowsSave: Bool = false"
+            ),
+            path: "/tmp/HippocratesTests/SchemaContractTests.swift"
+        ).count == 1,
+        "A disabled-by-default test store escaped the exact save-policy seam"
+    )
+    try check(
+        try testStoreArchitectureFindings(
+            in: canonicalTestStoreFixture.replacingOccurrences(
+                of: "allowsSave: allowsSave",
+                with: "allowsSave: true"
+            ),
+            path: "/tmp/HippocratesTests/SchemaContractTests.swift"
+        ).count == 1,
+        "A test store that ignored its save-policy parameter escaped exact validation"
     )
     let nestedTestStoreFile = identityFixtureRoot.appendingPathComponent(
         "HippocratesTests/Collision/HippocratesTests/SchemaContractTests.swift"
@@ -5633,7 +5653,7 @@ private func runSelfTests() throws {
     }
 
     let localURLFixture =
-        "    private func makeFileBackedContainer(at storeLocation: URL) throws -> ModelContainer {\n" +
+        "    private func makeFileBackedContainer(at storeLocation: URL, allowsSave: Bool = true) throws -> ModelContainer {\n" +
         "        to storeLocation: URL,\n" +
         "        at storeLocation: URL,"
     let citationFixture = #"            urlString: "https://example.invalid/source""#
@@ -6814,13 +6834,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 255 else {
+    guard completedChecks == 257 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 255, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 257, completed \(completedChecks)"
             ]
         )
     }

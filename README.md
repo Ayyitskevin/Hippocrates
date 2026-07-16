@@ -71,8 +71,9 @@ The pre-release foundation now contains:
    field directly; plus file-backed close/reopen coverage for the core store
    seams and a complete current-format restore without a caller-side save,
    including exact re-export, both DI inverses, and canonical configuration
-   reconstruction; and
-7. a fail-closed PBX/configuration/scheme parser plus 255 executable checks and
+   reconstruction, plus a forced save-boundary failure that leaves memory and
+   reopened disk empty; and
+7. a fail-closed PBX/configuration/scheme parser plus 257 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,
    target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
