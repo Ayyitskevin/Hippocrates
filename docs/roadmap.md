@@ -25,6 +25,7 @@ cross a decision or evidence gate.
 | F12 — restore save-failure rollback | Verified | Implementation series through [`b01a491`](https://github.com/Ayyitskevin/Hippocrates/commit/b01a491cea6e9e5429851e27c2208ea3ed3982d2) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29521705988](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29521705988) |
 | F13 — restore validation isolation | Verified | Implementation commit [`403111d`](https://github.com/Ayyitskevin/Hippocrates/commit/403111d36882152530088e56f0a21c925a5b7b8e) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29522864592](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29522864592) |
 | F14 — nonnegative intervention duration | Verified | Implementation commit [`60f988a`](https://github.com/Ayyitskevin/Hippocrates/commit/60f988aff71e9bb6dfea0a16a7c0ec0b52b51dc9) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 31 simulator tests in [hosted run 29523928066](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29523928066) |
+| F15 — configuration creation save-failure rollback | Awaiting hosted verification | A forced file-backed save failure observes one pending configuration insert, clears all pending work, and leaves the writable reopen empty; exact-head Apple-platform execution remains pending |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -374,6 +375,34 @@ Verification: implementation commit [`60f988a`](https://github.com/Ayyitskevin/H
 passed both planted backup-contract probes, all 257 scanner checks, the Xcode 16.4
 Release build, static analysis, and 31 iOS 18.5 simulator tests in
 [hosted run 29523928066](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29523928066).
+
+## Foundation hardening — configuration creation save-failure rollback
+
+`AppConfigService.fetchOrCreate` requires a clean context and rolls back the
+configuration insert it owns when saving fails, but runtime coverage exercised
+only successful/idempotent creation and dirty-context refusal. F15 forces the
+ordinary creation path through its save-error catch without changing
+configuration behavior or product policy.
+
+Implemented deliverables:
+
+- a pre-created empty file-backed store is reopened with saving disabled and
+  autosave explicitly off;
+- `ModelContext.willSave` observes exactly one pending `AppConfig`, proving the
+  forced failure reaches the save boundary;
+- the underlying storage error propagates while rollback clears pending inserts,
+  updates, and deletes; and
+- the failed context is discarded before a writable reopen proves all seven
+  model counts remain zero with no durable residue.
+
+Only test coverage and roadmap evidence changed. No shipping source, persisted
+field, schema version, migration, backup format, product default, UI, network
+surface, or distribution setting changed.
+
+Local verification: the Swift 6.1 parser accepts the changed test source,
+repository build checks pass, and all 257 scanner self-tests pass. Exact-head
+Xcode 16.4 Release build, static analysis, and iOS 18.5 simulator execution
+remain pending.
 
 ## Feature-specific decision gate
 

@@ -63,6 +63,104 @@ final class SchemaContractTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 0)
     }
 
+    func testAppConfigFetchOrCreateSaveFailureRollsBackMemoryAndDisk() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "HippocratesAppConfigRollback",
+                isDirectory: true
+            )
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeLocation = directory.appendingPathComponent(
+            "HippocratesAppConfigRollback.store"
+        )
+
+        func createEmptyWritableStore() throws {
+            let container = try makeFileBackedContainer(at: storeLocation)
+            XCTAssertTrue(
+                try XCTUnwrap(container.configurations.first).allowsSave
+            )
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+            XCTAssertFalse(context.autosaveEnabled)
+            try assertEmpty(context)
+        }
+
+        func attemptReadOnlyCreation() throws {
+            let container = try makeFileBackedContainer(
+                at: storeLocation,
+                allowsSave: false
+            )
+            XCTAssertFalse(
+                try XCTUnwrap(container.configurations.first).allowsSave
+            )
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+            XCTAssertFalse(context.autosaveEnabled)
+
+            let willSave = expectation(
+                forNotification: ModelContext.willSave,
+                object: context
+            ) { notification in
+                guard let savingContext = notification.object as? ModelContext else {
+                    return false
+                }
+
+                XCTAssertEqual(savingContext.insertedModelsArray.count, 1)
+                XCTAssertTrue(savingContext.changedModelsArray.isEmpty)
+                XCTAssertTrue(savingContext.deletedModelsArray.isEmpty)
+
+                guard
+                    let configuration =
+                        savingContext.insertedModelsArray.first as? AppConfig
+                else {
+                    XCTFail("Expected the one pending insert to be AppConfig")
+                    return true
+                }
+                XCTAssertEqual(configuration.singletonKey, "app")
+                XCTAssertNil(configuration.stalenessIntervalMonths)
+                XCTAssertNil(configuration.lastExportAt)
+                return true
+            }
+
+            XCTAssertThrowsError(
+                try AppConfigService.fetchOrCreate(in: context)
+            ) { error in
+                XCTAssertFalse(error is AppConfigServiceError)
+            }
+            wait(for: [willSave], timeout: 1)
+
+            assertNoPendingChanges(context)
+        }
+
+        func assertReopenedWritableStoreIsEmpty() throws {
+            let container = try makeFileBackedContainer(at: storeLocation)
+            XCTAssertTrue(
+                try XCTUnwrap(container.configurations.first).allowsSave
+            )
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+            XCTAssertFalse(context.autosaveEnabled)
+            try assertEmpty(context)
+        }
+
+        try autoreleasepool {
+            try createEmptyWritableStore()
+        }
+        try autoreleasepool {
+            try attemptReadOnlyCreation()
+        }
+        try autoreleasepool {
+            try assertReopenedWritableStoreIsEmpty()
+        }
+    }
+
     func testConfigurationRejectsNonpositiveStalenessIntervals() throws {
         let container = try HippocratesStore.makeContainer(inMemory: true)
         let configuration = try AppConfigService.fetchOrCreate(
