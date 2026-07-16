@@ -21,7 +21,7 @@ cross a decision or evidence gate.
 | F8 — immutable development-backup compatibility | Verified | Implementation commit [`6da9ef4`](https://github.com/Ayyitskevin/Hippocrates/commit/6da9ef497e55e443ad083b88c217979da6be9cb0) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29515673481](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29515673481) |
 | F9 — file-backed restore durability | Verified | Implementation commit [`dfa4593`](https://github.com/Ayyitskevin/Hippocrates/commit/dfa45931d7ff898b9ff90229b0211bc1a5955088) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29517118694](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29517118694) |
 | F10 — duplicate-identifier restore validation | Verified | Implementation commit [`2f48f95`](https://github.com/Ayyitskevin/Hippocrates/commit/2f48f950498776d270cc15f02e5ea93c7adbbf51) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29518121878](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29518121878) |
-| F11 — restore destination isolation | Awaiting hosted verification | Local source and scanner gates pass; exact-head Xcode 16.4 Release build, analyzer, and iOS 18.5 simulator tests remain pending |
+| F11 — restore destination isolation | Verified | Implementation commit [`82d08da`](https://github.com/Ayyitskevin/Hippocrates/commit/82d08da4a8bb1f01f30fab7a6dac13084239975a) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29519234311](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29519234311) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -288,8 +288,10 @@ Only `BackupRoundTripTests.swift` changed. No shipping source, persisted field,
 schema version, migration, backup format, product default, UI, network surface,
 or distribution setting changed.
 
-Verification: local Swift parsing and scanner gates pass. Exact-head hosted Xcode
-16.4 Release build, static analysis, and iOS 18.5 simulator tests remain pending.
+Verification: implementation commit [`82d08da`](https://github.com/Ayyitskevin/Hippocrates/commit/82d08da4a8bb1f01f30fab7a6dac13084239975a)
+passed both planted backup-contract probes, all 255 scanner checks, the Xcode 16.4
+Release build, static analysis, and iOS 18.5 simulator tests in
+[hosted run 29519234311](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29519234311).
 
 ## Feature-specific decision gate
 
