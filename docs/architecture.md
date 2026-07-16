@@ -205,6 +205,39 @@ store mutation. Its duplicate app-wide cost map is folded into the matching
 type-owned default, and a missing type or conflicting duplicate fails loudly
 instead of choosing a source silently.
 
+Backup completeness is a hybrid contract because no single comparison proves
+the schema, exporter, archive, and restore path together:
+
+- Apple-platform tests enumerate non-transient stored properties from the live
+  SwiftData `SchemaV1` metadata. An explicit no-ignored-field manifest must map
+  every property to a value-record field, a foreign UUID, an inverse reference,
+  or one reviewed reconstructed constant, with no extra record fields.
+- The populated fixture constructs its expected `BackupArchive` independently
+  from `BackupService.makeArchive`, so exporter omissions cannot pass by being
+  compared only with exporter output.
+- After restore, tests fetch every destination model and assert each scalar,
+  relationship, inverse, and reconstructed value directly. Re-export equality
+  remains useful evidence, but it is not the sole restore oracle.
+- The Linux source-shape gate pins the persisted-property surface to this
+  reviewed backup-format contract and emits `SchemaV1 persisted-property surface
+  changed without backup-format review` when a model field drifts.
+
+The three deliberate non-record representations are
+`DIQuestion.citations`, reconstructed from `Citation.questionID`;
+`DIQuestion.linkedInterventions`, reconstructed from
+`Intervention.diQuestionID`; and `AppConfig.singletonKey`, reconstructed as the
+canonical `"app"` constant. They remain explicit entries in the manifest rather
+than ignored fields.
+
+Synthesized `Codable` supplies archive record-shape and value-type decoding for
+represented fields; it does not prove cross-record references or clinical/domain
+semantics. `BackupService.validate(_:)` separately rejects graph defects and
+domain-invalid values before restore mutates a store.
+
+The Linux gate also rejects custom `CodingKeys`, decoder initializers, and
+encoder methods in `BackupArchive.swift`, keeping the reviewed v2 archive shape
+on synthesized `Codable`.
+
 Validation precedes mutation and rejects unknown versions, duplicate IDs,
 dangling references, negative cost values, nonpositive configured staleness,
 non-increasing verification history, and review dates that do not follow
@@ -319,8 +352,11 @@ The shipping store and the one file-backed test store are exact local-only
 construction seams with managed CloudKit explicitly disabled. Structural
 inspection of the persisted Intervention allowlist masks comments, string
 contents, and regex contents before matching braces, so literals cannot hide
-later properties. The privacy manifest separately declares no tracking and no
-collected data.
+later properties. The same Linux control structurally checks the full
+`SchemaV1` persisted-property surface against the reviewed backup-completeness
+contract, while Apple-platform schema metadata independently checks the runtime
+surface. The privacy manifest separately declares no tracking and no collected
+data.
 
 This is source-verifiable risk reduction, not an iOS network entitlement and not
 a HIPAA compliance program. README language must preserve that distinction.
@@ -332,8 +368,9 @@ a HIPAA compliance program. README language must preserve that distinction.
    thresholds, RFC 4180 formatting, formula-injection neutralization, date
    ranges, and backup graph validation.
 2. In-memory SwiftData tests cover relationships, delete rules, configuration
-   singleton behavior, save/undo transactions, re-verification history, and full
-   backup restore/re-export.
+   singleton behavior, save/undo transactions, re-verification history, runtime
+   schema-to-backup coverage, exporter-independent archive expectations, and
+   direct full-field restore assertions plus re-export.
 3. Source/project contract tests cover no free text in `Intervention`, no network
    surface, zero packages, manifest contents, and schema/migration registration.
 4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer

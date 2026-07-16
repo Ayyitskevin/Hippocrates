@@ -723,7 +723,6 @@ private func interpolationArchitectureFindings(
         allowedPatterns = [#"\\\(error\)"#]
     } else if identity == .backupRoundTripTests {
         allowedPatterns = [
-            #"\\\(error\)"#,
             #"\\\(costMapKey\)"#,
             #"\\\(costMapValue\)"#,
             #"\\\(typeDefaultJSON\)"#,
@@ -1328,6 +1327,569 @@ private func persistentModelBackingFindings(
             message: "SwiftData backing-data APIs bypass reviewed model initialization"
         )
     ]
+}
+
+private enum BackupParityTransformation {
+    case direct(record: String, field: String, type: String)
+    case foreignUUID(record: String, field: String, targetModel: String)
+    case inverse(forwardModel: String, forwardProperty: String)
+    case constant(String)
+}
+
+private struct BackupParityFieldContract {
+    let model: String
+    let property: String
+    let modelType: String
+    let transformation: BackupParityTransformation
+}
+
+private struct BackupParityDeclaration {
+    let name: String
+    let body: String
+}
+
+private func bracedBody(
+    in source: String,
+    openingAt openingBrace: String.Index
+) -> String? {
+    var depth = 0
+    var cursor = openingBrace
+    while cursor < source.endIndex {
+        let character = source[cursor]
+        if character == "{" {
+            depth += 1
+        } else if character == "}" {
+            depth -= 1
+            if depth == 0 {
+                let bodyStart = source.index(after: openingBrace)
+                return String(source[bodyStart..<cursor])
+            }
+        }
+        cursor = source.index(after: cursor)
+    }
+    return nil
+}
+
+private func backupParityDeclarations(
+    in source: String,
+    pattern: String,
+    nameCapture: Int
+) throws -> [BackupParityDeclaration]? {
+    let expression = try NSRegularExpression(pattern: pattern)
+    let range = NSRange(source.startIndex..<source.endIndex, in: source)
+    var declarations: [BackupParityDeclaration] = []
+    for match in expression.matches(in: source, range: range) {
+        guard
+            let matchRange = Range(match.range, in: source),
+            let nameRange = Range(match.range(at: nameCapture), in: source),
+            let openingBrace = source[matchRange].lastIndex(of: "{"),
+            let body = bracedBody(in: source, openingAt: openingBrace)
+        else {
+            return nil
+        }
+        declarations.append(
+            BackupParityDeclaration(name: String(source[nameRange]), body: body)
+        )
+    }
+    return declarations
+}
+
+/// Retains only declaration-level text. Braced implementation bodies are
+/// replaced with whitespace, while their boundary braces remain visible so a
+/// computed property or custom initializer cannot masquerade as stored state.
+private func backupParityTopLevelSurface(_ body: String) -> String {
+    var result: [Character] = []
+    result.reserveCapacity(body.count)
+    var depth = 0
+    for character in body {
+        if character == "{" {
+            result.append(depth == 0 ? character : " ")
+            depth += 1
+        } else if character == "}" {
+            depth -= 1
+            result.append(depth == 0 ? character : " ")
+        } else if depth == 0 || character == "\n" {
+            result.append(character)
+        } else {
+            result.append(" ")
+        }
+    }
+    return String(result)
+}
+
+private func backupParityStoredProperties(
+    in body: String,
+    synthesizedDTO: Bool
+) throws -> [String: String] {
+    let surface = backupParityTopLevelSurface(body)
+    let bindingExpression = try NSRegularExpression(pattern: #"\b(?:var|let)\b"#)
+    let staticExpression = try NSRegularExpression(pattern: #"\b(?:static|class)\b"#)
+    let modelPropertyExpression = try NSRegularExpression(
+        pattern: #"^(?:var|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=;{}\n]+?)(?:\s*=\s*[^;{}\n]+)?\s*$"#
+    )
+    let dtoPropertyExpression = try NSRegularExpression(
+        pattern: #"^var\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=;{}\n]+?)\s*$"#
+    )
+    var properties: [String: String] = [:]
+
+    for lineSlice in surface.split(separator: "\n", omittingEmptySubsequences: false) {
+        let line = String(lineSlice)
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            continue
+        }
+        let lineRange = NSRange(line.startIndex..<line.endIndex, in: line)
+        let bindingMatches = bindingExpression.matches(in: line, range: lineRange)
+
+        if synthesizedDTO {
+            guard
+                bindingMatches.count == 1,
+                let bindingRange = Range(bindingMatches[0].range, in: line),
+                line[..<bindingRange.lowerBound].trimmingCharacters(in: .whitespaces).isEmpty,
+                let propertyMatch = dtoPropertyExpression.firstMatch(
+                    in: trimmed,
+                    range: NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
+                ),
+                propertyMatch.range == NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed),
+                let nameRange = Range(propertyMatch.range(at: 1), in: trimmed),
+                let typeRange = Range(propertyMatch.range(at: 2), in: trimmed)
+            else {
+                throw NSError(
+                    domain: "BackupParityParser",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "DTO declaration is not synthesized-only"]
+                )
+            }
+            let name = String(trimmed[nameRange])
+            guard properties[name] == nil else {
+                throw NSError(
+                    domain: "BackupParityParser",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Duplicate DTO property"]
+                )
+            }
+            properties[name] = String(trimmed[typeRange].filter { !$0.isWhitespace })
+            continue
+        }
+
+        guard bindingMatches.isEmpty == false else {
+            continue
+        }
+        guard bindingMatches.count == 1,
+              let bindingRange = Range(bindingMatches[0].range, in: line) else {
+            throw NSError(
+                domain: "BackupParityParser",
+                code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Compound model property declaration"]
+            )
+        }
+        let prefix = String(line[..<bindingRange.lowerBound])
+        let prefixRange = NSRange(prefix.startIndex..<prefix.endIndex, in: prefix)
+        if staticExpression.firstMatch(in: prefix, range: prefixRange) != nil {
+            continue
+        }
+        let declaration = String(line[bindingRange.lowerBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let declarationRange = NSRange(declaration.startIndex..<declaration.endIndex, in: declaration)
+        guard
+            let propertyMatch = modelPropertyExpression.firstMatch(in: declaration, range: declarationRange),
+            propertyMatch.range == declarationRange,
+            let nameRange = Range(propertyMatch.range(at: 1), in: declaration),
+            let typeRange = Range(propertyMatch.range(at: 2), in: declaration)
+        else {
+            throw NSError(
+                domain: "BackupParityParser",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "Model property declaration is not reviewable"]
+            )
+        }
+        let name = String(declaration[nameRange])
+        guard properties[name] == nil else {
+            throw NSError(
+                domain: "BackupParityParser",
+                code: 5,
+                userInfo: [NSLocalizedDescriptionKey: "Duplicate model property"]
+            )
+        }
+        properties[name] = String(declaration[typeRange].filter { !$0.isWhitespace })
+    }
+    return properties
+}
+
+private func backupParityFindings(
+    schemaSource: String,
+    archiveSource: String,
+    schemaPath: String,
+    archivePath: String
+) throws -> [Finding] {
+    let schemaMessage = "SchemaV1 persisted-property surface changed without backup-format review"
+    let archiveMessage = "BackupArchive v2 stored-property surface changed without backup-format review"
+    let dtoMessage = "BackupArchive DTOs must retain synthesized Codable and memberwise initialization"
+    let schema = sourceForStructure(schemaSource)
+    let archive = sourceForStructure(archiveSource)
+    let schemaRange = NSRange(schema.startIndex..<schema.endIndex, in: schema)
+    let archiveRange = NSRange(archive.startIndex..<archive.endIndex, in: archive)
+    let customCodableExpression = try NSRegularExpression(
+        pattern: #"\bCodingKeys\b|\binit\s*\(\s*from(?:\s+(?:[A-Za-z_][A-Za-z0-9_]*|_))?\s*:|\bfunc\s+encode\s*\(\s*to(?:\s+(?:[A-Za-z_][A-Za-z0-9_]*|_))?\s*:"#
+    )
+    let customCodableWasDeclared =
+        customCodableExpression.firstMatch(in: archive, range: archiveRange) != nil
+    func schemaDriftFindings() -> [Finding] {
+        var findings = [Finding(path: schemaPath, line: 1, message: schemaMessage)]
+        if customCodableWasDeclared {
+            findings.append(Finding(path: archivePath, line: 1, message: dtoMessage))
+        }
+        return findings
+    }
+    let transientExpression = try NSRegularExpression(pattern: #"@\s*Transient\b"#)
+    guard transientExpression.firstMatch(in: schema, range: schemaRange) == nil else {
+        return schemaDriftFindings()
+    }
+
+    let modelRecords: [String: String] = [
+        "InterventionType": "InterventionTypeRecord",
+        "DrugClass": "DrugClassRecord",
+        "ServiceLine": "ServiceLineRecord",
+        "Intervention": "InterventionRecord",
+        "DIQuestion": "DIQuestionRecord",
+        "Citation": "CitationRecord",
+        "AppConfig": "AppConfigRecord"
+    ]
+
+    func direct(
+        _ model: String,
+        _ property: String,
+        _ modelType: String,
+        _ recordType: String
+    ) -> BackupParityFieldContract {
+        BackupParityFieldContract(
+            model: model,
+            property: property,
+            modelType: modelType,
+            transformation: .direct(
+                record: modelRecords[model]!,
+                field: property,
+                type: recordType
+            )
+        )
+    }
+
+    func foreign(
+        _ model: String,
+        _ property: String,
+        _ modelType: String,
+        _ recordField: String,
+        _ targetModel: String
+    ) -> BackupParityFieldContract {
+        BackupParityFieldContract(
+            model: model,
+            property: property,
+            modelType: modelType,
+            transformation: .foreignUUID(
+                record: modelRecords[model]!,
+                field: recordField,
+                targetModel: targetModel
+            )
+        )
+    }
+
+    // Every persisted property is classified exactly once. Direct values map
+    // to the same record field, object references map to portable UUIDs, the
+    // two collection inverses are reconstructed from those forward UUIDs, and
+    // AppConfig.singletonKey is restored as the canonical local constant.
+    let contracts: [BackupParityFieldContract] = [
+        direct("InterventionType", "id", "UUID", "UUID"),
+        direct("InterventionType", "label", "String", "String"),
+        direct("InterventionType", "defaultCostAvoidanceCents", "Int?", "Int?"),
+        direct("InterventionType", "isActive", "Bool", "Bool"),
+        direct("InterventionType", "sortOrder", "Int", "Int"),
+        direct("DrugClass", "id", "UUID", "UUID"),
+        direct("DrugClass", "label", "String", "String"),
+        direct("DrugClass", "isActive", "Bool", "Bool"),
+        direct("DrugClass", "sortOrder", "Int", "Int"),
+        direct("ServiceLine", "id", "UUID", "UUID"),
+        direct("ServiceLine", "label", "String", "String"),
+        direct("ServiceLine", "isActive", "Bool", "Bool"),
+        direct("ServiceLine", "sortOrder", "Int", "Int"),
+        direct("Intervention", "id", "Foundation.UUID", "UUID"),
+        direct("Intervention", "timestamp", "Foundation.Date", "Date"),
+        foreign("Intervention", "type", "InterventionType?", "typeID", "InterventionType"),
+        foreign("Intervention", "drugClass", "DrugClass?", "drugClassID", "DrugClass"),
+        foreign("Intervention", "serviceLine", "ServiceLine?", "serviceLineID", "ServiceLine"),
+        direct(
+            "Intervention",
+            "acceptance",
+            "SchemaV1Vocabulary.Acceptance",
+            "SchemaV1Vocabulary.Acceptance"
+        ),
+        direct("Intervention", "costAvoidanceCents", "Swift.Int?", "Int?"),
+        direct("Intervention", "minutesSpent", "Swift.Int?", "Int?"),
+        foreign("Intervention", "diQuestion", "DIQuestion?", "diQuestionID", "DIQuestion"),
+        direct("DIQuestion", "id", "UUID", "UUID"),
+        direct("DIQuestion", "createdAt", "Date", "Date"),
+        direct("DIQuestion", "answeredAt", "Date?", "Date?"),
+        direct("DIQuestion", "questionText", "String", "String"),
+        direct("DIQuestion", "background", "String", "String"),
+        direct("DIQuestion", "answerText", "String", "String"),
+        direct("DIQuestion", "searchStrategy", "String", "String"),
+        direct(
+            "DIQuestion",
+            "requestorRole",
+            "SchemaV1Vocabulary.RequestorRole",
+            "SchemaV1Vocabulary.RequestorRole"
+        ),
+        direct(
+            "DIQuestion",
+            "questionClass",
+            "SchemaV1Vocabulary.DIQuestionClass",
+            "SchemaV1Vocabulary.DIQuestionClass"
+        ),
+        direct(
+            "DIQuestion",
+            "urgency",
+            "SchemaV1Vocabulary.Urgency",
+            "SchemaV1Vocabulary.Urgency"
+        ),
+        direct("DIQuestion", "verifiedOn", "Date", "Date"),
+        direct("DIQuestion", "reviewAfter", "Date", "Date"),
+        direct("DIQuestion", "didFollowUp", "Bool", "Bool"),
+        direct("DIQuestion", "tags", "[String]", "[String]"),
+        direct("DIQuestion", "verificationHistory", "[Date]", "[Date]"),
+        BackupParityFieldContract(
+            model: "DIQuestion",
+            property: "citations",
+            modelType: "[Citation]",
+            transformation: .inverse(forwardModel: "Citation", forwardProperty: "question")
+        ),
+        BackupParityFieldContract(
+            model: "DIQuestion",
+            property: "linkedInterventions",
+            modelType: "[Intervention]",
+            transformation: .inverse(forwardModel: "Intervention", forwardProperty: "diQuestion")
+        ),
+        direct("Citation", "id", "UUID", "UUID"),
+        foreign("Citation", "question", "DIQuestion?", "questionID", "DIQuestion"),
+        direct(
+            "Citation",
+            "tier",
+            "SchemaV1Vocabulary.SourceTier",
+            "SchemaV1Vocabulary.SourceTier"
+        ),
+        direct("Citation", "title", "String", "String"),
+        direct("Citation", "locator", "String", "String"),
+        direct("Citation", "accessedDate", "Date", "Date"),
+        direct("Citation", "urlString", "String?", "String?"),
+        BackupParityFieldContract(
+            model: "AppConfig",
+            property: "singletonKey",
+            modelType: "String",
+            transformation: .constant("app")
+        ),
+        direct("AppConfig", "stalenessIntervalMonths", "Int?", "Int?"),
+        direct("AppConfig", "lastExportAt", "Date?", "Date?")
+    ]
+
+    var expectedModels: [String: [String: String]] = [:]
+    var expectedRecords: [String: [String: String]] = [:]
+    var contractByField: [String: BackupParityFieldContract] = [:]
+    var contractIsCoherent = true
+    for contract in contracts {
+        let key = "\(contract.model).\(contract.property)"
+        if contractByField.updateValue(contract, forKey: key) != nil
+            || expectedModels[contract.model, default: [:]].updateValue(
+                contract.modelType,
+                forKey: contract.property
+            ) != nil {
+            contractIsCoherent = false
+        }
+        switch contract.transformation {
+        case let .direct(record, field, type):
+            if record != modelRecords[contract.model]
+                || expectedRecords[record, default: [:]].updateValue(type, forKey: field) != nil {
+                contractIsCoherent = false
+            }
+        case let .foreignUUID(record, field, targetModel):
+            if record != modelRecords[contract.model]
+                || modelRecords[targetModel] == nil
+                || expectedRecords[record, default: [:]].updateValue("UUID?", forKey: field) != nil {
+                contractIsCoherent = false
+            }
+        case .inverse, .constant:
+            break
+        }
+    }
+    for contract in contracts {
+        switch contract.transformation {
+        case let .inverse(forwardModel, forwardProperty):
+            guard
+                let forward = contractByField["\(forwardModel).\(forwardProperty)"],
+                case let .foreignUUID(_, _, targetModel) = forward.transformation,
+                targetModel == contract.model
+            else {
+                contractIsCoherent = false
+                continue
+            }
+        case let .constant(literal):
+            if contract.model != "AppConfig"
+                || contract.property != "singletonKey"
+                || literal != "app" {
+                contractIsCoherent = false
+            }
+        case .direct, .foreignUUID:
+            break
+        }
+    }
+    guard contractIsCoherent,
+          Set(expectedModels.keys) == Set(modelRecords.keys),
+          Set(expectedRecords.keys) == Set(modelRecords.values) else {
+        throw NSError(
+            domain: "BackupParityContract",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Internal backup parity contract is incoherent"]
+        )
+    }
+
+    let expectedModelOrder = [
+        "Intervention", "InterventionType", "DrugClass", "ServiceLine",
+        "DIQuestion", "Citation", "AppConfig"
+    ]
+    guard
+        let schemaEnums = try backupParityDeclarations(
+            in: schema,
+            pattern: #"\benum\s+(SchemaV1)\s*:\s*VersionedSchema\s*\{"#,
+            nameCapture: 1
+        ),
+        schemaEnums.count == 1
+    else {
+        return schemaDriftFindings()
+    }
+    let schemaBody = schemaEnums[0].body
+    let modelListPattern = #"(?s)\bstatic\s+var\s+models\s*:\s*\[\s*any\s+PersistentModel\s*\.\s*Type\s*\]\s*\{\s*\[\s*Intervention\s*\.\s*self\s*,\s*InterventionType\s*\.\s*self\s*,\s*DrugClass\s*\.\s*self\s*,\s*ServiceLine\s*\.\s*self\s*,\s*DIQuestion\s*\.\s*self\s*,\s*Citation\s*\.\s*self\s*,\s*AppConfig\s*\.\s*self\s*\]\s*\}"#
+    let modelListExpression = try NSRegularExpression(pattern: modelListPattern)
+    let modelListTokenExpression = try NSRegularExpression(pattern: #"\bstatic\s+var\s+models\b"#)
+    let schemaBodyRange = NSRange(schemaBody.startIndex..<schemaBody.endIndex, in: schemaBody)
+    guard
+        modelListExpression.matches(in: schemaBody, range: schemaBodyRange).count == 1,
+        modelListTokenExpression.matches(in: schemaBody, range: schemaBodyRange).count == 1
+    else {
+        return schemaDriftFindings()
+    }
+
+    let modelPattern = #"@Model\s+final\s+class\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"#
+    guard
+        let modelDeclarations = try backupParityDeclarations(
+            in: schemaBody,
+            pattern: modelPattern,
+            nameCapture: 1
+        ),
+        modelDeclarations.count == expectedModelOrder.count,
+        Set(modelDeclarations.map(\.name)) == Set(expectedModelOrder)
+    else {
+        return schemaDriftFindings()
+    }
+    let allModelExpression = try NSRegularExpression(pattern: #"@Model\b"#)
+    guard allModelExpression.matches(in: schema, range: schemaRange).count == expectedModelOrder.count else {
+        return schemaDriftFindings()
+    }
+    for declaration in modelDeclarations {
+        do {
+            let actual = try backupParityStoredProperties(in: declaration.body, synthesizedDTO: false)
+            guard actual == expectedModels[declaration.name] else {
+                return schemaDriftFindings()
+            }
+        } catch {
+            return schemaDriftFindings()
+        }
+    }
+    guard customCodableWasDeclared == false else {
+        return [Finding(path: archivePath, line: 1, message: dtoMessage)]
+    }
+
+    guard
+        let outerDeclarations = try backupParityDeclarations(
+            in: archive,
+            pattern: #"\bstruct\s+(BackupArchive)\s*:\s*Codable\s*,\s*Equatable\s*,\s*Sendable\s*\{"#,
+            nameCapture: 1
+        ),
+        outerDeclarations.count == 1,
+        (try? backupParityStoredProperties(in: outerDeclarations[0].body, synthesizedDTO: false))
+            == ["formatVersion": "Int", "createdAt": "Date", "payload": "Payload"]
+    else {
+        return [Finding(path: archivePath, line: 1, message: archiveMessage)]
+    }
+    let formatExpression = try NSRegularExpression(
+        pattern: #"\bstatic\s+let\s+currentFormatVersion\s*=\s*2\b"#
+    )
+    guard formatExpression.matches(in: archive, range: archiveRange).count == 1 else {
+        return [Finding(path: archivePath, line: 1, message: archiveMessage)]
+    }
+
+    guard
+        let archiveExtensions = try backupParityDeclarations(
+            in: archive,
+            pattern: #"\bextension\s+(BackupArchive)\s*\{"#,
+            nameCapture: 1
+        ),
+        archiveExtensions.count == 1
+    else {
+        return [Finding(path: archivePath, line: 1, message: archiveMessage)]
+    }
+    let extensionBody = archiveExtensions[0].body
+    let expectedDTOs = Set(["Payload"] + Array(modelRecords.values))
+    let extensionBodyRange = NSRange(extensionBody.startIndex..<extensionBody.endIndex, in: extensionBody)
+    let anyStructExpression = try NSRegularExpression(
+        pattern: #"\bstruct\s+([A-Za-z_][A-Za-z0-9_]*)\b"#
+    )
+    let structNames = anyStructExpression.matches(in: extensionBody, range: extensionBodyRange)
+        .compactMap { match -> String? in
+            guard let range = Range(match.range(at: 1), in: extensionBody) else { return nil }
+            return String(extensionBody[range])
+        }
+    guard structNames.count == expectedDTOs.count, Set(structNames) == expectedDTOs else {
+        return [Finding(path: archivePath, line: 1, message: dtoMessage)]
+    }
+    guard
+        let dtoDeclarations = try backupParityDeclarations(
+            in: extensionBody,
+            pattern: #"\bstruct\s+([A-Za-z_][A-Za-z0-9_]*)\s*:\s*Codable\s*,\s*Equatable\s*,\s*Sendable\s*\{"#,
+            nameCapture: 1
+        ),
+        dtoDeclarations.count == expectedDTOs.count,
+        Set(dtoDeclarations.map(\.name)) == expectedDTOs
+    else {
+        return [Finding(path: archivePath, line: 1, message: dtoMessage)]
+    }
+    let dtoExtensionExpression = try NSRegularExpression(
+        pattern: #"\bextension\s+BackupArchive\s*\.\s*(?:Payload|InterventionTypeRecord|DrugClassRecord|ServiceLineRecord|InterventionRecord|DIQuestionRecord|CitationRecord|AppConfigRecord)\b"#
+    )
+    guard dtoExtensionExpression.firstMatch(in: archive, range: archiveRange) == nil else {
+        return [Finding(path: archivePath, line: 1, message: dtoMessage)]
+    }
+
+    let expectedPayload: [String: String] = [
+        "interventionTypes": "[InterventionTypeRecord]",
+        "drugClasses": "[DrugClassRecord]",
+        "serviceLines": "[ServiceLineRecord]",
+        "interventions": "[InterventionRecord]",
+        "questions": "[DIQuestionRecord]",
+        "citations": "[CitationRecord]",
+        "appConfig": "AppConfigRecord?"
+    ]
+    for declaration in dtoDeclarations {
+        do {
+            let actual = try backupParityStoredProperties(in: declaration.body, synthesizedDTO: true)
+            let expected = declaration.name == "Payload"
+                ? expectedPayload
+                : expectedRecords[declaration.name]
+            guard actual == expected else {
+                return [Finding(path: archivePath, line: 1, message: archiveMessage)]
+            }
+        } catch {
+            return [Finding(path: archivePath, line: 1, message: dtoMessage)]
+        }
+    }
+
+    return []
 }
 
 private func interventionArchitectureFindings(in source: String, path: String) throws -> [Finding] {
@@ -3779,6 +4341,26 @@ private func repositoryFindings(
         results.append(Finding(path: schemaFile.path, line: 1, message: "Versioned schema source is missing"))
     }
 
+    let backupArchiveFile = sourceRoot
+        .appendingPathComponent("Backup", isDirectory: true)
+        .appendingPathComponent("BackupArchive.swift")
+    if FileManager.default.fileExists(atPath: backupArchiveFile.path) == false {
+        results.append(
+            Finding(path: backupArchiveFile.path, line: 1, message: "Versioned backup archive source is missing")
+        )
+    } else if FileManager.default.fileExists(atPath: schemaFile.path) {
+        let schemaSource = try String(contentsOf: schemaFile, encoding: .utf8)
+        let archiveSource = try String(contentsOf: backupArchiveFile, encoding: .utf8)
+        results.append(
+            contentsOf: try backupParityFindings(
+                schemaSource: schemaSource,
+                archiveSource: archiveSource,
+                schemaPath: schemaFile.path,
+                archivePath: backupArchiveFile.path
+            )
+        )
+    }
+
     let storeFile = sourceRoot
         .appendingPathComponent("Persistence", isDirectory: true)
         .appendingPathComponent("HippocratesStore.swift")
@@ -5010,6 +5592,318 @@ private func runSelfTests() throws {
         "A brace inside a string hid a later persisted Intervention property"
     )
 
+    let compliantBackupParitySchema = """
+    enum SchemaV1: VersionedSchema {
+        static var models: [any PersistentModel.Type] {
+            [
+                Intervention.self,
+                InterventionType.self,
+                DrugClass.self,
+                ServiceLine.self,
+                DIQuestion.self,
+                Citation.self,
+                AppConfig.self
+            ]
+        }
+
+        @Model final class InterventionType {
+            var id: UUID
+            var label: String
+            var defaultCostAvoidanceCents: Int?
+            var isActive: Bool
+            var sortOrder: Int
+        }
+        @Model final class DrugClass {
+            var id: UUID
+            var label: String
+            var isActive: Bool
+            var sortOrder: Int
+        }
+        @Model final class ServiceLine {
+            var id: UUID
+            var label: String
+            var isActive: Bool
+            var sortOrder: Int
+        }
+        @Model final class Intervention {
+            var id: Foundation.UUID
+            var timestamp: Foundation.Date
+            var type: InterventionType?
+            var drugClass: DrugClass?
+            var serviceLine: ServiceLine?
+            var acceptance: SchemaV1Vocabulary.Acceptance
+            var costAvoidanceCents: Swift.Int?
+            var minutesSpent: Swift.Int?
+            var diQuestion: DIQuestion?
+        }
+        @Model final class DIQuestion {
+            var id: UUID
+            var createdAt: Date
+            var answeredAt: Date?
+            var questionText: String
+            var background: String
+            var answerText: String
+            var searchStrategy: String
+            var requestorRole: SchemaV1Vocabulary.RequestorRole
+            var questionClass: SchemaV1Vocabulary.DIQuestionClass
+            var urgency: SchemaV1Vocabulary.Urgency
+            private(set) var verifiedOn: Date
+            private(set) var reviewAfter: Date
+            var didFollowUp: Bool
+            var tags: [String]
+            private(set) var verificationHistory: [Date]
+            var citations: [Citation]
+            var linkedInterventions: [Intervention]
+        }
+        @Model final class Citation {
+            var id: UUID
+            var question: DIQuestion?
+            var tier: SchemaV1Vocabulary.SourceTier
+            var title: String
+            var locator: String
+            var accessedDate: Date
+            var urlString: String?
+        }
+        @Model final class AppConfig {
+            private(set) var singletonKey: String
+            private(set) var stalenessIntervalMonths: Int?
+            private(set) var lastExportAt: Date?
+        }
+    }
+    """
+    let compliantBackupParityArchive = """
+    struct BackupArchive: Codable, Equatable, Sendable {
+        static let currentFormatVersion = 2
+        var formatVersion: Int
+        var createdAt: Date
+        var payload: Payload
+    }
+
+    extension BackupArchive {
+        struct Payload: Codable, Equatable, Sendable {
+            var interventionTypes: [InterventionTypeRecord]
+            var drugClasses: [DrugClassRecord]
+            var serviceLines: [ServiceLineRecord]
+            var interventions: [InterventionRecord]
+            var questions: [DIQuestionRecord]
+            var citations: [CitationRecord]
+            var appConfig: AppConfigRecord?
+        }
+        struct InterventionTypeRecord: Codable, Equatable, Sendable {
+            var id: UUID
+            var label: String
+            var defaultCostAvoidanceCents: Int?
+            var isActive: Bool
+            var sortOrder: Int
+        }
+        struct DrugClassRecord: Codable, Equatable, Sendable {
+            var id: UUID
+            var label: String
+            var isActive: Bool
+            var sortOrder: Int
+        }
+        struct ServiceLineRecord: Codable, Equatable, Sendable {
+            var id: UUID
+            var label: String
+            var isActive: Bool
+            var sortOrder: Int
+        }
+        struct InterventionRecord: Codable, Equatable, Sendable {
+            var id: UUID
+            var timestamp: Date
+            var typeID: UUID?
+            var drugClassID: UUID?
+            var serviceLineID: UUID?
+            var acceptance: SchemaV1Vocabulary.Acceptance
+            var costAvoidanceCents: Int?
+            var minutesSpent: Int?
+            var diQuestionID: UUID?
+        }
+        struct DIQuestionRecord: Codable, Equatable, Sendable {
+            var id: UUID
+            var createdAt: Date
+            var answeredAt: Date?
+            var questionText: String
+            var background: String
+            var answerText: String
+            var searchStrategy: String
+            var requestorRole: SchemaV1Vocabulary.RequestorRole
+            var questionClass: SchemaV1Vocabulary.DIQuestionClass
+            var urgency: SchemaV1Vocabulary.Urgency
+            var verifiedOn: Date
+            var reviewAfter: Date
+            var didFollowUp: Bool
+            var tags: [String]
+            var verificationHistory: [Date]
+        }
+        struct CitationRecord: Codable, Equatable, Sendable {
+            var id: UUID
+            var questionID: UUID?
+            var tier: SchemaV1Vocabulary.SourceTier
+            var title: String
+            var locator: String
+            var accessedDate: Date
+            var urlString: String?
+        }
+        struct AppConfigRecord: Codable, Equatable, Sendable {
+            var stalenessIntervalMonths: Int?
+            var lastExportAt: Date?
+        }
+    }
+    """
+
+    func parityFindings(_ schema: String, _ archive: String) throws -> [Finding] {
+        try backupParityFindings(
+            schemaSource: schema,
+            archiveSource: archive,
+            schemaPath: "SchemaV1.swift",
+            archivePath: "BackupArchive.swift"
+        )
+    }
+    func hasSchemaDrift(_ schema: String, archive: String = compliantBackupParityArchive) throws -> Bool {
+        try parityFindings(schema, archive).contains(where: {
+            $0.message.contains("SchemaV1 persisted-property surface changed without backup-format review")
+        })
+    }
+
+    try check(
+        try parityFindings(compliantBackupParitySchema, compliantBackupParityArchive).isEmpty,
+        "The compliant schema-to-backup parity fixture was rejected"
+    )
+    let addedScalarSchema = replacingFirst(
+        compliantBackupParitySchema,
+        "        var urlString: String?",
+        "        var urlString: String?\n        var annotation: String"
+    )
+    try check(
+        try hasSchemaDrift(addedScalarSchema),
+        "An added persisted scalar escaped backup-format review"
+    )
+    let addedRelationshipSchema = replacingFirst(
+        compliantBackupParitySchema,
+        "        var linkedInterventions: [Intervention]",
+        "        var linkedInterventions: [Intervention]\n        var reviewer: Citation?"
+    )
+    try check(
+        try hasSchemaDrift(addedRelationshipSchema),
+        "An added persisted relationship escaped backup-format review"
+    )
+    let changedTypeSchema = replacingFirst(
+        compliantBackupParitySchema,
+        "        var tags: [String]",
+        "        var tags: Set<String>"
+    )
+    try check(
+        try hasSchemaDrift(changedTypeSchema),
+        "A persisted-property type change escaped backup-format review"
+    )
+    let transientPropertySchema = replacingFirst(
+        compliantBackupParitySchema,
+        "        var tags: [String]",
+        "        @Transient\n        var tags: [String]"
+    )
+    try check(
+        try hasSchemaDrift(transientPropertySchema),
+        "A transient persistence modifier escaped backup-format review"
+    )
+    let addedDTOPropertyArchive = replacingFirst(
+        compliantBackupParityArchive,
+        "        var urlString: String?",
+        "        var urlString: String?\n        var annotation: String"
+    )
+    try check(
+        try parityFindings(compliantBackupParitySchema, addedDTOPropertyArchive).isEmpty == false,
+        "An added backup DTO property escaped the parity contract"
+    )
+    let changedPayloadArchive = replacingFirst(
+        compliantBackupParityArchive,
+        "        var appConfig: AppConfigRecord?",
+        "        var appConfig: AppConfigRecord?\n        var metadata: String"
+    )
+    try check(
+        try parityFindings(compliantBackupParitySchema, changedPayloadArchive).isEmpty == false,
+        "A Payload shape change escaped backup-format review"
+    )
+    let changedModelListSchema = replacingFirst(
+        compliantBackupParitySchema,
+        "            Citation.self,\n            AppConfig.self",
+        "            AppConfig.self,\n            Citation.self"
+    )
+    try check(
+        try hasSchemaDrift(changedModelListSchema),
+        "A SchemaV1 model-list change escaped backup-format review"
+    )
+
+    let dtoInsertionPoint = "        var lastExportAt: Date?\n    }\n}"
+    let customDTODeclarations = [
+        "        enum CodingKeys: String, CodingKey { case lastExportAt }",
+        "        init(lastExportAt: Date?) { self.lastExportAt = lastExportAt }",
+        "        init(from decoder: Decoder) throws { fatalError() }",
+        "        func encode(to encoder: Encoder) throws { fatalError() }",
+        "        struct Helper {}"
+    ]
+    let customDTOsAreRejected = try customDTODeclarations.allSatisfy { declaration in
+        let mutatedArchive = replacingFirst(
+            compliantBackupParityArchive,
+            dtoInsertionPoint,
+            "        var lastExportAt: Date?\n\(declaration)\n    }\n}"
+        )
+        return try parityFindings(compliantBackupParitySchema, mutatedArchive).contains(where: {
+            $0.message.contains("synthesized Codable and memberwise initialization")
+        })
+    }
+    try check(
+        customDTOsAreRejected,
+        "Custom CodingKeys, initializer, Codable method, or nested DTO declaration escaped review"
+    )
+
+    let outerCustomCodableDeclarations = [
+        "    private enum CodingKeys: String, CodingKey { case formatVersion = \"version\"; case createdAt; case payload }",
+        "    init(from decoder: Decoder) throws { fatalError() }",
+        "    func encode(to encoder: Encoder) throws { fatalError() }"
+    ]
+    let outerCustomCodableArchives = outerCustomCodableDeclarations.map { declaration in
+        replacingFirst(
+            compliantBackupParityArchive,
+            "    var payload: Payload",
+            "    var payload: Payload\n\(declaration)"
+        )
+    } + [
+        replacingFirst(
+            compliantBackupParityArchive,
+            "extension BackupArchive {",
+            "extension BackupArchive {\n    init(from decoder: Decoder) throws { fatalError() }"
+        )
+    ]
+    let outerCustomCodableIsRejected = try outerCustomCodableArchives.allSatisfy { mutatedArchive in
+        return try parityFindings(compliantBackupParitySchema, mutatedArchive).contains(where: {
+            $0.message.contains("synthesized Codable and memberwise initialization")
+        })
+    }
+    try check(
+        outerCustomCodableIsRejected,
+        "Outer BackupArchive custom CodingKeys, decoder, or encoder escaped review"
+    )
+
+    let coordinatedSchema = addedScalarSchema
+    let coordinatedArchive = addedDTOPropertyArchive
+    try check(
+        try hasSchemaDrift(coordinatedSchema, archive: coordinatedArchive),
+        "A coordinated schema-and-DTO addition bypassed explicit backup-format review"
+    )
+    let decoySchema = compliantBackupParitySchema + #"""
+    // @Model final class Rogue { var annotation: String }
+    let note = "@Model final class Rogue { var annotation: String }"
+    """#
+    let decoyArchive = compliantBackupParityArchive + #"""
+    // struct Payload: Codable { var metadata: String }
+    let note = "struct CitationRecord: Codable { var metadata: String }"
+    """#
+    try check(
+        try parityFindings(decoySchema, decoyArchive).isEmpty,
+        "A comment or string decoy changed the structural backup-parity result"
+    )
+
     let quotedPropertyTrap =
         #"{ isa = PBXNativeTarget; name = "productType = com.apple.product-type.application;"; }"#
     try check(
@@ -5406,13 +6300,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 230 else {
+    guard completedChecks == 242 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 230, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 242, completed \(completedChecks)"
             ]
         )
     }

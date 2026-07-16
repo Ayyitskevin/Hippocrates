@@ -31,9 +31,10 @@ data model, drug exclusion list, or history from that prototype is carried forwa
   APIs, network-opening UI, unreviewed imports, Foundation URL loading,
   file-picker/document-browser and external drop/paste/item-provider surfaces,
   security-scoped or reviewed path-content access, AppConfig ownership or
-  unreviewed model-deletion drift, iCloud surfaces, compiler injection, linked
-  frameworks, external address literals, altered build configurations or schemes,
-  project-bundle symlinks, physical-file aliases, or package dependencies.
+  unreviewed model-deletion drift, persisted-schema changes without backup-format
+  review, iCloud surfaces, compiler injection, linked frameworks, external
+  address literals, altered build configurations or schemes, project-bundle
+  symlinks, physical-file aliases, or package dependencies.
 
 Hippocrates contains no networking code and declares "Data Not Collected." Data
 lives in a local SwiftData store on one device. This is verifiable by inspecting
@@ -62,14 +63,24 @@ The pre-release foundation now contains:
    explicit zero-dollar value;
 5. backup format v2, explicit value-space migration from format v1, and validated
    empty-store restoration;
-6. lossless in-memory tests for every model and relationship, plus file-backed
-   close/reopen coverage for the core store, relationship, and configuration
-   seams; and
-7. a fail-closed PBX/configuration/scheme parser plus 230 executable checks and
+6. hybrid backup-completeness coverage that reconciles live SwiftData metadata
+   with an explicit no-ignored-field representation manifest, compares export
+   against an independently constructed archive, and asserts every restored
+   field directly; plus file-backed close/reopen coverage for the core store,
+   relationship, and configuration seams; and
+7. a fail-closed PBX/configuration/scheme parser plus executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,
    target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
-   and persisted-schema drift.
+   and persisted-schema/backup-shape drift.
+
+The three persisted properties intentionally represented without their own
+same-named backup fields are `DIQuestion.citations` (rebuilt from
+`Citation.questionID`), `DIQuestion.linkedInterventions` (rebuilt from
+`Intervention.diQuestionID`), and `AppConfig.singletonKey` (reconstructed as the
+canonical `"app"` value). Synthesized `Codable` checks the represented archive's
+record types during decoding; `BackupService.validate(_:)` separately owns
+cross-record graph integrity and domain invariants.
 
 This hardens persistence without inventing product policy. Taxonomy editors,
 capture, summary, DI, and restore UI remain gated by the affected product and
@@ -91,14 +102,13 @@ xcodebuild test \
 The GitHub workflow runs the source boundary directly before Xcode mutates its
 project bundle, producing recursive orphan and shadow-scheme diagnostics. It
 plants network, inferred file-ingress, external-drop, path/stream-loader,
-security-scoped, AppConfig-ownership/lifecycle, source, resource, test-loader,
-and configuration violations,
-then proves the sandboxed Xcode phase
-rejects every declared-input class without traversing Xcode's generated
-`project.xcworkspace`, before running the Xcode 16.4 Release build, static
-analysis, and
-file-backed and in-memory tests on iOS 18.5. Local scanner self-tests are useful,
-but they are not substitutes for an exact-head hosted Apple-platform result.
+security-scoped, AppConfig-ownership/lifecycle, persisted-schema/backup-shape,
+source, resource, test-loader, and configuration violations, then proves the
+sandboxed Xcode phase rejects every declared-input class without traversing
+Xcode's generated `project.xcworkspace`, before running the Xcode 16.4 Release
+build, static analysis, and file-backed and in-memory tests on iOS 18.5. Local
+scanner self-tests are useful, but they are not substitutes for an exact-head
+hosted Apple-platform result.
 
 ## Privacy manifest and App Store label
 

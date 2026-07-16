@@ -121,6 +121,11 @@ final class SchemaContractTests: XCTestCase {
         XCTAssertEqual(RequestorRole.allCases.map(\.rawValue), [
             "resident", "nurse", "attending", "pharmacist", "student", "careTeam", "other"
         ])
+        XCTAssertEqual(DIQuestionClass.allCases.map(\.rawValue), [
+            "dosing", "adverseEffect", "interaction", "compatibility", "availability",
+            "administration", "pregnancyLactation", "therapeutics", "toxicology",
+            "pharmacokinetics", "other"
+        ])
         XCTAssertEqual(Urgency.allCases.map(\.rawValue), ["routine", "sameDay", "stat"])
         XCTAssertEqual(SourceTier.allCases.map(\.rawValue), [
             "tertiary", "secondary", "primary", "guideline", "label", "institutionPolicy"

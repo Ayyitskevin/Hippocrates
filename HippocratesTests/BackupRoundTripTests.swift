@@ -7,6 +7,192 @@ import XCTest
 final class BackupRoundTripTests: XCTestCase {
     private let exportDate = Date(timeIntervalSinceReferenceDate: 800_000_000.125)
 
+    private enum BackupRepresentationV2: Equatable {
+        case record(String)
+        case foreignUUID(String)
+        case inverse(model: String, field: String)
+        case reconstructedConstant(String)
+
+        var recordField: String? {
+            switch self {
+            case let .record(field), let .foreignUUID(field):
+                field
+            case .inverse, .reconstructedConstant:
+                nil
+            }
+        }
+
+        var foreignUUIDField: String? {
+            guard case let .foreignUUID(field) = self else { return nil }
+            return field
+        }
+
+        var inverseReference: String? {
+            guard case let .inverse(model, field) = self else { return nil }
+            return model + "." + field
+        }
+
+        var reconstructedValue: String? {
+            guard case let .reconstructedConstant(value) = self else { return nil }
+            return value
+        }
+    }
+
+    private struct CompleteFixture {
+        var expectedArchive: BackupArchive
+        var citationID: UUID
+        var interventionID: UUID
+    }
+
+    private enum DanglingReferenceCase: CaseIterable {
+        case interventionType
+        case interventionDrugClass
+        case interventionServiceLine
+        case interventionQuestion
+        case citationQuestion
+    }
+
+    private var backupCoverageV2: [String: [String: BackupRepresentationV2]] {
+        [
+            "InterventionType": [
+                "id": .record("id"),
+                "label": .record("label"),
+                "defaultCostAvoidanceCents": .record("defaultCostAvoidanceCents"),
+                "isActive": .record("isActive"),
+                "sortOrder": .record("sortOrder")
+            ],
+            "DrugClass": [
+                "id": .record("id"),
+                "label": .record("label"),
+                "isActive": .record("isActive"),
+                "sortOrder": .record("sortOrder")
+            ],
+            "ServiceLine": [
+                "id": .record("id"),
+                "label": .record("label"),
+                "isActive": .record("isActive"),
+                "sortOrder": .record("sortOrder")
+            ],
+            "Intervention": [
+                "id": .record("id"),
+                "timestamp": .record("timestamp"),
+                "type": .foreignUUID("typeID"),
+                "drugClass": .foreignUUID("drugClassID"),
+                "serviceLine": .foreignUUID("serviceLineID"),
+                "acceptance": .record("acceptance"),
+                "costAvoidanceCents": .record("costAvoidanceCents"),
+                "minutesSpent": .record("minutesSpent"),
+                "diQuestion": .foreignUUID("diQuestionID")
+            ],
+            "DIQuestion": [
+                "id": .record("id"),
+                "createdAt": .record("createdAt"),
+                "answeredAt": .record("answeredAt"),
+                "questionText": .record("questionText"),
+                "background": .record("background"),
+                "answerText": .record("answerText"),
+                "searchStrategy": .record("searchStrategy"),
+                "requestorRole": .record("requestorRole"),
+                "questionClass": .record("questionClass"),
+                "urgency": .record("urgency"),
+                "verifiedOn": .record("verifiedOn"),
+                "reviewAfter": .record("reviewAfter"),
+                "didFollowUp": .record("didFollowUp"),
+                "tags": .record("tags"),
+                "verificationHistory": .record("verificationHistory"),
+                "citations": .inverse(model: "Citation", field: "questionID"),
+                "linkedInterventions": .inverse(model: "Intervention", field: "diQuestionID")
+            ],
+            "Citation": [
+                "id": .record("id"),
+                "question": .foreignUUID("questionID"),
+                "tier": .record("tier"),
+                "title": .record("title"),
+                "locator": .record("locator"),
+                "accessedDate": .record("accessedDate"),
+                "urlString": .record("urlString")
+            ],
+            "AppConfig": [
+                "singletonKey": .reconstructedConstant("app"),
+                "stalenessIntervalMonths": .record("stalenessIntervalMonths"),
+                "lastExportAt": .record("lastExportAt")
+            ]
+        ]
+    }
+
+    private var backupRecordFieldsV2: [String: Set<String>] {
+        [
+            "InterventionType": ["id", "label", "defaultCostAvoidanceCents", "isActive", "sortOrder"],
+            "DrugClass": ["id", "label", "isActive", "sortOrder"],
+            "ServiceLine": ["id", "label", "isActive", "sortOrder"],
+            "Intervention": [
+                "id", "timestamp", "typeID", "drugClassID", "serviceLineID", "acceptance",
+                "costAvoidanceCents", "minutesSpent", "diQuestionID"
+            ],
+            "DIQuestion": [
+                "id", "createdAt", "answeredAt", "questionText", "background", "answerText",
+                "searchStrategy", "requestorRole", "questionClass", "urgency", "verifiedOn",
+                "reviewAfter", "didFollowUp", "tags", "verificationHistory"
+            ],
+            "Citation": ["id", "questionID", "tier", "title", "locator", "accessedDate", "urlString"],
+            "AppConfig": ["stalenessIntervalMonths", "lastExportAt"]
+        ]
+    }
+
+    func testBackupCoverageExactlyMatchesSchemaV1() throws {
+        let schema = Schema(versionedSchema: SchemaV1.self)
+        var entitiesByModelName: [String: Schema.Entity] = [:]
+        for entity in schema.entities {
+            // Versioned-schema model names may carry nesting or module qualifiers.
+            // The reviewed backup contract owns the unique leaf names.
+            let matchingModelNames = backupCoverageV2.keys.filter { modelName in
+                entity.name == modelName || entity.name.hasSuffix("." + modelName)
+            }
+            XCTAssertEqual(matchingModelNames.count, 1)
+            let modelName = try XCTUnwrap(matchingModelNames.first)
+            XCTAssertNil(entitiesByModelName.updateValue(entity, forKey: modelName))
+        }
+
+        let actualPersistedFields = try Dictionary(
+            uniqueKeysWithValues: backupCoverageV2.keys.map { modelName in
+                (
+                    modelName,
+                    persistedFields(in: try XCTUnwrap(entitiesByModelName[modelName]))
+                )
+            }
+        )
+        let coveredPersistedFields = backupCoverageV2.mapValues { Set($0.keys) }
+
+        XCTAssertEqual(Set(entitiesByModelName.keys), Set(backupCoverageV2.keys))
+        XCTAssertEqual(actualPersistedFields, coveredPersistedFields)
+
+        let representedRecordFields = backupCoverageV2.mapValues { coverage in
+            Set(coverage.values.compactMap(\.recordField))
+        }
+        XCTAssertEqual(representedRecordFields, backupRecordFieldsV2)
+
+        let availableForeignUUIDReferences = Set(
+            backupCoverageV2.flatMap { model, coverage in
+                coverage.values.compactMap(\.foreignUUIDField).map { model + "." + $0 }
+            }
+        )
+        let inverseReferences = Set(
+            backupCoverageV2.values.flatMap { coverage in
+                coverage.values.compactMap(\.inverseReference)
+            }
+        )
+        XCTAssertTrue(inverseReferences.isSubset(of: availableForeignUUIDReferences))
+
+        let reconstructedConstants = Dictionary(
+            uniqueKeysWithValues: backupCoverageV2.flatMap { model, coverage in
+                coverage.compactMap { field, representation in
+                    representation.reconstructedValue.map { (model + "." + field, $0) }
+                }
+            }
+        )
+        XCTAssertEqual(reconstructedConstants, ["AppConfig.singletonKey": "app"])
+    }
+
     func testCompleteStoreRoundTripsLosslessly() throws {
         let source = try HippocratesStore.makeContainer(inMemory: true)
         let fixture = try insertCompleteFixture(into: source.mainContext)
@@ -15,18 +201,23 @@ final class BackupRoundTripTests: XCTestCase {
             from: source.mainContext,
             createdAt: exportDate
         )
+        XCTAssertEqual(sourceArchive.formatVersion, BackupArchive.currentFormatVersion)
+        XCTAssertEqual(sourceArchive.createdAt, exportDate)
+        XCTAssertEqual(sourceArchive, fixture.expectedArchive)
         let encoded = try BackupCodec.encode(sourceArchive)
         let decoded = try BackupCodec.decode(encoded)
-        XCTAssertEqual(decoded, sourceArchive)
+        XCTAssertEqual(decoded, fixture.expectedArchive)
 
         let destination = try HippocratesStore.makeContainer(inMemory: true)
         try BackupService.restore(decoded, into: destination.mainContext)
+        XCTAssertFalse(destination.mainContext.hasChanges)
         let restoredArchive = try BackupService.makeArchive(
             from: destination.mainContext,
             createdAt: exportDate
         )
 
-        XCTAssertEqual(restoredArchive, sourceArchive)
+        XCTAssertEqual(restoredArchive, fixture.expectedArchive)
+        try assertCompleteFixture(fixture, in: destination.mainContext)
 
         let restoredQuestions = try destination.mainContext.fetch(FetchDescriptor<DIQuestion>())
         let restoredQuestion = try XCTUnwrap(restoredQuestions.first)
@@ -36,18 +227,66 @@ final class BackupRoundTripTests: XCTestCase {
 
     func testDanglingReferenceIsRejectedBeforeDestinationMutation() throws {
         let source = try HippocratesStore.makeContainer(inMemory: true)
-        _ = try insertCompleteFixture(into: source.mainContext)
-        var archive = try BackupService.makeArchive(from: source.mainContext, createdAt: exportDate)
-        archive.payload.interventions[0].typeID = UUID()
+        let fixture = try insertCompleteFixture(into: source.mainContext)
+        let missingID = try XCTUnwrap(
+            UUID(uuidString: "70000000-0000-0000-0000-000000000007")
+        )
 
-        let destination = try HippocratesStore.makeContainer(inMemory: true)
-        XCTAssertThrowsError(try BackupService.restore(archive, into: destination.mainContext)) { error in
-            guard case BackupError.danglingReference = error else {
-                return XCTFail("Expected a dangling-reference error, got \(error)")
+        for referenceCase in DanglingReferenceCase.allCases {
+            var archive = fixture.expectedArchive
+            let expectedError: BackupError
+
+            switch referenceCase {
+            case .interventionType:
+                archive.payload.interventions[0].typeID = missingID
+                expectedError = .danglingReference(
+                    entity: "Intervention",
+                    id: fixture.interventionID,
+                    field: "typeID",
+                    referencedID: missingID
+                )
+            case .interventionDrugClass:
+                archive.payload.interventions[0].drugClassID = missingID
+                expectedError = .danglingReference(
+                    entity: "Intervention",
+                    id: fixture.interventionID,
+                    field: "drugClassID",
+                    referencedID: missingID
+                )
+            case .interventionServiceLine:
+                archive.payload.interventions[0].serviceLineID = missingID
+                expectedError = .danglingReference(
+                    entity: "Intervention",
+                    id: fixture.interventionID,
+                    field: "serviceLineID",
+                    referencedID: missingID
+                )
+            case .interventionQuestion:
+                archive.payload.interventions[0].diQuestionID = missingID
+                expectedError = .danglingReference(
+                    entity: "Intervention",
+                    id: fixture.interventionID,
+                    field: "diQuestionID",
+                    referencedID: missingID
+                )
+            case .citationQuestion:
+                archive.payload.citations[0].questionID = missingID
+                expectedError = .danglingReference(
+                    entity: "Citation",
+                    id: fixture.citationID,
+                    field: "questionID",
+                    referencedID: missingID
+                )
             }
+
+            let destination = try HippocratesStore.makeContainer(inMemory: true)
+            XCTAssertThrowsError(
+                try BackupService.restore(archive, into: destination.mainContext)
+            ) { error in
+                XCTAssertEqual(error as? BackupError, expectedError)
+            }
+            try assertEmptyBackupDestination(destination.mainContext)
         }
-        XCTAssertEqual(try destination.mainContext.fetchCount(FetchDescriptor<Intervention>()), 0)
-        XCTAssertEqual(try destination.mainContext.fetchCount(FetchDescriptor<InterventionType>()), 0)
     }
 
     func testUnknownBackupVersionIsRejected() throws {
@@ -491,7 +730,7 @@ final class BackupRoundTripTests: XCTestCase {
 
     private func insertCompleteFixture(
         into context: ModelContext
-    ) throws -> (citationID: UUID, interventionID: UUID) {
+    ) throws -> CompleteFixture {
         let typeID = try XCTUnwrap(UUID(uuidString: "10000000-0000-0000-0000-000000000001"))
         let drugClassID = try XCTUnwrap(UUID(uuidString: "20000000-0000-0000-0000-000000000002"))
         let serviceLineID = try XCTUnwrap(UUID(uuidString: "30000000-0000-0000-0000-000000000003"))
@@ -501,19 +740,31 @@ final class BackupRoundTripTests: XCTestCase {
 
         let verifiedOn = Date(timeIntervalSinceReferenceDate: 750_000_000.75)
         let reviewAfter = Date(timeIntervalSinceReferenceDate: 781_536_000.75)
+        let previousVerification = verifiedOn.addingTimeInterval(-86_400)
 
         let type = InterventionType(
             id: typeID,
             label: "Documented intervention",
             defaultCostAvoidanceCents: 12_500,
+            isActive: false,
             sortOrder: 1
         )
-        let drugClass = DrugClass(id: drugClassID, label: "Configured class", sortOrder: 2)
-        let serviceLine = ServiceLine(id: serviceLineID, label: "Configured service", sortOrder: 3)
+        let drugClass = DrugClass(
+            id: drugClassID,
+            label: "Configured class",
+            isActive: false,
+            sortOrder: 2
+        )
+        let serviceLine = ServiceLine(
+            id: serviceLineID,
+            label: "Configured service",
+            isActive: true,
+            sortOrder: 3
+        )
         let question = DIQuestion(
             id: questionID,
-            createdAt: verifiedOn.addingTimeInterval(-3_600),
-            answeredAt: verifiedOn,
+            createdAt: previousVerification.addingTimeInterval(-3_600),
+            answeredAt: verifiedOn.addingTimeInterval(-900),
             questionText: "What information was requested?",
             background: "De-identified professional context.",
             answerText: "The pharmacist's completed response.",
@@ -525,7 +776,7 @@ final class BackupRoundTripTests: XCTestCase {
             reviewAfter: reviewAfter,
             didFollowUp: true,
             tags: ["portfolio", "teaching"],
-            verificationHistory: [verifiedOn]
+            verificationHistory: [previousVerification, verifiedOn]
         )
         let citation = Citation(
             id: citationID,
@@ -547,7 +798,7 @@ final class BackupRoundTripTests: XCTestCase {
             minutesSpent: 7,
             diQuestion: question
         )
-        _ = try AppConfigService.insertForRestore(
+        let configuration = try AppConfigService.insertForRestore(
             stalenessIntervalMonths: 12,
             lastExportAt: exportDate,
             into: context
@@ -561,6 +812,196 @@ final class BackupRoundTripTests: XCTestCase {
         context.insert(intervention)
         try context.save()
 
-        return (citationID, interventionID)
+        let expectedArchive = BackupArchive(
+            createdAt: exportDate,
+            payload: .init(
+                interventionTypes: [
+                    .init(
+                        id: type.id,
+                        label: type.label,
+                        defaultCostAvoidanceCents: type.defaultCostAvoidanceCents,
+                        isActive: type.isActive,
+                        sortOrder: type.sortOrder
+                    )
+                ],
+                drugClasses: [
+                    .init(
+                        id: drugClass.id,
+                        label: drugClass.label,
+                        isActive: drugClass.isActive,
+                        sortOrder: drugClass.sortOrder
+                    )
+                ],
+                serviceLines: [
+                    .init(
+                        id: serviceLine.id,
+                        label: serviceLine.label,
+                        isActive: serviceLine.isActive,
+                        sortOrder: serviceLine.sortOrder
+                    )
+                ],
+                interventions: [
+                    .init(
+                        id: intervention.id,
+                        timestamp: intervention.timestamp,
+                        typeID: type.id,
+                        drugClassID: drugClass.id,
+                        serviceLineID: serviceLine.id,
+                        acceptance: intervention.acceptance,
+                        costAvoidanceCents: intervention.costAvoidanceCents,
+                        minutesSpent: intervention.minutesSpent,
+                        diQuestionID: question.id
+                    )
+                ],
+                questions: [
+                    .init(
+                        id: question.id,
+                        createdAt: question.createdAt,
+                        answeredAt: question.answeredAt,
+                        questionText: question.questionText,
+                        background: question.background,
+                        answerText: question.answerText,
+                        searchStrategy: question.searchStrategy,
+                        requestorRole: question.requestorRole,
+                        questionClass: question.questionClass,
+                        urgency: question.urgency,
+                        verifiedOn: question.verifiedOn,
+                        reviewAfter: question.reviewAfter,
+                        didFollowUp: question.didFollowUp,
+                        tags: question.tags,
+                        verificationHistory: question.verificationHistory
+                    )
+                ],
+                citations: [
+                    .init(
+                        id: citation.id,
+                        questionID: question.id,
+                        tier: citation.tier,
+                        title: citation.title,
+                        locator: citation.locator,
+                        accessedDate: citation.accessedDate,
+                        urlString: citation.urlString
+                    )
+                ],
+                appConfig: .init(
+                    stalenessIntervalMonths: configuration.stalenessIntervalMonths,
+                    lastExportAt: configuration.lastExportAt
+                )
+            )
+        )
+        return CompleteFixture(
+            expectedArchive: expectedArchive,
+            citationID: citationID,
+            interventionID: interventionID
+        )
+    }
+
+    private func persistedFields(in entity: Schema.Entity) -> Set<String> {
+        Set(entity.attributes.filter { !$0.isTransient }.map(\.name))
+            .union(entity.relationships.filter { !$0.isTransient }.map(\.name))
+    }
+
+    private func assertEmptyBackupDestination(_ context: ModelContext) throws {
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<InterventionType>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrugClass>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ServiceLine>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Intervention>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DIQuestion>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Citation>()), 0)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 0)
+        XCTAssertFalse(context.hasChanges)
+    }
+
+    private func assertCompleteFixture(
+        _ fixture: CompleteFixture,
+        in context: ModelContext
+    ) throws {
+        let payload = fixture.expectedArchive.payload
+        let typeRecord = try XCTUnwrap(payload.interventionTypes.first)
+        let drugClassRecord = try XCTUnwrap(payload.drugClasses.first)
+        let serviceLineRecord = try XCTUnwrap(payload.serviceLines.first)
+        let interventionRecord = try XCTUnwrap(payload.interventions.first)
+        let questionRecord = try XCTUnwrap(payload.questions.first)
+        let citationRecord = try XCTUnwrap(payload.citations.first)
+        let appConfigRecord = try XCTUnwrap(payload.appConfig)
+
+        let types = try context.fetch(FetchDescriptor<InterventionType>())
+        let drugClasses = try context.fetch(FetchDescriptor<DrugClass>())
+        let serviceLines = try context.fetch(FetchDescriptor<ServiceLine>())
+        let interventions = try context.fetch(FetchDescriptor<Intervention>())
+        let questions = try context.fetch(FetchDescriptor<DIQuestion>())
+        let citations = try context.fetch(FetchDescriptor<Citation>())
+        let configurations = try context.fetch(FetchDescriptor<AppConfig>())
+
+        XCTAssertEqual(types.count, 1)
+        XCTAssertEqual(drugClasses.count, 1)
+        XCTAssertEqual(serviceLines.count, 1)
+        XCTAssertEqual(interventions.count, 1)
+        XCTAssertEqual(questions.count, 1)
+        XCTAssertEqual(citations.count, 1)
+        XCTAssertEqual(configurations.count, 1)
+
+        let type = try XCTUnwrap(types.first)
+        XCTAssertEqual(type.id, typeRecord.id)
+        XCTAssertEqual(type.label, typeRecord.label)
+        XCTAssertEqual(type.defaultCostAvoidanceCents, typeRecord.defaultCostAvoidanceCents)
+        XCTAssertEqual(type.isActive, typeRecord.isActive)
+        XCTAssertEqual(type.sortOrder, typeRecord.sortOrder)
+
+        let drugClass = try XCTUnwrap(drugClasses.first)
+        XCTAssertEqual(drugClass.id, drugClassRecord.id)
+        XCTAssertEqual(drugClass.label, drugClassRecord.label)
+        XCTAssertEqual(drugClass.isActive, drugClassRecord.isActive)
+        XCTAssertEqual(drugClass.sortOrder, drugClassRecord.sortOrder)
+
+        let serviceLine = try XCTUnwrap(serviceLines.first)
+        XCTAssertEqual(serviceLine.id, serviceLineRecord.id)
+        XCTAssertEqual(serviceLine.label, serviceLineRecord.label)
+        XCTAssertEqual(serviceLine.isActive, serviceLineRecord.isActive)
+        XCTAssertEqual(serviceLine.sortOrder, serviceLineRecord.sortOrder)
+
+        let intervention = try XCTUnwrap(interventions.first)
+        XCTAssertEqual(intervention.id, interventionRecord.id)
+        XCTAssertEqual(intervention.timestamp, interventionRecord.timestamp)
+        XCTAssertEqual(intervention.type?.id, interventionRecord.typeID)
+        XCTAssertEqual(intervention.drugClass?.id, interventionRecord.drugClassID)
+        XCTAssertEqual(intervention.serviceLine?.id, interventionRecord.serviceLineID)
+        XCTAssertEqual(intervention.acceptance, interventionRecord.acceptance)
+        XCTAssertEqual(intervention.costAvoidanceCents, interventionRecord.costAvoidanceCents)
+        XCTAssertEqual(intervention.minutesSpent, interventionRecord.minutesSpent)
+        XCTAssertEqual(intervention.diQuestion?.id, interventionRecord.diQuestionID)
+
+        let question = try XCTUnwrap(questions.first)
+        XCTAssertEqual(question.id, questionRecord.id)
+        XCTAssertEqual(question.createdAt, questionRecord.createdAt)
+        XCTAssertEqual(question.answeredAt, questionRecord.answeredAt)
+        XCTAssertEqual(question.questionText, questionRecord.questionText)
+        XCTAssertEqual(question.background, questionRecord.background)
+        XCTAssertEqual(question.answerText, questionRecord.answerText)
+        XCTAssertEqual(question.searchStrategy, questionRecord.searchStrategy)
+        XCTAssertEqual(question.requestorRole, questionRecord.requestorRole)
+        XCTAssertEqual(question.questionClass, questionRecord.questionClass)
+        XCTAssertEqual(question.urgency, questionRecord.urgency)
+        XCTAssertEqual(question.verifiedOn, questionRecord.verifiedOn)
+        XCTAssertEqual(question.reviewAfter, questionRecord.reviewAfter)
+        XCTAssertEqual(question.didFollowUp, questionRecord.didFollowUp)
+        XCTAssertEqual(question.tags, questionRecord.tags)
+        XCTAssertEqual(question.verificationHistory, questionRecord.verificationHistory)
+        XCTAssertEqual(question.citations.map(\.id), [citationRecord.id])
+        XCTAssertEqual(question.linkedInterventions.map(\.id), [interventionRecord.id])
+
+        let citation = try XCTUnwrap(citations.first)
+        XCTAssertEqual(citation.id, citationRecord.id)
+        XCTAssertEqual(citation.question?.id, citationRecord.questionID)
+        XCTAssertEqual(citation.tier, citationRecord.tier)
+        XCTAssertEqual(citation.title, citationRecord.title)
+        XCTAssertEqual(citation.locator, citationRecord.locator)
+        XCTAssertEqual(citation.accessedDate, citationRecord.accessedDate)
+        XCTAssertEqual(citation.urlString, citationRecord.urlString)
+
+        let configuration = try XCTUnwrap(configurations.first)
+        XCTAssertEqual(configuration.singletonKey, "app")
+        XCTAssertEqual(configuration.stalenessIntervalMonths, appConfigRecord.stalenessIntervalMonths)
+        XCTAssertEqual(configuration.lastExportAt, appConfigRecord.lastExportAt)
     }
 }
