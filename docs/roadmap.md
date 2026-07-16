@@ -15,7 +15,7 @@ cross a decision or evidence gate.
 | F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
 | F4 — policy-neutral configuration and backup evolution | Verified | Implementation commit `ade0c7f` passed the Xcode 16.4/iOS 18.5 Release build, analyzer, simulator tests, and boundary probe in [hosted run 29439588632](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29439588632) |
 | F5 — boundary-control hardening | Verified | Implementation series through [`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98) passed its original scanner probes, Release build, analyzer, and simulator tests in [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562) |
-| F5.1 — local-file ingress hardening | Awaiting hosted evidence | 180 scanner checks cover reviewed picker/drop/path/stream/security-scope and ubiquity APIs; dual direct/sandboxed probes plant one inferred picker chain plus external drop |
+| F5.1 — local-file ingress hardening | Verified | Implementation commit [`901508d`](https://github.com/Ayyitskevin/Hippocrates/commit/901508df17bb1a2577a721785d174c4bed403a56) passed 180 scanner checks, both planted boundary probes, Release build, analyzer, and simulator tests in [hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -105,9 +105,11 @@ Implemented deliverables:
   with security-scope, path/stream reads, and external drop, then require each
   specific diagnostic.
 
-Exit gate pending: the implementation commit and its documentation head must
-pass the exact-head direct/sandboxed diagnostics, Xcode 16.4 Release build,
-static analysis, and iOS 18.5 simulator tests before this row becomes Verified.
+Exit gate achieved: implementation commit
+[`901508d`](https://github.com/Ayyitskevin/Hippocrates/commit/901508df17bb1a2577a721785d174c4bed403a56)
+passed the exact-head direct/sandboxed diagnostics, Xcode 16.4 Release build,
+static analysis, and iOS 18.5 simulator tests in
+[hosted run 29468180613](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29468180613).
 
 ## Feature-specific decision gate
 
