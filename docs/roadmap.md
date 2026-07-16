@@ -14,7 +14,8 @@ cross a decision or evidence gate.
 | F2 — backup foundation | Verified | Populated all-model store restores and logically re-exports identically in hosted tests |
 | F3 — privacy build controls | Verified | Clean Xcode build passes and CI proves a planted `URLSession` reference fails the build phase |
 | F4 — policy-neutral configuration and backup evolution | Verified | Implementation commit `ade0c7f` passed the Xcode 16.4/iOS 18.5 Release build, analyzer, simulator tests, and boundary probe in [hosted run 29439588632](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29439588632) |
-| F5 — boundary-control closure | Verified | Implementation series through [`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98) passed all scanner probes, Release build, analyzer, and simulator tests in [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562) |
+| F5 — boundary-control hardening | Verified | Implementation series through [`dda1ab8`](https://github.com/Ayyitskevin/Hippocrates/commit/dda1ab8c64c0b7979bd715a74511868be5e55f98) passed its original scanner probes, Release build, analyzer, and simulator tests in [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562) |
+| F5.1 — local-file ingress hardening | Awaiting hosted evidence | 180 scanner checks cover reviewed picker/drop/path/stream/security-scope and ubiquity APIs; dual direct/sandboxed probes plant one inferred picker chain plus external drop |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -50,7 +51,7 @@ Exit gate achieved: implementation commit
 passed the hosted Release build, analysis, simulator tests, and planted-networking
 boundary probe.
 
-## Foundation hardening — boundary-control closure
+## Foundation hardening — boundary-control hardening
 
 Implemented deliverables:
 
@@ -79,6 +80,34 @@ Exit gate achieved: the implementation series ending at
 passed the exact-head direct and sandboxed planted diagnostics, Xcode 16.4
 Release build, static analysis, and iOS 18.5 simulator tests in
 [hosted run 29457701562](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29457701562).
+
+## Foundation hardening — local-file ingress hardening
+
+A post-verification review found that SwiftUI file pickers could supply an
+inferred security-scoped URL and feed path/stream readers without matching the
+original F5 rules. It also found alternate drop, paste, item-provider, and
+external-activity ingress. No such shipping UI existed, but the control did not
+yet enforce I-010's reviewed-adapter gate.
+
+Implemented deliverables:
+
+- file-picker, file-mover/exporter, document-browser, drop/paste/item-provider,
+  external-activity, security-scoped/bookmark, coordinated-file, and additional
+  ubiquity surfaces fail closed;
+- reviewed Foundation collection/data/string loaders, contextual URL
+  initializers, URL/path streams,
+  FileHandle, FileWrapper, keyed-unarchive, and FileManager content/enumeration
+  seams require explicit boundary review;
+- the one bundled privacy-manifest path read is masked only for its exact
+  normalized test-file identity, with suffix collisions rejected;
+- scanner inventory increased from 128 to 180 executable checks; and
+- both direct and sandboxed hosted probes plant one inferred file-picker chain
+  with security-scope, path/stream reads, and external drop, then require each
+  specific diagnostic.
+
+Exit gate pending: the implementation commit and its documentation head must
+pass the exact-head direct/sandboxed diagnostics, Xcode 16.4 Release build,
+static analysis, and iOS 18.5 simulator tests before this row becomes Verified.
 
 ## Feature-specific decision gate
 

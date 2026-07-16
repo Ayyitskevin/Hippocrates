@@ -195,12 +195,18 @@ limited to pre-bootstrap import or may replace a logically pristine configuratio
 store. Any destructive replacement of a store containing user records requires a
 separate explicit confirmation design and review.
 
-SwiftUI's normal file-import path exposes a security-scoped local file `URL`,
-while the source scanner deliberately rejects general URL use. Import therefore
-requires a narrow, reviewed scanner exception for one local-file adapter. That
-adapter must require `isFileURL`, acquire and release security-scoped access,
-read the archive into app-owned `Data` immediately, and expose no URL-opening,
-remote-scheme, or sharing behavior. General URL use remains forbidden.
+SwiftUI's normal file-import path exposes a security-scoped local file `URL`.
+The source scanner rejects general URL use, file-picker and document-browser
+surfaces, drop/paste/item-provider and external-activity ingress,
+security-scoped/bookmark APIs, coordinated file access, and the reviewed
+Foundation URL/path content-reader seams. Import therefore requires a narrow,
+reviewed scanner exception for one
+local-file adapter. That adapter must require `isFileURL`, acquire and release
+security-scoped access, read the archive into app-owned `Data` immediately, and
+expose no URL-opening, remote-scheme, or sharing behavior. General URL use
+remains forbidden. `BackupDocument` can decode supplied bytes but remains
+unwired to user-facing import UI until that adapter and the de-identification
+restore gate are reviewed together.
 
 There is no reliable public iOS API that proves whether device/iCloud backup is
 enabled. Any first-run backup note is consequently informational and
@@ -273,12 +279,16 @@ Shipping imports are allowlisted to the five frameworks the current foundation
 uses. `SchemaContractTests` may use Foundation `URL` only in three exact
 `storeLocation` declaration/call seams for its file-backed SwiftData fixture;
 `BackupRoundTripTests` contains one reserved `https://example.invalid/`
-citation literal. The privacy-manifest test reads bundled bytes through a local
-FileManager path rather than a URL-capable loader. All other Foundation URL
-tokens, `contentsOf` loaders, URL/path streams, external-opening UI, transport
-imports, and external address literals remain rejected. Low-level socket and
-host-lookup APIs, iCloud/ubiquity surfaces, rich-text links, dynamic invocation,
-conditional compilation, bare
+citation literal. `PrivacyManifestTests` alone owns one exact bundled-byte read
+through `FileManager.contents(atPath:)`. The scanner rejects Foundation URL
+tokens; `contentsOf` URL/file initializers; contextual URL initializers;
+URL/path streams; FileHandle,
+FileWrapper, keyed-unarchive, FileManager content/enumeration seams;
+file-picker/document-browser and drop/paste/item-provider surfaces;
+security-scoped/bookmark APIs; coordinated file access; external-opening UI;
+transport imports; and external address literals. Low-level socket and
+host-lookup APIs, iCloud/ubiquity surfaces,
+rich-text links, dynamic invocation, conditional compilation, bare
 slashes, backticked identifiers, and Unicode escapes are closed source surfaces.
 Executable string interpolation is an exact per-file expression allowlist.
 

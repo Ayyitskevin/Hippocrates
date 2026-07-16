@@ -21,6 +21,10 @@ private enum SourceRuleID: String {
     case foundationURLValue
     case contentsOfLoader
     case urlBackedStream
+    case fileBoundarySurface
+    case externalDataIngress
+    case securityScopedResource
+    case pathFileAccess
     case hostStream
     case lowLevelNetwork
     case managedCloudKit
@@ -290,7 +294,7 @@ private let sourceRules: [SourceRule] = [
     SourceRule(id: .urlRequest, pattern: #"\bURLRequest\b"#, message: "URLRequest violates the no-network boundary"),
     SourceRule(
         id: .openURL,
-        pattern: #"\b(?:openURL|OpenURLAction)\b"#,
+        pattern: #"\b(?:openURL|onOpenURL|OpenURLAction|handlesExternalEvents)\b"#,
         message: "openURL violates the no-network boundary"
     ),
     SourceRule(id: .link, pattern: #"\bLink\b"#, message: "Link can open a network surface; use plain citation text"),
@@ -321,13 +325,33 @@ private let sourceRules: [SourceRule] = [
     ),
     SourceRule(
         id: .contentsOfLoader,
-        pattern: #"(?:(?:\b(?:Data|NSData|String|NSString|XMLParser|NSXMLParser)\s*(?:\.\s*init)?|\.\s*init)\s*\(\s*contentsOf\s*:|\bNSAttributedString\s*(?:\.\s*init)?\s*\(\s*url\s*:)"#,
+        pattern: #"(?:(?:\b(?:Data|NSData|String|NSString|NSArray|NSDictionary|XMLParser|NSXMLParser)\s*(?:\.\s*init)?|\.\s*init)\s*\(\s*contentsOf\s*:|\bNSAttributedString\s*(?:\.\s*init)?\s*\(\s*url\s*:)"#,
         message: "contentsOf URL loading is forbidden"
     ),
     SourceRule(
         id: .urlBackedStream,
-        pattern: #"\b(?:InputStream|NSInputStream|OutputStream|NSOutputStream)\s*\(\s*(?:url|toFileAtPath)\s*:"#,
-        message: "URL/path-backed streams are forbidden"
+        pattern: #"(?:(?:\b(?:InputStream|NSInputStream|OutputStream|NSOutputStream)\s*(?:\.\s*init)?\s*\(\s*(?:url|fileAtPath|toFileAtPath)\s*:)|\.\s*init\s*\(\s*(?:url|fileAtPath|toFileAtPath)\s*:)"#,
+        message: "URL-backed initializers and URL/path-backed streams require explicit local-file boundary review"
+    ),
+    SourceRule(
+        id: .fileBoundarySurface,
+        pattern: #"\b(?:fileImporter|fileExporter|fileMover|DocumentGroup|DocumentGroupLaunchScene|DocumentLaunchView|documentBrowserContextMenu|UIDocumentPickerViewController|UIDocumentBrowserViewController|UIDocumentInteractionController)\b"#,
+        message: "File-picker and document-browser surfaces require explicit local-file boundary review"
+    ),
+    SourceRule(
+        id: .externalDataIngress,
+        pattern: #"(?:\.\s*(?:onDrop|dropDestination|pasteDestination|onPasteCommand|onContinueUserActivity|loadItem|loadObject|loadDataRepresentation|loadFileRepresentation|loadInPlaceFileRepresentation|loadTransferable)\s*\(|\b(?:NSItemProvider|PasteButton|NSUserActivity|OpenDocumentAction|NewDocumentAction)\b|\bimportedContentType\s*:)"#,
+        message: "External drop, paste, item-provider, and activity ingress requires explicit restore-boundary review"
+    ),
+    SourceRule(
+        id: .securityScopedResource,
+        pattern: #"\b(?:startAccessingSecurityScopedResource|stopAccessingSecurityScopedResource|CFURLStartAccessingSecurityScopedResource|CFURLStopAccessingSecurityScopedResource|bookmarkData|resolvingBookmarkData|withSecurityScope|securityScopeAllowOnlyReadAccess)\b"#,
+        message: "Security-scoped file access requires the reviewed local-file adapter"
+    ),
+    SourceRule(
+        id: .pathFileAccess,
+        pattern: #"(?:(?:\b(?:Data|NSData|String|NSString|NSArray|NSDictionary)\s*(?:\.\s*init)?|\.\s*init)\s*\(\s*contentsOf(?:Mapped)?File\s*:|\.\s*(?:contents(?:Equal)?|subpaths|subpathsOfDirectory)\s*\(\s*atPath\s*:|\.\s*(?:contentsOfDirectory|enumerator)\s*\(\s*at(?:Path)?\s*:|(?:(?:\b(?:FileHandle|NSFileHandle)\s*(?:\.\s*init)?|\.\s*init)\s*\(\s*for(?:ReadingFrom(?:URL)?|WritingTo(?:URL)?|Updating(?:URL)?|ReadingAtPath|WritingAtPath|UpdatingAtPath)\s*:)|\bFileWrapper\s*(?:\.\s*init)?\s*\(\s*url\s*:|\.\s*(?:read\s*\(\s*from|matchesContents\s*\(\s*of)\s*:|\bNSKeyedUnarchiver\s*\.\s*unarchive[A-Za-z0-9_]*\s*\(\s*withFile\s*:|\b(?:NSFileCoordinator|NSFilePresenter)\b)"#,
+        message: "Path-based file access requires explicit local-file boundary review"
     ),
     SourceRule(
         id: .hostStream,
@@ -341,7 +365,7 @@ private let sourceRules: [SourceRule] = [
     ),
     SourceRule(
         id: .ubiquitousStore,
-        pattern: #"\b(?:NSUbiquitousKeyValueStore|NSMetadataQuery|ubiquityIdentityToken|startDownloadingUbiquitousItem|evictUbiquitousItem|setUbiquitous|isUbiquitousItem)\b|\burl\s*\(\s*forUbiquityContainerIdentifier\s*:"#,
+        pattern: #"\b(?:NSUbiquitousKeyValueStore|NSMetadataQuery|ubiquityIdentityToken|ubiquitousItem[A-Za-z0-9_]*|startDownloadingUbiquitousItem|evictUbiquitousItem|setUbiquitous|isUbiquitousItem|forPublishingUbiquitousItemAt)\b|\burl\s*\(\s*forUbiquityContainerIdentifier\s*:"#,
         message: "iCloud and ubiquity APIs violate the no-network boundary"
     ),
     SourceRule(
@@ -560,6 +584,7 @@ private enum ReviewedSourceIdentity: String {
     case backupService = "Hippocrates/Backup/BackupService.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
+    case privacyManifestTests = "HippocratesTests/PrivacyManifestTests.swift"
     case other = ""
 }
 
@@ -616,6 +641,13 @@ private func testFindings(
         maskExactlyOnce(
             citationSeam,
             with: #"            urlString: "reviewed-citation.invalid""#
+        )
+    } else if identity == .privacyManifestTests {
+        let manifestReadSeam =
+            "        let data = try XCTUnwrap(FileManager.default.contents(atPath: manifestPath))"
+        maskExactlyOnce(
+            manifestReadSeam,
+            with: "        let data = try XCTUnwrap(reviewedBundledManifestBytes)"
         )
     }
 
@@ -3494,13 +3526,63 @@ private func runSelfTests() throws {
         Case(name: "live SFSafariViewController", source: "let browser: SFSafariViewController", expectedFindingCount: 1),
         Case(name: "live URLRequest", source: "let request: URLRequest", expectedFindingCount: 1),
         Case(name: "live openURL", source: "let action: OpenURLAction", expectedFindingCount: 1),
+        Case(name: "SwiftUI onOpenURL", source: "content.onOpenURL { destination in handle(destination) }", expectedFindingCount: 1),
+        Case(name: "external event scene", source: "scene.handlesExternalEvents(matching: identifiers)", expectedFindingCount: 1),
         Case(name: "live Link", source: "let view = Link(\"Source\", destination: value)", expectedFindingCount: 1),
         Case(name: "any ShareLink", source: "let view = ShareLink(item: document)", expectedFindingCount: 1),
         Case(name: "aliased UIApplication", source: "let app = UIApplication.shared; app.open(value)", expectedFindingCount: 1),
         Case(name: "URLComponents", source: "var pieces = URLComponents()", expectedFindingCount: 1),
         Case(name: "Foundation URL value", source: "let destination: URL", expectedFindingCount: 1),
         Case(name: "Foundation URL loader", source: "let data = Data(contentsOf: value)", expectedFindingCount: 1),
+        Case(name: "NSArray URL loader", source: "let values = NSArray(contentsOf: file)", expectedFindingCount: 1),
+        Case(name: "NSDictionary URL loader", source: "let values = NSDictionary(contentsOf: file)", expectedFindingCount: 1),
+        Case(name: "contextual attributed-string URL loader", source: "let value: Foundation.NSAttributedString? = try? .init(url: file, options: [:], documentAttributes: nil)", expectedFindingCount: 1),
         Case(name: "URL-backed stream", source: "let stream = InputStream(url: value)", expectedFindingCount: 1),
+        Case(name: "path-backed input stream", source: "let stream = InputStream(fileAtPath: path)", expectedFindingCount: 1),
+        Case(name: "explicit path-backed stream initializer", source: "let stream = InputStream.init(fileAtPath: path)", expectedFindingCount: 1),
+        Case(name: "contextual path-backed stream initializer", source: "let stream: InputStream? = .init(fileAtPath: path)", expectedFindingCount: 1),
+        Case(name: "contextual URL-backed input stream initializer", source: "let stream: InputStream? = .init(url: file)", expectedFindingCount: 1),
+        Case(name: "contextual URL-backed output stream initializer", source: "let stream: Foundation.OutputStream! = try? .init(url: file, append: false)", expectedFindingCount: 1),
+        Case(name: "fail-closed contextual URL initializer", source: "let value: ReviewedValue = .init(url: file)", expectedFindingCount: 1),
+        Case(name: "contextual URL initializer in inferred return", source: "func make() -> InputStream? { .init(url: file) }", expectedFindingCount: 1),
+        Case(name: "contextual URL initializer in multi-binding", source: "let marker = 0, stream: InputStream? = .init(url: file)", expectedFindingCount: 1),
+        Case(name: "SwiftUI file importer", source: "content.fileImporter(isPresented: flag, allowedContentTypes: []) { _ in }", expectedFindingCount: 1),
+        Case(name: "SwiftUI file exporter", source: "content.fileExporter(isPresented: flag, document: document, contentType: type) { _ in }", expectedFindingCount: 1),
+        Case(name: "SwiftUI file mover", source: "content.fileMover(isPresented: flag, file: file) { _ in }", expectedFindingCount: 1),
+        Case(name: "document group scene", source: "DocumentGroup(newDocument: document) { _ in content }", expectedFindingCount: 1),
+        Case(name: "document group launch scene", source: "DocumentGroupLaunchScene { content }", expectedFindingCount: 1),
+        Case(name: "document launch view", source: "DocumentLaunchView()", expectedFindingCount: 1),
+        Case(name: "document browser context menu", source: "content.documentBrowserContextMenu { _ in menu }", expectedFindingCount: 1),
+        Case(name: "UIKit document picker", source: "let picker = UIDocumentPickerViewController(forOpeningContentTypes: types)", expectedFindingCount: 1),
+        Case(name: "UIKit document browser", source: "let browser = UIDocumentBrowserViewController(forOpening: types)", expectedFindingCount: 1),
+        Case(name: "UIKit document interaction", source: "let controller = UIDocumentInteractionController()", expectedFindingCount: 1),
+        Case(name: "SwiftUI onDrop", source: "content.onDrop(of: types, isTargeted: flag) { _ in true }", expectedFindingCount: 1),
+        Case(name: "SwiftUI drop destination", source: "content.dropDestination(for: Payload.self) { _, _ in true }", expectedFindingCount: 1),
+        Case(name: "SwiftUI paste destination", source: "content.pasteDestination(for: Payload.self) { _ in }", expectedFindingCount: 1),
+        Case(name: "item provider", source: "let provider = NSItemProvider()", expectedFindingCount: 1),
+        Case(name: "file representation load", source: "provider.loadFileRepresentation(forTypeIdentifier: type) { _, _ in }", expectedFindingCount: 1),
+        Case(name: "data representation load", source: "provider.loadDataRepresentation(forTypeIdentifier: type) { _, _ in }", expectedFindingCount: 1),
+        Case(name: "transferable load", source: "item.loadTransferable(type: Payload.self) { _ in }", expectedFindingCount: 1),
+        Case(name: "paste button", source: "PasteButton(payloadType: Payload.self) { _ in }", expectedFindingCount: 1),
+        Case(name: "imported transfer representation", source: "DataRepresentation(importedContentType: type) { data in payload }", expectedFindingCount: 1),
+        Case(name: "paste command", source: "content.onPasteCommand(of: types) { _ in }", expectedFindingCount: 1),
+        Case(name: "continued user activity", source: "content.onContinueUserActivity(activityType) { _ in }", expectedFindingCount: 1),
+        Case(name: "Foundation user activity", source: "let activity = NSUserActivity(activityType: type)", expectedFindingCount: 1),
+        Case(name: "security-scoped access", source: "file.startAccessingSecurityScopedResource()", expectedFindingCount: 1),
+        Case(name: "Core Foundation security-scoped access", source: "CFURLStartAccessingSecurityScopedResource(file)", expectedFindingCount: 1),
+        Case(name: "FileManager path read", source: "FileManager.default.contents(atPath: path)", expectedFindingCount: 1),
+        Case(name: "FileManager path comparison", source: "FileManager.default.contentsEqual(atPath: first, andPath: second)", expectedFindingCount: 1),
+        Case(name: "FileManager URL directory read", source: "FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)", expectedFindingCount: 1),
+        Case(name: "FileManager URL enumeration", source: "FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil)", expectedFindingCount: 1),
+        Case(name: "aliased FileManager path read", source: "manager.contents(atPath: path)", expectedFindingCount: 1),
+        Case(name: "inferred FileHandle read", source: "FileHandle(forReadingFrom: file)", expectedFindingCount: 1),
+        Case(name: "FileWrapper URL read", source: "let wrapper = try FileWrapper(url: file)", expectedFindingCount: 1),
+        Case(name: "contextual FileWrapper URL read", source: "let wrapper: FileWrapper = try .init(url: file)", expectedFindingCount: 1),
+        Case(name: "aliased FileWrapper read", source: "try wrapper.read(from: file, options: [])", expectedFindingCount: 1),
+        Case(name: "keyed archive path read", source: "NSKeyedUnarchiver.unarchiveObject(withFile: path)", expectedFindingCount: 1),
+        Case(name: "contextual path loader", source: "let data: NSData = .init(contentsOfFile: path)", expectedFindingCount: 1),
+        Case(name: "ubiquitous publishing surface", source: "manager.url(forPublishingUbiquitousItemAt: item, expiration: date)", expectedFindingCount: 1),
+        Case(name: "coordinated file access", source: "let coordinator = NSFileCoordinator()", expectedFindingCount: 1),
         Case(name: "host-backed stream", source: "Stream.getStreamsToHost(withName: host)", expectedFindingCount: 1),
         Case(name: "low-level socket", source: "let descriptor = socket(domain, type, protocol)", expectedFindingCount: 1),
         Case(name: "explicit Data.init loader", source: "let data = Data.init(contentsOf: value)", expectedFindingCount: 1),
@@ -3576,7 +3658,8 @@ private func runSelfTests() throws {
         .backupArchive,
         .backupService,
         .schemaContractTests,
-        .backupRoundTripTests
+        .backupRoundTripTests,
+        .privacyManifestTests
     ]
     try check(
         canonicalIdentities.allSatisfy { identity in
@@ -3818,6 +3901,8 @@ private func runSelfTests() throws {
         "        to storeLocation: URL,\n" +
         "        at storeLocation: URL,"
     let citationFixture = #"            urlString: "https://example.invalid/source""#
+    let manifestReadFixture =
+        "        let data = try XCTUnwrap(FileManager.default.contents(atPath: manifestPath))"
     try check(
         try testFindings(in: localURLFixture, path: "SchemaContractTests.swift", identity: .schemaContractTests).isEmpty,
         "The reviewed local URL value was rejected in SchemaContractTests.swift"
@@ -3825,6 +3910,14 @@ private func runSelfTests() throws {
     try check(
         try testFindings(in: citationFixture, path: "BackupRoundTripTests.swift", identity: .backupRoundTripTests).isEmpty,
         "The reserved example.invalid citation was rejected in BackupRoundTripTests.swift"
+    )
+    try check(
+        try testFindings(
+            in: manifestReadFixture,
+            path: "PrivacyManifestTests.swift",
+            identity: .privacyManifestTests
+        ).isEmpty,
+        "The exact bundled privacy-manifest read was rejected in PrivacyManifestTests.swift"
     )
     try check(
         try testFindings(
@@ -3844,6 +3937,20 @@ private func runSelfTests() throws {
             identity: reviewedSourceIdentity(for: nestedBackupTestFile, repositoryRoot: identityFixtureRoot)
         ).contains(where: { $0.sourceRuleID == .externalAddressLiteral }),
         "A nested backup-test-name collision inherited the reserved citation seam"
+    )
+    let nestedPrivacyTestFile = identityFixtureRoot.appendingPathComponent(
+        "HippocratesTests/Collision/HippocratesTests/PrivacyManifestTests.swift"
+    )
+    try check(
+        try testFindings(
+            in: manifestReadFixture,
+            path: nestedPrivacyTestFile.path,
+            identity: reviewedSourceIdentity(
+                for: nestedPrivacyTestFile,
+                repositoryRoot: identityFixtureRoot
+            )
+        ).contains(where: { $0.sourceRuleID == .pathFileAccess }),
+        "A nested privacy-test-name collision inherited the bundled-file read seam"
     )
 
     let remoteTestLoader =
@@ -4392,13 +4499,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 128 else {
+    guard completedChecks == 180 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 128, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 180, completed \(completedChecks)"
             ]
         )
     }

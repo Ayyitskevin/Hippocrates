@@ -47,6 +47,8 @@ jobs:
           cp -R "$GITHUB_WORKSPACE" "$probe"
           printf '\nprivate let plantedNetworkBoundaryViolation = URLSession.shared\n' \
             >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate struct PlantedFileImportSurface: View { @State private var presented = false; var body: some View { EmptyView().fileImporter(isPresented: $presented, allowedContentTypes: []) { result in guard case let .success(file) = result else { return }; let didStartAccess = file.startAccessingSecurityScopedResource(); defer { if didStartAccess { file.stopAccessingSecurityScopedResource() } }; _ = FileManager.default.contents(atPath: file.path); _ = InputStream.init(fileAtPath: file.path) }.onDrop(of: [], isTargeted: nil) { _ in false } } }\n' \
+            >> "$probe/Hippocrates/App/RootView.swift"
           printf 'struct PlantedOrphanSource {}\n' \
             > "$probe/Hippocrates/App/PlantedOrphan.swift"
           printf 'unreviewed resource\n' \
@@ -71,6 +73,11 @@ jobs:
 
           for expected in \
             "URLSession violates the no-network boundary" \
+            "File-picker and document-browser surfaces require explicit local-file boundary review" \
+            "External drop, paste, item-provider, and activity ingress requires explicit restore-boundary review" \
+            "Security-scoped file access requires the reviewed local-file adapter" \
+            "Path-based file access requires explicit local-file boundary review" \
+            "URL-backed initializers and URL/path-backed streams require explicit local-file boundary review" \
             "App-target Swift source exists on disk but is missing from target Sources" \
             "Unreviewed file exists beneath Hippocrates/Resources" \
             "contentsOf URL loading is forbidden" \
@@ -83,7 +90,7 @@ jobs:
             fi
           done
 
-          echo "The direct scanner rejected planted API, source, resource, test-loader, and configuration violations."
+          echo "The direct scanner rejected planted network, file-ingress, source, resource, test-loader, and configuration violations."
 
       - name: Prove the sandboxed Xcode build rejects declared-input violations
         run: |
@@ -91,6 +98,8 @@ jobs:
           log="$RUNNER_TEMP/HippocratesXcodeBoundaryProbe.log"
           cp -R "$GITHUB_WORKSPACE" "$probe"
           printf '\nprivate let plantedNetworkBoundaryViolation = URLSession.shared\n' \
+            >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate struct PlantedFileImportSurface: View { @State private var presented = false; var body: some View { EmptyView().fileImporter(isPresented: $presented, allowedContentTypes: []) { result in guard case let .success(file) = result else { return }; let didStartAccess = file.startAccessingSecurityScopedResource(); defer { if didStartAccess { file.stopAccessingSecurityScopedResource() } }; _ = FileManager.default.contents(atPath: file.path); _ = InputStream.init(fileAtPath: file.path) }.onDrop(of: [], isTargeted: nil) { _ in false } } }\n' \
             >> "$probe/Hippocrates/App/RootView.swift"
           printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
             >> "$probe/HippocratesTests/SchemaContractTests.swift"
@@ -118,6 +127,11 @@ jobs:
 
           for expected in \
             "URLSession violates the no-network boundary" \
+            "File-picker and document-browser surfaces require explicit local-file boundary review" \
+            "External drop, paste, item-provider, and activity ingress requires explicit restore-boundary review" \
+            "Security-scoped file access requires the reviewed local-file adapter" \
+            "Path-based file access requires explicit local-file boundary review" \
+            "URL-backed initializers and URL/path-backed streams require explicit local-file boundary review" \
             "contentsOf URL loading is forbidden" \
             "Xcode build configurations changed outside the reviewed allowlist"
           do
@@ -128,7 +142,7 @@ jobs:
             fi
           done
 
-          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input violation."
+          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, loader, and configuration violation."
 
       - name: Build release configuration
         run: |

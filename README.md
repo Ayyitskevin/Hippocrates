@@ -28,10 +28,12 @@ data model, drug exclusion list, or history from that prototype is carried forwa
   directory and file declared explicitly. It inventories regular app/test Swift
   files and app resources, proves exact equality with the canonical PBX
   source/resource phases, and fails on duplicate or escaped paths, networking
-  APIs, network-opening UI, unreviewed imports, Foundation URL loading, iCloud
-  surfaces, compiler injection, linked frameworks, external address literals,
-  altered build configurations or schemes, project-bundle symlinks,
-  physical-file aliases, or package dependencies.
+  APIs, network-opening UI, unreviewed imports, Foundation URL loading,
+  file-picker/document-browser and external drop/paste/item-provider surfaces,
+  security-scoped or reviewed path-content access, iCloud surfaces, compiler
+  injection, linked frameworks, external
+  address literals, altered build configurations or schemes,
+  project-bundle symlinks, physical-file aliases, or package dependencies.
 
 Hippocrates contains no networking code and declares "Data Not Collected." Data
 lives in a local SwiftData store on one device. This is verifiable by inspecting
@@ -59,10 +61,13 @@ The pre-release foundation now contains:
    explicit zero-dollar value;
 5. backup format v2, explicit value-space migration from format v1, and validated
    empty-store restoration;
-6. lossless in-memory and file-backed tests for every model and relationship; and
-7. a fail-closed PBX/configuration/scheme parser plus executable negative fixtures
-   for source, resource, import, URL-loader, symlink, physical-identity,
-   canonical-path collision, target-dependency, local-store, and persisted-schema drift.
+6. lossless in-memory tests for every model and relationship, plus file-backed
+   close/reopen coverage for the core store, relationship, and configuration
+   seams; and
+7. a fail-closed PBX/configuration/scheme parser plus 180 executable checks and
+   negative fixtures for source, resource, import, URL/file-loader, document
+   ingress, symlink, physical-identity, canonical-path collision,
+   target-dependency, local-store, and persisted-schema drift.
 
 This hardens persistence without inventing product policy. Taxonomy editors,
 capture, summary, DI, and restore UI remain gated by the affected product and
@@ -83,9 +88,12 @@ xcodebuild test \
 
 The GitHub workflow runs the source boundary directly before Xcode mutates its
 project bundle, producing recursive orphan and shadow-scheme diagnostics. It
-then proves the sandboxed Xcode phase rejects violations in declared inputs
-without traversing Xcode's generated `project.xcworkspace`, before running the
-Xcode 16.4 Release build, static analysis, and
+plants network, inferred file-ingress, external-drop, path/stream-loader,
+security-scoped, source, resource, test-loader, and configuration violations,
+then proves the sandboxed Xcode phase
+rejects every declared-input class without traversing Xcode's generated
+`project.xcworkspace`, before running the Xcode 16.4 Release build, static
+analysis, and
 file-backed and in-memory tests on iOS 18.5. Local scanner self-tests are useful,
 but they are not substitutes for an exact-head hosted Apple-platform result.
 
