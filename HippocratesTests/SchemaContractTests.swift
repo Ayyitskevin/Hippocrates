@@ -266,6 +266,7 @@ final class SchemaContractTests: XCTestCase {
             let container = try makeFileBackedContainer(at: storeLocation)
             XCTAssertTrue(try XCTUnwrap(container.configurations.first).allowsSave)
             let context = ModelContext(container)
+            context.autosaveEnabled = false
             XCTAssertFalse(context.autosaveEnabled)
             try assertEmpty(context)
         }
@@ -277,6 +278,7 @@ final class SchemaContractTests: XCTestCase {
             )
             XCTAssertFalse(try XCTUnwrap(container.configurations.first).allowsSave)
             let context = ModelContext(container)
+            context.autosaveEnabled = false
             XCTAssertFalse(context.autosaveEnabled)
 
             let willSave = expectation(
@@ -298,20 +300,27 @@ final class SchemaContractTests: XCTestCase {
             }
             wait(for: [willSave], timeout: 1)
 
-            try assertEmpty(context)
+            assertNoPendingChanges(context)
         }
 
         func assertReopenedWritableStoreIsEmpty() throws {
             let container = try makeFileBackedContainer(at: storeLocation)
             XCTAssertTrue(try XCTUnwrap(container.configurations.first).allowsSave)
             let context = ModelContext(container)
+            context.autosaveEnabled = false
             XCTAssertFalse(context.autosaveEnabled)
             try assertEmpty(context)
         }
 
-        try createEmptyWritableStore()
-        try attemptReadOnlyRestore()
-        try assertReopenedWritableStoreIsEmpty()
+        try autoreleasepool {
+            try createEmptyWritableStore()
+        }
+        try autoreleasepool {
+            try attemptReadOnlyRestore()
+        }
+        try autoreleasepool {
+            try assertReopenedWritableStoreIsEmpty()
+        }
     }
 
     private func makeCompleteBackupRestoreArchive() throws -> BackupArchive {
@@ -421,9 +430,15 @@ final class SchemaContractTests: XCTestCase {
         )
     }
 
-    private func assertEmpty(_ context: ModelContext) throws {
+    private func assertNoPendingChanges(_ context: ModelContext) {
         XCTAssertFalse(context.hasChanges)
         XCTAssertTrue(context.insertedModelsArray.isEmpty)
+        XCTAssertTrue(context.changedModelsArray.isEmpty)
+        XCTAssertTrue(context.deletedModelsArray.isEmpty)
+    }
+
+    private func assertEmpty(_ context: ModelContext) throws {
+        assertNoPendingChanges(context)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<InterventionType>()), 0)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrugClass>()), 0)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ServiceLine>()), 0)

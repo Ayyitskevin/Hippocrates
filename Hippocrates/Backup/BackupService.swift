@@ -126,7 +126,8 @@ enum BackupService {
     /// saves all pending work in that context, while rollback discards all of
     /// it. Refusing a dirty context prevents backup restore from committing or
     /// rolling back unrelated edits. Callers should create a dedicated context
-    /// for restore rather than borrowing one from an editing screen.
+    /// for restore, discard it after any thrown restore error, and never borrow
+    /// one from an editing screen.
     ///
     /// The spec does not authorize merge or replacement semantics; guessing
     /// could duplicate or erase years of records. A future replacement UI
