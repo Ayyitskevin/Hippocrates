@@ -23,6 +23,7 @@ cross a decision or evidence gate.
 | F10 — duplicate-identifier restore validation | Verified | Implementation commit [`2f48f95`](https://github.com/Ayyitskevin/Hippocrates/commit/2f48f950498776d270cc15f02e5ea93c7adbbf51) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29518121878](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29518121878) |
 | F11 — restore destination isolation | Verified | Implementation commit [`82d08da`](https://github.com/Ayyitskevin/Hippocrates/commit/82d08da4a8bb1f01f30fab7a6dac13084239975a) passed 255 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29519234311](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29519234311) |
 | F12 — restore save-failure rollback | Verified | Implementation series through [`b01a491`](https://github.com/Ayyitskevin/Hippocrates/commit/b01a491cea6e9e5429851e27c2208ea3ed3982d2) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and simulator tests in [hosted run 29521705988](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29521705988) |
+| F13 — restore validation isolation | Awaiting hosted verification | Six invalid archives require exact errors through restore and leave fresh destinations empty and clean; exact-head Apple-platform execution remains pending |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 recorded in `decision-register.md`; affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -321,6 +322,33 @@ Release build, static analysis, and iOS 18.5 simulator tests in
 [hosted run 29521705988](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29521705988).
 The hosted log contains no `vnode unlinked` or `invalidated open fd` cleanup
 diagnostics.
+
+## Foundation hardening — restore validation isolation
+
+Existing tests covered these validation branches directly or with narrower
+fixtures, but restore-level coverage did not isolate all six boundary cases or
+consistently prove that rejection leaves the destination untouched. F13 closes
+that evidence gap without changing restore behavior.
+
+Implemented deliverables:
+
+- six independent fixtures exercise a negative intervention cost, negative
+  configured staleness, a verification history ending at the wrong date, equal
+  adjacent history dates, a review date equal to verification, and a populated
+  unsupported format version through `BackupService.restore`;
+- every case requires its exact `BackupError`, including the associated entity,
+  identifier, version, or invalid value; and
+- each rejected restore leaves a fresh destination at zero records across all
+  seven models with no pending context changes.
+
+Only test coverage changed. No shipping source, persisted field, schema version,
+migration, backup format, product default, UI, network surface, or distribution
+setting changed.
+
+Local verification: the Swift 6.1 parser accepts the changed test source,
+repository build checks pass, and all 257 scanner self-tests pass. Exact-head
+Xcode 16.4 Release build, static analysis, and iOS 18.5 simulator execution
+remain pending.
 
 ## Feature-specific decision gate
 

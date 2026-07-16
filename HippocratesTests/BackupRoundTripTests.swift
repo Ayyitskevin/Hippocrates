@@ -71,6 +71,15 @@ final class BackupRoundTripTests: XCTestCase {
         case appConfig
     }
 
+    private enum InvalidRestoreArchiveCase: CaseIterable {
+        case negativeInterventionCost
+        case negativeStalenessInterval
+        case verificationHistoryWrongEnd
+        case verificationHistoryEqualDates
+        case reviewDateEqualsVerification
+        case unsupportedFormatVersion
+    }
+
     private var backupCoverageV2: [String: [String: BackupRepresentationV2]] {
         [
             "InterventionType": [
@@ -363,21 +372,81 @@ final class BackupRoundTripTests: XCTestCase {
         }
     }
 
-    func testUnknownBackupVersionIsRejected() throws {
-        let emptyPayload = BackupArchive.Payload(
-            interventionTypes: [],
-            drugClasses: [],
-            serviceLines: [],
-            interventions: [],
-            questions: [],
-            citations: [],
-            appConfig: nil
-        )
-        let archive = BackupArchive(formatVersion: 999, createdAt: exportDate, payload: emptyPayload)
-        let destination = try HippocratesStore.makeContainer(inMemory: true)
+    func testInvalidArchivesAreRejectedBeforeDestinationMutation() throws {
+        let source = try HippocratesStore.makeContainer(inMemory: true)
+        let fixture = try insertCompleteFixture(into: source.mainContext)
 
-        XCTAssertThrowsError(try BackupService.restore(archive, into: destination.mainContext)) { error in
-            XCTAssertEqual(error as? BackupError, .unsupportedFormatVersion(999))
+        for invalidCase in InvalidRestoreArchiveCase.allCases {
+            var archive = fixture.expectedArchive
+            let expectedError: BackupError
+
+            switch invalidCase {
+            case .negativeInterventionCost:
+                var intervention = try XCTUnwrap(archive.payload.interventions.first)
+                intervention.costAvoidanceCents = -1
+                archive.payload.interventions[0] = intervention
+                expectedError = .invalidCostAvoidanceValue(
+                    entity: "Intervention",
+                    id: intervention.id,
+                    value: -1
+                )
+
+            case .negativeStalenessInterval:
+                var configuration = try XCTUnwrap(archive.payload.appConfig)
+                configuration.stalenessIntervalMonths = -1
+                archive.payload.appConfig = configuration
+                expectedError = .invalidStalenessIntervalMonths(-1)
+
+            case .verificationHistoryWrongEnd:
+                var question = try XCTUnwrap(archive.payload.questions.first)
+                question.verificationHistory = [
+                    question.verifiedOn.addingTimeInterval(-1)
+                ]
+                archive.payload.questions[0] = question
+                expectedError = .verificationHistoryDoesNotEndAtVerifiedOn(
+                    questionID: question.id
+                )
+
+            case .verificationHistoryEqualDates:
+                var question = try XCTUnwrap(archive.payload.questions.first)
+                let previousVerification = question.verifiedOn.addingTimeInterval(-1)
+                question.verificationHistory = [
+                    previousVerification,
+                    previousVerification,
+                    question.verifiedOn
+                ]
+                archive.payload.questions[0] = question
+                expectedError = .verificationHistoryNotChronological(
+                    questionID: question.id
+                )
+
+            case .reviewDateEqualsVerification:
+                var question = try XCTUnwrap(archive.payload.questions.first)
+                question.reviewAfter = question.verifiedOn
+                archive.payload.questions[0] = question
+                expectedError = .reviewDateMustFollowVerification(
+                    questionID: question.id
+                )
+
+            case .unsupportedFormatVersion:
+                archive.formatVersion = 999
+                expectedError = .unsupportedFormatVersion(999)
+            }
+
+            let destination = try HippocratesStore.makeContainer(inMemory: true)
+            let context = destination.mainContext
+            try assertEmptyBackupDestination(context)
+
+            XCTAssertThrowsError(
+                try BackupService.restore(archive, into: context)
+            ) { error in
+                XCTAssertEqual(
+                    error as? BackupError,
+                    expectedError
+                )
+            }
+
+            try assertEmptyBackupDestination(context)
         }
     }
 
