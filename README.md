@@ -68,8 +68,10 @@ The pre-release foundation now contains:
 6. hybrid backup-completeness coverage that reconciles live SwiftData metadata
    with an explicit no-ignored-field representation manifest, compares export
    against an independently constructed archive, and asserts every restored
-   field directly; plus file-backed close/reopen coverage for the core store,
-   relationship, and configuration seams; and
+   field directly; plus file-backed close/reopen coverage for the core store
+   seams and a complete current-format restore without a caller-side save,
+   including exact re-export, both DI inverses, and canonical configuration
+   reconstruction; and
 7. a fail-closed PBX/configuration/scheme parser plus 255 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical-identity, canonical-path collision,

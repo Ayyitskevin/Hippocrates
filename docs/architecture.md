@@ -220,6 +220,11 @@ the schema, exporter, archive, and restore path together:
 - After restore, tests fetch every destination model and assert each scalar,
   relationship, inverse, and reconstructed value directly. Re-export equality
   remains useful evidence, but it is not the sole restore oracle.
+- A separate current-format fixture restores all seven model representations
+  into a file-backed store without a caller-side save, releases the container,
+  and reopens the same store before requiring exact re-export, all seven model
+  counts, both reconstructed DI inverses, and the canonical configuration
+  singleton.
 - A literal development-format-v1 archive populates every historical record
   shape, frozen enum value, forward relationship, and inverse seam. Its expected
   v2 archive is constructed independently before validation, restore, direct
@@ -379,10 +384,12 @@ a HIPAA compliance program. README language must preserve that distinction.
    patterns/ranges/dispositions, draft freshness precedence, per-record red
    thresholds, RFC 4180 formatting, formula-injection neutralization, date
    ranges, and backup graph validation.
-2. In-memory SwiftData tests cover relationships, delete rules, configuration
-   singleton behavior, save/undo transactions, re-verification history, runtime
-   schema-to-backup coverage, exporter-independent current and literal-v1 archive
-   expectations, and direct full-field restore assertions plus re-export.
+2. SwiftData tests use in-memory fixtures for relationships, delete rules,
+   configuration singleton behavior, save/undo transactions, re-verification
+   history, runtime schema-to-backup coverage, exporter-independent current and
+   literal-v1 archive expectations, and direct full-field restore assertions plus
+   re-export. File-backed fixtures cover core close/reopen persistence and a
+   complete backup restore across container teardown without a caller-side save.
 3. Source/project contract tests cover no free text in `Intervention`, no network
    surface, zero packages, manifest contents, and schema/migration registration.
 4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer

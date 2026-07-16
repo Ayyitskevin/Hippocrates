@@ -188,6 +188,166 @@ final class SchemaContractTests: XCTestCase {
         )
     }
 
+    func testCompleteBackupRestoreSurvivesFileBackedCloseAndReopen() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HippocratesRestore", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let restoreStoreLocation = directory.appendingPathComponent("HippocratesRestore.store")
+        let typeID = try XCTUnwrap(
+            UUID(uuidString: "11000000-0000-0000-0000-000000000001")
+        )
+        let drugClassID = try XCTUnwrap(
+            UUID(uuidString: "22000000-0000-0000-0000-000000000002")
+        )
+        let serviceLineID = try XCTUnwrap(
+            UUID(uuidString: "33000000-0000-0000-0000-000000000003")
+        )
+        let questionID = try XCTUnwrap(
+            UUID(uuidString: "44000000-0000-0000-0000-000000000004")
+        )
+        let citationID = try XCTUnwrap(
+            UUID(uuidString: "55000000-0000-0000-0000-000000000005")
+        )
+        let interventionID = try XCTUnwrap(
+            UUID(uuidString: "66000000-0000-0000-0000-000000000006")
+        )
+        let archiveCreatedAt = Date(timeIntervalSinceReferenceDate: 810_000_000.125)
+        let questionCreatedAt = Date(timeIntervalSinceReferenceDate: 770_000_000.25)
+        let previousVerification = Date(timeIntervalSinceReferenceDate: 779_000_000.5)
+        let answeredAt = Date(timeIntervalSinceReferenceDate: 779_500_000.625)
+        let verifiedOn = Date(timeIntervalSinceReferenceDate: 780_000_000.75)
+        let reviewAfter = Date(timeIntervalSinceReferenceDate: 811_536_000.75)
+        let interventionTimestamp = Date(timeIntervalSinceReferenceDate: 780_001_800.5)
+        let accessedDate = Date(timeIntervalSinceReferenceDate: 780_000_100.875)
+        let lastExportAt = Date(timeIntervalSinceReferenceDate: 809_000_000.25)
+        let archive = BackupArchive(
+            createdAt: archiveCreatedAt,
+            payload: .init(
+                interventionTypes: [
+                    .init(
+                        id: typeID,
+                        label: "Restored intervention type",
+                        defaultCostAvoidanceCents: 24_500,
+                        isActive: false,
+                        sortOrder: 1
+                    )
+                ],
+                drugClasses: [
+                    .init(
+                        id: drugClassID,
+                        label: "Restored drug class",
+                        isActive: true,
+                        sortOrder: 2
+                    )
+                ],
+                serviceLines: [
+                    .init(
+                        id: serviceLineID,
+                        label: "Restored service line",
+                        isActive: false,
+                        sortOrder: 3
+                    )
+                ],
+                interventions: [
+                    .init(
+                        id: interventionID,
+                        timestamp: interventionTimestamp,
+                        typeID: typeID,
+                        drugClassID: drugClassID,
+                        serviceLineID: serviceLineID,
+                        acceptance: .notApplicable,
+                        costAvoidanceCents: 24_500,
+                        minutesSpent: 11,
+                        diQuestionID: questionID
+                    )
+                ],
+                questions: [
+                    .init(
+                        id: questionID,
+                        createdAt: questionCreatedAt,
+                        answeredAt: answeredAt,
+                        questionText: "Complete de-identified restore question",
+                        background: "Complete professional context",
+                        answerText: "Complete reviewed response",
+                        searchStrategy: "Complete source sequence",
+                        requestorRole: .careTeam,
+                        questionClass: .pharmacokinetics,
+                        urgency: .stat,
+                        verifiedOn: verifiedOn,
+                        reviewAfter: reviewAfter,
+                        didFollowUp: true,
+                        tags: ["restore", "durability"],
+                        verificationHistory: [previousVerification, verifiedOn]
+                    )
+                ],
+                citations: [
+                    .init(
+                        id: citationID,
+                        questionID: questionID,
+                        tier: .institutionPolicy,
+                        title: "Complete restored source",
+                        locator: "Section 4",
+                        accessedDate: accessedDate,
+                        urlString: "local-reference-id"
+                    )
+                ],
+                appConfig: .init(
+                    stalenessIntervalMonths: 9,
+                    lastExportAt: lastExportAt
+                )
+            )
+        )
+        try BackupService.validate(archive)
+
+        func restoreArchive() throws {
+            let container = try makeFileBackedContainer(at: restoreStoreLocation)
+            let context = container.mainContext
+            try BackupService.restore(archive, into: context)
+            XCTAssertFalse(context.hasChanges)
+        }
+
+        func assertReopenedArchive() throws {
+            let container = try makeFileBackedContainer(at: restoreStoreLocation)
+            let context = container.mainContext
+            XCTAssertFalse(context.hasChanges)
+
+            let reexportedArchive = try BackupService.makeArchive(
+                from: context,
+                createdAt: archiveCreatedAt
+            )
+            XCTAssertEqual(reexportedArchive, archive)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<InterventionType>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrugClass>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<ServiceLine>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<Intervention>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<DIQuestion>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<Citation>()), 1)
+            XCTAssertEqual(try context.fetchCount(FetchDescriptor<AppConfig>()), 1)
+
+            let question = try XCTUnwrap(
+                context.fetch(FetchDescriptor<DIQuestion>()).first
+            )
+            XCTAssertEqual(question.citations.count, 1)
+            XCTAssertEqual(question.citations.first?.id, citationID)
+            XCTAssertEqual(question.linkedInterventions.count, 1)
+            XCTAssertEqual(question.linkedInterventions.first?.id, interventionID)
+            let configuration = try XCTUnwrap(
+                context.fetch(FetchDescriptor<AppConfig>()).first
+            )
+            XCTAssertEqual(configuration.singletonKey, "app")
+        }
+
+        try restoreArchive()
+        try assertReopenedArchive()
+    }
+
     private func makeFileBackedContainer(at storeLocation: URL) throws -> ModelContainer {
         let schema = Schema(versionedSchema: SchemaV1.self)
         let configuration = ModelConfiguration(
