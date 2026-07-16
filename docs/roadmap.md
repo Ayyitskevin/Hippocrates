@@ -27,7 +27,7 @@ cross a decision or evidence gate.
 | F14 — nonnegative intervention duration | Verified | Implementation commit [`60f988a`](https://github.com/Ayyitskevin/Hippocrates/commit/60f988aff71e9bb6dfea0a16a7c0ec0b52b51dc9) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 31 simulator tests in [hosted run 29523928066](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29523928066) |
 | F15 — configuration creation save-failure rollback | Verified | Implementation commit [`078afad`](https://github.com/Ayyitskevin/Hippocrates/commit/078afad5a89f644a9199328e29b4d5a89a3a8c0b) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 32 simulator tests in [hosted run 29524757883](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29524757883) |
 | F16 — canonical backup record ordering | Verified | Implementation commit [`d64f7bd`](https://github.com/Ayyitskevin/Hippocrates/commit/d64f7bde3359c6734d58c737ee6a2583751c7096) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 33 simulator tests in [hosted run 29529607273](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29529607273) |
-| F17 — scanner-owned privacy-manifest semantics | Implemented; hosted verification pending | 270 portable scanner checks and an isolated coordinated-evasion rejection pass locally; exact-head Apple evidence is pending |
+| F17 — scanner-owned privacy-manifest semantics | Verified | Implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372) passed 270 scanner checks, both planted privacy-manifest probes, Release build, analyzer, and 33 simulator tests in [hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329) |
 | D0 — Jenn decisions | Awaiting answers | P-001 through P-006 use the canonical [D0 response worksheet](decision-register.md#d0-response-worksheet); affected product features remain gated |
 
 ## Milestone 0 — foundation evidence (complete)
@@ -467,7 +467,12 @@ documentation changed. The shipping privacy manifest, app behavior, persisted
 schema, backup format, product policy, UI, network surface, and distribution
 settings did not change.
 
-Hosted exact-head verification is pending.
+Verification: implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372)
+passed both planted privacy-manifest probes, all 270 scanner checks, the Xcode
+16.4 Release build, static analysis, and 33 iOS 18.5 simulator tests in
+[hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329).
+The hosted log specifically records
+`testAppPrivacyManifestDeclaresNoTrackingAndNoCollectedData` as passed.
 
 ## Feature-specific decision gate
 
