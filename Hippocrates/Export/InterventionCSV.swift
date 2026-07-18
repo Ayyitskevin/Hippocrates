@@ -10,28 +10,31 @@ enum InterventionCSV {
     static let header = "timestamp_utc,intervention_type,drug_class,service_line,acceptance,cost_avoidance_cents,minutes_spent"
 
     /// UTC internet date-time keeps the export locale- and device-independent.
-    private static let timestampFormatter: ISO8601DateFormatter = {
+    /// The formatter is a non-Sendable class, so it is constructed per export
+    /// rather than stored statically under strict concurrency.
+    private static func makeTimestampFormatter() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         formatter.timeZone = TimeZone(identifier: "UTC")
         return formatter
-    }()
+    }
 
     /// Rows are sorted by every column so identical inputs always produce
     /// identical bytes regardless of fetch order. Lines end with CRLF per
     /// RFC 4180, including a trailing terminator on the final row.
     static func document(rows: [SummaryInputRow]) -> String {
+        let formatter = makeTimestampFormatter()
         let sorted = rows.sorted(by: rowOrder)
         var lines: [String] = [header]
         for row in sorted {
-            lines.append(line(for: row))
+            lines.append(line(for: row, formatter: formatter))
         }
         return lines.joined(separator: "\r\n") + "\r\n"
     }
 
-    static func line(for row: SummaryInputRow) -> String {
+    private static func line(for row: SummaryInputRow, formatter: ISO8601DateFormatter) -> String {
         let fields = [
-            timestampFormatter.string(from: row.timestamp),
+            formatter.string(from: row.timestamp),
             textField(row.typeLabel ?? ""),
             textField(row.drugClassLabel ?? ""),
             textField(row.serviceLineLabel ?? ""),
