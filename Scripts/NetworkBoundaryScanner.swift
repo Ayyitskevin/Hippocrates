@@ -590,6 +590,7 @@ private enum ReviewedSourceIdentity: String {
     case backupArchive = "Hippocrates/Backup/BackupArchive.swift"
     case backupService = "Hippocrates/Backup/BackupService.swift"
     case taxonomyService = "Hippocrates/Services/TaxonomyService.swift"
+    case interventionLedgerService = "Hippocrates/Services/InterventionLedgerService.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
     case privacyManifestTests = "HippocratesTests/PrivacyManifestTests.swift"
@@ -697,6 +698,17 @@ private func appSourceFindings(
         // in shipping code remains closed.
         maskExactlyOnce(
             "        context.delete(row)",
+            with: "        context.rollback()"
+        )
+    }
+
+    if identity == .interventionLedgerService {
+        // Milestone 2 / I-013: the one reviewed intervention-deletion seam.
+        // Five-second undo and the ledger's confirmed delete both reach it
+        // through InterventionLedgerService.deleteIntervention. Every other
+        // .delete spelling in shipping code remains closed.
+        maskExactlyOnce(
+            "        context.delete(intervention)",
             with: "        context.rollback()"
         )
     }
@@ -3620,6 +3632,11 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
     "$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
     "$(SRCROOT)/Hippocrates/Features",
+    "$(SRCROOT)/Hippocrates/Features/Capture",
+    "$(SRCROOT)/Hippocrates/Features/Capture/CaptureHomeView.swift",
+    "$(SRCROOT)/Hippocrates/Features/Capture/CaptureSupport.swift",
+    "$(SRCROOT)/Hippocrates/Features/Capture/CaptureView.swift",
+    "$(SRCROOT)/Hippocrates/Features/Capture/RecentLedgerView.swift",
     "$(SRCROOT)/Hippocrates/Features/Onboarding",
     "$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings",
@@ -3635,10 +3652,14 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Resources/PrivacyInfo.xcprivacy",
     "$(SRCROOT)/Hippocrates/Services",
     "$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
+    "$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
+    "$(SRCROOT)/Hippocrates/Services/InterventionCaptureService.swift",
+    "$(SRCROOT)/Hippocrates/Services/InterventionLedgerService.swift",
     "$(SRCROOT)/Hippocrates/Services/StarterTaxonomy.swift",
     "$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
     "$(SRCROOT)/HippocratesTests",
     "$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
+    "$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
     "$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
     "$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
     "$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",

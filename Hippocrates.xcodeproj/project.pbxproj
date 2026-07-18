@@ -28,6 +28,14 @@
 		100000000000000000000013 /* TaxonomyGovernanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* TaxonomyGovernanceTests.swift */; };
 		100000000000000000000014 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* FirstRunView.swift */; };
 		100000000000000000000015 /* TaxonomySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* TaxonomySettingsView.swift */; };
+		100000000000000000000016 /* FrecencyRanking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* FrecencyRanking.swift */; };
+		100000000000000000000017 /* InterventionCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* InterventionCaptureService.swift */; };
+		100000000000000000000018 /* InterventionLedgerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* InterventionLedgerService.swift */; };
+		100000000000000000000019 /* CaptureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* CaptureSupport.swift */; };
+		10000000000000000000001A /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* CaptureView.swift */; };
+		10000000000000000000001B /* CaptureHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* CaptureHomeView.swift */; };
+		10000000000000000000001C /* RecentLedgerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001F /* RecentLedgerView.swift */; };
+		10000000000000000000001D /* CaptureAndLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* CaptureAndLedgerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +73,14 @@
 		200000000000000000000016 /* TaxonomyGovernanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyGovernanceTests.swift; sourceTree = "<group>"; };
 		200000000000000000000017 /* FirstRunView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunView.swift; sourceTree = "<group>"; };
 		200000000000000000000018 /* TaxonomySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomySettingsView.swift; sourceTree = "<group>"; };
+		200000000000000000000019 /* FrecencyRanking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrecencyRanking.swift; sourceTree = "<group>"; };
+		20000000000000000000001A /* InterventionCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionCaptureService.swift; sourceTree = "<group>"; };
+		20000000000000000000001B /* InterventionLedgerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionLedgerService.swift; sourceTree = "<group>"; };
+		20000000000000000000001C /* CaptureSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSupport.swift; sourceTree = "<group>"; };
+		20000000000000000000001D /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		20000000000000000000001E /* CaptureHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureHomeView.swift; sourceTree = "<group>"; };
+		20000000000000000000001F /* RecentLedgerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentLedgerView.swift; sourceTree = "<group>"; };
+		200000000000000000000020 /* CaptureAndLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAndLedgerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,6 +178,9 @@
 				200000000000000000000013 /* BootstrapPolicy.swift */,
 				200000000000000000000014 /* StarterTaxonomy.swift */,
 				200000000000000000000015 /* TaxonomyService.swift */,
+				200000000000000000000019 /* FrecencyRanking.swift */,
+				20000000000000000000001A /* InterventionCaptureService.swift */,
+				20000000000000000000001B /* InterventionLedgerService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -169,10 +188,22 @@
 		30000000000000000000000C /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				30000000000000000000000F /* Capture */,
 				30000000000000000000000D /* Onboarding */,
 				30000000000000000000000E /* Settings */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000F /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000001C /* CaptureSupport.swift */,
+				20000000000000000000001D /* CaptureView.swift */,
+				20000000000000000000001E /* CaptureHomeView.swift */,
+				20000000000000000000001F /* RecentLedgerView.swift */,
+			);
+			path = Capture;
 			sourceTree = "<group>";
 		};
 		30000000000000000000000D /* Onboarding */ = {
@@ -198,6 +229,7 @@
 				20000000000000000000000D /* BackupRoundTripTests.swift */,
 				20000000000000000000000E /* PrivacyManifestTests.swift */,
 				200000000000000000000016 /* TaxonomyGovernanceTests.swift */,
+				200000000000000000000020 /* CaptureAndLedgerTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -335,6 +367,11 @@
 				"$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
 				"$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
 				"$(SRCROOT)/Hippocrates/Features",
+				"$(SRCROOT)/Hippocrates/Features/Capture",
+				"$(SRCROOT)/Hippocrates/Features/Capture/CaptureHomeView.swift",
+				"$(SRCROOT)/Hippocrates/Features/Capture/CaptureSupport.swift",
+				"$(SRCROOT)/Hippocrates/Features/Capture/CaptureView.swift",
+				"$(SRCROOT)/Hippocrates/Features/Capture/RecentLedgerView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings",
@@ -350,10 +387,14 @@
 				"$(SRCROOT)/Hippocrates/Resources/PrivacyInfo.xcprivacy",
 				"$(SRCROOT)/Hippocrates/Services",
 				"$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
+				"$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
+				"$(SRCROOT)/Hippocrates/Services/InterventionCaptureService.swift",
+				"$(SRCROOT)/Hippocrates/Services/InterventionLedgerService.swift",
 				"$(SRCROOT)/Hippocrates/Services/StarterTaxonomy.swift",
 				"$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
 				"$(SRCROOT)/HippocratesTests",
 				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
+				"$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
 				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
 				"$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
@@ -398,6 +439,13 @@
 				100000000000000000000012 /* TaxonomyService.swift in Sources */,
 				100000000000000000000014 /* FirstRunView.swift in Sources */,
 				100000000000000000000015 /* TaxonomySettingsView.swift in Sources */,
+				100000000000000000000016 /* FrecencyRanking.swift in Sources */,
+				100000000000000000000017 /* InterventionCaptureService.swift in Sources */,
+				100000000000000000000018 /* InterventionLedgerService.swift in Sources */,
+				100000000000000000000019 /* CaptureSupport.swift in Sources */,
+				10000000000000000000001A /* CaptureView.swift in Sources */,
+				10000000000000000000001B /* CaptureHomeView.swift in Sources */,
+				10000000000000000000001C /* RecentLedgerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -409,6 +457,7 @@
 				10000000000000000000000D /* BackupRoundTripTests.swift in Sources */,
 				10000000000000000000000E /* PrivacyManifestTests.swift in Sources */,
 				100000000000000000000013 /* TaxonomyGovernanceTests.swift in Sources */,
+				10000000000000000000001D /* CaptureAndLedgerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
