@@ -54,6 +54,7 @@ reviews an explicit answer.
 | I-012 | Capture is possible when at least one active intervention type and one active drug class exist; service lines are optional; first-run records the user's explicit onboarding choice, distinguishing never-configured from intentionally-minimal |
 | I-013 | A bounded recent-interventions ledger permits structured-field edits, acceptance updates, and confirmed deletion through one reviewed service; it never offers free text or narrative; the no-detail-screen doctrine is amended to "no narrative detail screen" |
 | I-004 | Taxonomy labels are single-line, trimmed, at most 60 characters, and unique per taxonomy, enforced by `TaxonomyService`; they are generic department categories, editor UI carries that purpose guidance, per-intervention category creation stays forbidden, and labels join the Phase 4 identifier-scan surface before backup-export UI ships |
+| I-009 | Citation titles and locators are single-line, at most 200 characters, and pass through the same de-identification gate as the four guarded DI fields, enforced by `DIQuestionService`; tags are scanned on the archive-import surface, and a tags editor ships only with the same constraints and gate |
 
 ## Pending product decisions — required before affected features
 
@@ -95,7 +96,6 @@ institutional facts.
 | ID | Decision needed | Current position |
 |---|---|---|
 | I-005 | Re-verification history representation | Current `[Date]` is adequate for V1 if only timestamp is required; introduce a model only if provenance metadata becomes a real requirement |
-| I-009 | De-identification treatment of tags, citation metadata, and other editable strings | Treat them as possible identifier channels; decide purpose-specific constraints or guard behavior before their editors ship |
 | I-010 | Local-file URL boundary for restore | Permit one reviewed security-scoped file adapter only; require `isFileURL`, immediate `Data` capture, and no remote/open/share behavior |
 
 ## Rejected directions
