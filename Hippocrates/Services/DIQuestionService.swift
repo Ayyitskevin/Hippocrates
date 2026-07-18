@@ -35,6 +35,15 @@ enum DIQuestionServiceError: Error, Equatable {
     case invalidStalenessMonths(Int)
     case cannotReverifyDraft(UUID)
     case verificationMustAdvance
+    case unknownIntervention(UUID)
+    case interventionAlreadyLinked(UUID)
+}
+
+/// Value snapshot of one linked intervention for the DI detail view.
+struct LinkedInterventionItem: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let timestamp: Date
+    let typeLabel: String?
 }
 
 /// Owns every DI mutation. The de-identification gate is enforced here, not in
@@ -243,6 +252,66 @@ enum DIQuestionService {
             try AppConfigService.setStalenessIntervalMonths(stalenessMonths, on: configuration)
         }
         try saveOrRollback(context)
+    }
+
+    // MARK: The compounding link (Milestone 6)
+
+    /// "This raised a question": creates a new DI draft linked to the
+    /// intervention that prompted it. The relationship is the schema's only
+    /// intentional bridge between the two models (product thesis); the
+    /// intervention survives if the question is ever removed (nullify rule).
+    @discardableResult
+    static func createLinkedDraft(
+        interventionID: UUID,
+        in context: ModelContext
+    ) throws -> DIQuestion {
+        guard let intervention = try context.fetch(FetchDescriptor<Intervention>())
+            .first(where: { $0.id == interventionID })
+        else {
+            throw DIQuestionServiceError.unknownIntervention(interventionID)
+        }
+        guard intervention.diQuestion == nil else {
+            throw DIQuestionServiceError.interventionAlreadyLinked(interventionID)
+        }
+        let created = Date.now
+        let question = DIQuestion(
+            createdAt: created,
+            verifiedOn: created,
+            reviewAfter: created.addingTimeInterval(86_400)
+        )
+        context.insert(question)
+        intervention.diQuestion = question
+        try saveOrRollback(context)
+        return question
+    }
+
+    /// Linked interventions for the DI detail, newest first, as values.
+    static func linkedInterventions(
+        of questionID: UUID,
+        in context: ModelContext
+    ) throws -> [LinkedInterventionItem] {
+        guard let question = try question(questionID, in: context) else {
+            throw DIQuestionServiceError.unknownQuestion(questionID)
+        }
+        return question.linkedInterventions
+            .sorted { $0.timestamp > $1.timestamp }
+            .map { intervention in
+                LinkedInterventionItem(
+                    id: intervention.id,
+                    timestamp: intervention.timestamp,
+                    typeLabel: intervention.type?.label
+                )
+            }
+    }
+
+    /// Year-aware aggregate: the number of distinct calendar years in which a
+    /// linked intervention occurred. One answer accumulating interventions
+    /// across years is the vault's compounding value made visible.
+    nonisolated static func yearsSpanned(
+        by timestamps: [Date],
+        calendar: Calendar
+    ) -> Int {
+        Set(timestamps.map { calendar.component(.year, from: $0) }).count
     }
 
     /// One-tap re-verification (A-006): appends to the audit history and

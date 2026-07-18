@@ -16,6 +16,7 @@ struct InterventionSummary: Identifiable, Equatable, Sendable {
     var acceptance: Acceptance
     var costAvoidanceCents: Int?
     var minutesSpent: Int?
+    var diQuestionID: UUID?
 }
 
 /// Structured edit request. Only these categorical and numeric fields can
@@ -132,7 +133,8 @@ enum InterventionLedgerService {
             serviceLineLabel: intervention.serviceLine?.label,
             acceptance: intervention.acceptance,
             costAvoidanceCents: intervention.costAvoidanceCents,
-            minutesSpent: intervention.minutesSpent
+            minutesSpent: intervention.minutesSpent,
+            diQuestionID: intervention.diQuestion?.id
         )
     }
 

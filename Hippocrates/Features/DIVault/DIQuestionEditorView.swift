@@ -20,6 +20,7 @@ struct DIQuestionEditorView: View {
     @State private var editingCitation: DICitationValues?
     @State private var isAnswering = false
     @State private var failureText: String?
+    @State private var linkedInterventions: [LinkedInterventionItem] = []
 
     var body: some View {
         NavigationStack {
@@ -61,6 +62,9 @@ struct DIQuestionEditorView: View {
                         .frame(minHeight: 100)
                 }
                 citationsSection
+                if linkedInterventions.isEmpty == false {
+                    linkedInterventionsSection
+                }
                 Section {
                     Toggle("Follow-up completed", isOn: $values.didFollowUp)
                 }
@@ -133,6 +137,36 @@ struct DIQuestionEditorView: View {
         }
     }
 
+    /// Milestone 6: one answer accumulating interventions over time is the
+    /// vault's compounding value. The aggregate names the span in years so a
+    /// long-lived answer's reach is visible at a glance.
+    private var linkedInterventionsSection: some View {
+        Section("Linked interventions") {
+            LabeledContent("Interventions") {
+                Text(linkedInterventions.count, format: .number)
+            }
+            LabeledContent("Years spanned") {
+                Text(
+                    DIQuestionService.yearsSpanned(
+                        by: linkedInterventions.map(\.timestamp),
+                        calendar: .current
+                    ),
+                    format: .number
+                )
+            }
+            ForEach(linkedInterventions) { item in
+                HStack {
+                    Text(item.typeLabel ?? "Unspecified type")
+                        .font(.footnote)
+                    Spacer()
+                    Text(item.timestamp, format: .dateTime.year().month().day())
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
     private var citationsSection: some View {
         Section("References") {
             ForEach(values.citations) { citation in
@@ -192,6 +226,10 @@ struct DIQuestionEditorView: View {
             values = DIQuestionService.values(of: question)
             isDraft = question.answeredAt == nil
             createdAt = question.createdAt
+            linkedInterventions = try DIQuestionService.linkedInterventions(
+                of: questionID,
+                in: modelContext
+            )
         } catch {
             failureText = "This record could not be loaded."
         }

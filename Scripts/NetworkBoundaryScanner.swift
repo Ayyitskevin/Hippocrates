@@ -3695,6 +3695,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/HippocratesTests",
     "$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
     "$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
+    "$(SRCROOT)/HippocratesTests/CompoundingLinkTests.swift",
     "$(SRCROOT)/HippocratesTests/DeidentificationTests.swift",
     "$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
     "$(SRCROOT)/HippocratesTests/FreshnessAndSearchTests.swift",

@@ -49,6 +49,7 @@
 		100000000000000000000028 /* DIVaultServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002B /* DIVaultServiceTests.swift */; };
 		100000000000000000000029 /* FreshnessPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002C /* FreshnessPolicy.swift */; };
 		10000000000000000000002A /* FreshnessAndSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002D /* FreshnessAndSearchTests.swift */; };
+		10000000000000000000002B /* CompoundingLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* CompoundingLinkTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -107,6 +108,7 @@
 		20000000000000000000002B /* DIVaultServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIVaultServiceTests.swift; sourceTree = "<group>"; };
 		20000000000000000000002C /* FreshnessPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshnessPolicy.swift; sourceTree = "<group>"; };
 		20000000000000000000002D /* FreshnessAndSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshnessAndSearchTests.swift; sourceTree = "<group>"; };
+		20000000000000000000002E /* CompoundingLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompoundingLinkTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -301,6 +303,7 @@
 				200000000000000000000027 /* DeidentificationTests.swift */,
 				20000000000000000000002B /* DIVaultServiceTests.swift */,
 				20000000000000000000002D /* FreshnessAndSearchTests.swift */,
+				20000000000000000000002E /* CompoundingLinkTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -479,6 +482,7 @@
 				"$(SRCROOT)/HippocratesTests",
 				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
 				"$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
+				"$(SRCROOT)/HippocratesTests/CompoundingLinkTests.swift",
 				"$(SRCROOT)/HippocratesTests/DeidentificationTests.swift",
 				"$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
 				"$(SRCROOT)/HippocratesTests/FreshnessAndSearchTests.swift",
@@ -559,6 +563,7 @@
 				100000000000000000000024 /* DeidentificationTests.swift in Sources */,
 				100000000000000000000028 /* DIVaultServiceTests.swift in Sources */,
 				10000000000000000000002A /* FreshnessAndSearchTests.swift in Sources */,
+				10000000000000000000002B /* CompoundingLinkTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
