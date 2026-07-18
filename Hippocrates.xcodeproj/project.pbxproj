@@ -47,6 +47,8 @@
 		100000000000000000000026 /* DIVaultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000029 /* DIVaultView.swift */; };
 		100000000000000000000027 /* DIQuestionEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002A /* DIQuestionEditorView.swift */; };
 		100000000000000000000028 /* DIVaultServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002B /* DIVaultServiceTests.swift */; };
+		100000000000000000000029 /* FreshnessPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002C /* FreshnessPolicy.swift */; };
+		10000000000000000000002A /* FreshnessAndSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002D /* FreshnessAndSearchTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +105,8 @@
 		200000000000000000000029 /* DIVaultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIVaultView.swift; sourceTree = "<group>"; };
 		20000000000000000000002A /* DIQuestionEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIQuestionEditorView.swift; sourceTree = "<group>"; };
 		20000000000000000000002B /* DIVaultServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIVaultServiceTests.swift; sourceTree = "<group>"; };
+		20000000000000000000002C /* FreshnessPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshnessPolicy.swift; sourceTree = "<group>"; };
+		20000000000000000000002D /* FreshnessAndSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshnessAndSearchTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -207,6 +211,7 @@
 				20000000000000000000001B /* InterventionLedgerService.swift */,
 				200000000000000000000023 /* SummarySnapshotService.swift */,
 				200000000000000000000028 /* DIQuestionService.swift */,
+				20000000000000000000002C /* FreshnessPolicy.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -295,6 +300,7 @@
 				200000000000000000000024 /* SummaryAndCSVTests.swift */,
 				200000000000000000000027 /* DeidentificationTests.swift */,
 				20000000000000000000002B /* DIVaultServiceTests.swift */,
+				20000000000000000000002D /* FreshnessAndSearchTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -464,6 +470,7 @@
 				"$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
 				"$(SRCROOT)/Hippocrates/Services/DIQuestionService.swift",
 				"$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
+				"$(SRCROOT)/Hippocrates/Services/FreshnessPolicy.swift",
 				"$(SRCROOT)/Hippocrates/Services/InterventionCaptureService.swift",
 				"$(SRCROOT)/Hippocrates/Services/InterventionLedgerService.swift",
 				"$(SRCROOT)/Hippocrates/Services/StarterTaxonomy.swift",
@@ -474,6 +481,7 @@
 				"$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
 				"$(SRCROOT)/HippocratesTests/DeidentificationTests.swift",
 				"$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
+				"$(SRCROOT)/HippocratesTests/FreshnessAndSearchTests.swift",
 				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
 				"$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
@@ -534,6 +542,7 @@
 				100000000000000000000025 /* DIQuestionService.swift in Sources */,
 				100000000000000000000026 /* DIVaultView.swift in Sources */,
 				100000000000000000000027 /* DIQuestionEditorView.swift in Sources */,
+				100000000000000000000029 /* FreshnessPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,6 +558,7 @@
 				100000000000000000000021 /* SummaryAndCSVTests.swift in Sources */,
 				100000000000000000000024 /* DeidentificationTests.swift in Sources */,
 				100000000000000000000028 /* DIVaultServiceTests.swift in Sources */,
+				10000000000000000000002A /* FreshnessAndSearchTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

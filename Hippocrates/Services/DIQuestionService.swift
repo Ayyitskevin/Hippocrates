@@ -33,6 +33,8 @@ enum DIQuestionServiceError: Error, Equatable {
     case citationFieldTooLong(limit: Int)
     case verificationMustFollowCreation
     case invalidStalenessMonths(Int)
+    case cannotReverifyDraft(UUID)
+    case verificationMustAdvance
 }
 
 /// Owns every DI mutation. The de-identification gate is enforced here, not in
@@ -241,6 +243,50 @@ enum DIQuestionService {
             try AppConfigService.setStalenessIntervalMonths(stalenessMonths, on: configuration)
         }
         try saveOrRollback(context)
+    }
+
+    /// One-tap re-verification (A-006): appends to the audit history and
+    /// slides the record's own review window forward, preserving the exact
+    /// per-record interval it was answered with. The app default is never
+    /// consulted, so changing it cannot move this record's boundaries.
+    static func reverifyPreservingWindow(
+        questionID: UUID,
+        on verifiedOn: Date = .now,
+        in context: ModelContext
+    ) throws {
+        guard let question = try question(questionID, in: context) else {
+            throw DIQuestionServiceError.unknownQuestion(questionID)
+        }
+        guard question.answeredAt != nil else {
+            throw DIQuestionServiceError.cannotReverifyDraft(questionID)
+        }
+        guard verifiedOn > question.verifiedOn else {
+            throw DIQuestionServiceError.verificationMustAdvance
+        }
+        let interval = question.reviewAfter.timeIntervalSince(question.verifiedOn)
+        question.reverify(on: verifiedOn, reviewAfter: verifiedOn.addingTimeInterval(interval))
+        try saveOrRollback(context)
+    }
+
+    /// A-007: DI volume is small, so search fetches the record set and filters
+    /// lowercased strings in memory instead of relying on string predicates.
+    static func search(_ query: String, in context: ModelContext) throws -> [DIQuestion] {
+        let questions = try allQuestions(in: context)
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard needle.isEmpty == false else {
+            return questions
+        }
+        return questions.filter { question in
+            var haystacks = [
+                question.questionText,
+                question.background,
+                question.answerText,
+                question.searchStrategy,
+            ]
+            haystacks += question.tags
+            haystacks += question.citations.map(\.title)
+            return haystacks.contains { $0.lowercased().contains(needle) }
+        }
     }
 
     // MARK: Helpers
