@@ -26,6 +26,8 @@
 		100000000000000000000011 /* StarterTaxonomy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* StarterTaxonomy.swift */; };
 		100000000000000000000012 /* TaxonomyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* TaxonomyService.swift */; };
 		100000000000000000000013 /* TaxonomyGovernanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* TaxonomyGovernanceTests.swift */; };
+		100000000000000000000014 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* FirstRunView.swift */; };
+		100000000000000000000015 /* TaxonomySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* TaxonomySettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +63,8 @@
 		200000000000000000000014 /* StarterTaxonomy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarterTaxonomy.swift; sourceTree = "<group>"; };
 		200000000000000000000015 /* TaxonomyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyService.swift; sourceTree = "<group>"; };
 		200000000000000000000016 /* TaxonomyGovernanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyGovernanceTests.swift; sourceTree = "<group>"; };
+		200000000000000000000017 /* FirstRunView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunView.swift; sourceTree = "<group>"; };
+		200000000000000000000018 /* TaxonomySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomySettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +102,7 @@
 				300000000000000000000004 /* Models */,
 				300000000000000000000005 /* Persistence */,
 				300000000000000000000006 /* Backup */,
+				30000000000000000000000C /* Features */,
 				30000000000000000000000B /* Services */,
 				300000000000000000000007 /* Resources */,
 			);
@@ -159,6 +164,31 @@
 				200000000000000000000015 /* TaxonomyService.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000C /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				30000000000000000000000D /* Onboarding */,
+				30000000000000000000000E /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000D /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000017 /* FirstRunView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		30000000000000000000000E /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000018 /* TaxonomySettingsView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		300000000000000000000008 /* HippocratesTests */ = {
@@ -304,6 +334,11 @@
 				"$(SRCROOT)/Hippocrates/Backup/BackupCodec.swift",
 				"$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
 				"$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
+				"$(SRCROOT)/Hippocrates/Features",
+				"$(SRCROOT)/Hippocrates/Features/Onboarding",
+				"$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
+				"$(SRCROOT)/Hippocrates/Features/Settings",
+				"$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
 				"$(SRCROOT)/Hippocrates/Models",
 				"$(SRCROOT)/Hippocrates/Models/DomainEnums.swift",
 				"$(SRCROOT)/Hippocrates/Persistence",
@@ -361,6 +396,8 @@
 				100000000000000000000010 /* BootstrapPolicy.swift in Sources */,
 				100000000000000000000011 /* StarterTaxonomy.swift in Sources */,
 				100000000000000000000012 /* TaxonomyService.swift in Sources */,
+				100000000000000000000014 /* FirstRunView.swift in Sources */,
+				100000000000000000000015 /* TaxonomySettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
