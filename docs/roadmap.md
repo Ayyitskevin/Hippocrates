@@ -485,10 +485,10 @@ skippable starter taxonomy, user-entered cost defaults, a visible summary range
 defaulting to the current calendar year, a required per-user staleness choice,
 and the unchanged frozen DI vocabulary.
 
-I-003, I-004, I-007, I-008, I-011, I-012, and I-013 are likewise accepted and
-bind their features as recorded. Before the affected feature ships, still
-resolve I-005 (verification provenance), I-009 (metadata identifier channels),
-and I-010 (local-file import boundary).
+I-003, I-004, I-007, I-008, I-009, I-011, I-012, and I-013 are likewise
+accepted and bind their features as recorded. Before the affected feature
+ships, still resolve I-005 (verification provenance) and I-010 (local-file
+import boundary).
 
 ## Milestone 1 — configuration and taxonomy ownership
 

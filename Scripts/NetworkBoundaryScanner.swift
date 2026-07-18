@@ -592,6 +592,7 @@ private enum ReviewedSourceIdentity: String {
     case backupService = "Hippocrates/Backup/BackupService.swift"
     case taxonomyService = "Hippocrates/Services/TaxonomyService.swift"
     case interventionLedgerService = "Hippocrates/Services/InterventionLedgerService.swift"
+    case diQuestionService = "Hippocrates/Services/DIQuestionService.swift"
     case summaryView = "Hippocrates/Features/Summary/SummaryView.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
@@ -711,6 +712,17 @@ private func appSourceFindings(
         // .delete spelling in shipping code remains closed.
         maskExactlyOnce(
             "        context.delete(intervention)",
+            with: "        context.rollback()"
+        )
+    }
+
+    if identity == .diQuestionService {
+        // Milestone 4: the one reviewed citation-deletion seam. Only a
+        // citation replaced or removed during a gated save of its own question
+        // reaches it, inside DIQuestionService. Every other .delete spelling
+        // in shipping code remains closed.
+        maskExactlyOnce(
+            "        context.delete(citation)",
             with: "        context.rollback()"
         )
     }
@@ -3650,6 +3662,9 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Features/Capture/CaptureSupport.swift",
     "$(SRCROOT)/Hippocrates/Features/Capture/CaptureView.swift",
     "$(SRCROOT)/Hippocrates/Features/Capture/RecentLedgerView.swift",
+    "$(SRCROOT)/Hippocrates/Features/DIVault",
+    "$(SRCROOT)/Hippocrates/Features/DIVault/DIQuestionEditorView.swift",
+    "$(SRCROOT)/Hippocrates/Features/DIVault/DIVaultView.swift",
     "$(SRCROOT)/Hippocrates/Features/Onboarding",
     "$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings",
@@ -3669,6 +3684,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Safety/DeidentificationScanner.swift",
     "$(SRCROOT)/Hippocrates/Services",
     "$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
+    "$(SRCROOT)/Hippocrates/Services/DIQuestionService.swift",
     "$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
     "$(SRCROOT)/Hippocrates/Services/InterventionCaptureService.swift",
     "$(SRCROOT)/Hippocrates/Services/InterventionLedgerService.swift",
@@ -3679,6 +3695,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
     "$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
     "$(SRCROOT)/HippocratesTests/DeidentificationTests.swift",
+    "$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
     "$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
     "$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
     "$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",

@@ -43,6 +43,10 @@
 		100000000000000000000022 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* SummaryView.swift */; };
 		100000000000000000000023 /* DeidentificationScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* DeidentificationScanner.swift */; };
 		100000000000000000000024 /* DeidentificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000027 /* DeidentificationTests.swift */; };
+		100000000000000000000025 /* DIQuestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000028 /* DIQuestionService.swift */; };
+		100000000000000000000026 /* DIVaultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000029 /* DIVaultView.swift */; };
+		100000000000000000000027 /* DIQuestionEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002A /* DIQuestionEditorView.swift */; };
+		100000000000000000000028 /* DIVaultServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002B /* DIVaultServiceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +99,10 @@
 		200000000000000000000025 /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 		200000000000000000000026 /* DeidentificationScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeidentificationScanner.swift; sourceTree = "<group>"; };
 		200000000000000000000027 /* DeidentificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeidentificationTests.swift; sourceTree = "<group>"; };
+		200000000000000000000028 /* DIQuestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIQuestionService.swift; sourceTree = "<group>"; };
+		200000000000000000000029 /* DIVaultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIVaultView.swift; sourceTree = "<group>"; };
+		20000000000000000000002A /* DIQuestionEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIQuestionEditorView.swift; sourceTree = "<group>"; };
+		20000000000000000000002B /* DIVaultServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIVaultServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -198,6 +206,7 @@
 				20000000000000000000001A /* InterventionCaptureService.swift */,
 				20000000000000000000001B /* InterventionLedgerService.swift */,
 				200000000000000000000023 /* SummarySnapshotService.swift */,
+				200000000000000000000028 /* DIQuestionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -206,11 +215,21 @@
 			isa = PBXGroup;
 			children = (
 				30000000000000000000000F /* Capture */,
+				300000000000000000000013 /* DIVault */,
 				30000000000000000000000D /* Onboarding */,
 				30000000000000000000000E /* Settings */,
 				300000000000000000000011 /* Summary */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		300000000000000000000013 /* DIVault */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000002A /* DIQuestionEditorView.swift */,
+				200000000000000000000029 /* DIVaultView.swift */,
+			);
+			path = DIVault;
 			sourceTree = "<group>";
 		};
 		300000000000000000000012 /* Safety */ = {
@@ -275,6 +294,7 @@
 				200000000000000000000020 /* CaptureAndLedgerTests.swift */,
 				200000000000000000000024 /* SummaryAndCSVTests.swift */,
 				200000000000000000000027 /* DeidentificationTests.swift */,
+				20000000000000000000002B /* DIVaultServiceTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -420,6 +440,9 @@
 				"$(SRCROOT)/Hippocrates/Features/Capture/CaptureSupport.swift",
 				"$(SRCROOT)/Hippocrates/Features/Capture/CaptureView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Capture/RecentLedgerView.swift",
+				"$(SRCROOT)/Hippocrates/Features/DIVault",
+				"$(SRCROOT)/Hippocrates/Features/DIVault/DIQuestionEditorView.swift",
+				"$(SRCROOT)/Hippocrates/Features/DIVault/DIVaultView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings",
@@ -439,6 +462,7 @@
 				"$(SRCROOT)/Hippocrates/Safety/DeidentificationScanner.swift",
 				"$(SRCROOT)/Hippocrates/Services",
 				"$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
+				"$(SRCROOT)/Hippocrates/Services/DIQuestionService.swift",
 				"$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
 				"$(SRCROOT)/Hippocrates/Services/InterventionCaptureService.swift",
 				"$(SRCROOT)/Hippocrates/Services/InterventionLedgerService.swift",
@@ -449,6 +473,7 @@
 				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
 				"$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
 				"$(SRCROOT)/HippocratesTests/DeidentificationTests.swift",
+				"$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
 				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
 				"$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
@@ -506,6 +531,9 @@
 				100000000000000000000020 /* SummarySnapshotService.swift in Sources */,
 				100000000000000000000022 /* SummaryView.swift in Sources */,
 				100000000000000000000023 /* DeidentificationScanner.swift in Sources */,
+				100000000000000000000025 /* DIQuestionService.swift in Sources */,
+				100000000000000000000026 /* DIVaultView.swift in Sources */,
+				100000000000000000000027 /* DIQuestionEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -520,6 +548,7 @@
 				10000000000000000000001D /* CaptureAndLedgerTests.swift in Sources */,
 				100000000000000000000021 /* SummaryAndCSVTests.swift in Sources */,
 				100000000000000000000024 /* DeidentificationTests.swift in Sources */,
+				100000000000000000000028 /* DIVaultServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

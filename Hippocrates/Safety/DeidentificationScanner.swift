@@ -117,6 +117,18 @@ enum DeidentificationScanner {
         }
     }
 
+    /// The save boundary blocks on whatever this returns. A finding is cleared
+    /// only by an acknowledgment for its exact field and text; anything else —
+    /// including the same text in a different field — still blocks.
+    static func unacknowledgedFindings(
+        _ findings: [DeidentificationFinding],
+        acknowledging acknowledgments: [DeidentificationAcknowledgment]
+    ) -> [DeidentificationFinding] {
+        findings.filter { finding in
+            acknowledgments.contains { $0.covers(finding) } == false
+        }
+    }
+
     private struct Span: Equatable {
         let location: Int
         let length: Int
@@ -127,5 +139,18 @@ enum DeidentificationScanner {
             other.location >= location
                 && other.location + other.length <= location + length
         }
+    }
+}
+
+/// One explicit "Not an identifier" decision for one exact matched text in one
+/// field, valid for the current save attempt only. Acknowledgements are never
+/// persisted: editing the text produces different findings, and the next save
+/// scans everything again from scratch.
+struct DeidentificationAcknowledgment: Equatable, Sendable {
+    let fieldName: String
+    let matchedText: String
+
+    func covers(_ finding: DeidentificationFinding) -> Bool {
+        finding.fieldName == fieldName && finding.matchedText == matchedText
     }
 }

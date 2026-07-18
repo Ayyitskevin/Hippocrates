@@ -19,6 +19,11 @@ struct CaptureHomeView: View {
                     SummaryView()
                 }
             }
+            Tab("DI Vault", systemImage: "books.vertical") {
+                NavigationStack {
+                    DIVaultView()
+                }
+            }
             Tab("Categories", systemImage: "slider.horizontal.3") {
                 TaxonomySettingsView()
             }
