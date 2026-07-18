@@ -12,6 +12,7 @@ struct RecentLedgerView: View {
     @State private var editingItem: InterventionSummary?
     @State private var pendingDeletion: InterventionSummary?
     @State private var failureText: String?
+    @State private var noticeText: String?
 
     var body: some View {
         List {
@@ -46,6 +47,12 @@ struct RecentLedgerView: View {
                         }
                         .tint(.orange)
                     }
+                    if item.diQuestionID == nil {
+                        Button("DI draft") {
+                            createLinkedDraft(for: item)
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
         }
@@ -72,7 +79,24 @@ struct RecentLedgerView: View {
         } message: {
             Text(failureText ?? "Try again.")
         }
+        .alert("Linked draft created", isPresented: noticeAlertBinding) {
+            Button("OK", role: .cancel) {
+            }
+        } message: {
+            Text(noticeText ?? "")
+        }
         .onAppear(perform: reload)
+    }
+
+    private var noticeAlertBinding: Binding<Bool> {
+        Binding(
+            get: { noticeText != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    noticeText = nil
+                }
+            }
+        )
     }
 
     private var deletionDialogBinding: Binding<Bool> {
@@ -126,6 +150,21 @@ struct RecentLedgerView: View {
         }
         reload()
     }
+
+    /// Milestone 6: "this raised a question." The draft lands in the DI Vault
+    /// tab, already linked to this intervention.
+    private func createLinkedDraft(for item: InterventionSummary) {
+        do {
+            _ = try DIQuestionService.createLinkedDraft(
+                interventionID: item.id,
+                in: modelContext
+            )
+            noticeText = "Open the DI Vault tab to complete the question. It is already linked to this intervention."
+        } catch {
+            failureText = "The linked draft could not be created."
+        }
+        reload()
+    }
 }
 
 private struct LedgerRow: View {
@@ -148,6 +187,14 @@ private struct LedgerRow: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                if item.diQuestionID != nil {
+                    Text("DI")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple.opacity(0.2), in: Capsule())
+                        .foregroundStyle(.purple)
+                }
                 acceptanceBadge
             }
         }
