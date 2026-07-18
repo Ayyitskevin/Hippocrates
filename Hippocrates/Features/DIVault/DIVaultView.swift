@@ -73,15 +73,37 @@ enum DIDisplay {
         default: return fieldName
         }
     }
+
+    /// Badge text pairs with color everywhere; color is never the only signal.
+    static func badgeText(_ state: FreshnessState) -> String {
+        switch state {
+        case .draft: return "Draft"
+        case .green: return "Current"
+        case .amber: return "Review due"
+        case .red: return "Out of date"
+        }
+    }
+
+    static func badgeColor(_ state: FreshnessState) -> Color {
+        switch state {
+        case .draft: return .blue
+        case .green: return .green
+        case .amber: return .orange
+        case .red: return .red
+        }
+    }
 }
 
-/// One row per DI record: drafts labeled plainly, answered records dated.
-/// Freshness badges join this list in the next milestone.
+/// The vault list: searchable, with the same freshness policy driving every
+/// badge. Opening an amber or red record interposes the staleness interstitial
+/// before any answer content, every time; dismissal is view-local only.
 struct DIVaultView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var rows: [DIRowItem] = []
+    @State private var searchText = ""
     @State private var editingQuestionID: UUID?
+    @State private var staleCandidate: DIRowItem?
     @State private var isCreatingNew = false
     @State private var failureText: String?
 
@@ -96,7 +118,7 @@ struct DIVaultView: View {
             }
             ForEach(rows) { row in
                 Button {
-                    editingQuestionID = row.id
+                    open(row)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(row.title)
@@ -106,24 +128,14 @@ struct DIVaultView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            if row.isDraft {
-                                Text("Draft")
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 2)
-                                    .background(Color.blue.opacity(0.2), in: Capsule())
-                                    .foregroundStyle(.blue)
-                            } else if let answeredAt = row.answeredAt {
-                                Text(answeredAt, format: .dateTime.year().month().day())
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                            freshnessBadge(row.freshness)
                         }
                     }
                 }
             }
         }
         .navigationTitle("DI Vault")
+        .searchable(text: $searchText, prompt: "Search questions and answers")
         .toolbar {
             Button("Add") {
                 isCreatingNew = true
@@ -135,6 +147,18 @@ struct DIVaultView: View {
         .sheet(item: editingIDBinding, onDismiss: reload) { identified in
             DIQuestionEditorView(questionID: identified.id)
         }
+        .sheet(item: $staleCandidate) { row in
+            StaleAnswerInterstitial(
+                row: row,
+                onReverify: {
+                    reverify(row)
+                },
+                onViewAnyway: {
+                    staleCandidate = nil
+                    editingQuestionID = row.id
+                }
+            )
+        }
         .alert("Could not load the vault", isPresented: failureAlertBinding) {
             Button("OK", role: .cancel) {
             }
@@ -142,6 +166,43 @@ struct DIVaultView: View {
             Text(failureText ?? "Try again.")
         }
         .onAppear(perform: reload)
+        .onChange(of: searchText) {
+            reload()
+        }
+    }
+
+    private func freshnessBadge(_ state: FreshnessState) -> some View {
+        Text(DIDisplay.badgeText(state))
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(DIDisplay.badgeColor(state).opacity(0.2), in: Capsule())
+            .foregroundStyle(DIDisplay.badgeColor(state))
+    }
+
+    /// Amber and red records interpose the interstitial before their content,
+    /// every presentation. Drafts and green records open directly.
+    private func open(_ row: DIRowItem) {
+        switch row.freshness {
+        case .amber, .red:
+            staleCandidate = row
+        case .draft, .green:
+            editingQuestionID = row.id
+        }
+    }
+
+    private func reverify(_ row: DIRowItem) {
+        do {
+            try DIQuestionService.reverifyPreservingWindow(
+                questionID: row.id,
+                in: modelContext
+            )
+            staleCandidate = nil
+            reload()
+        } catch {
+            staleCandidate = nil
+            failureText = "The record could not be re-verified."
+        }
     }
 
     private var editingIDBinding: Binding<IdentifiedID?> {
@@ -164,13 +225,19 @@ struct DIVaultView: View {
 
     private func reload() {
         do {
-            rows = try DIQuestionService.allQuestions(in: modelContext).map { question in
+            let now = Date.now
+            rows = try DIQuestionService.search(searchText, in: modelContext).map { question in
                 DIRowItem(
                     id: question.id,
                     title: question.questionText.isEmpty ? "Untitled question" : question.questionText,
                     classLabel: DIDisplay.label(question.questionClass),
-                    isDraft: question.answeredAt == nil,
-                    answeredAt: question.answeredAt
+                    freshness: FreshnessPolicy.state(
+                        answeredAt: question.answeredAt,
+                        verifiedOn: question.verifiedOn,
+                        reviewAfter: question.reviewAfter,
+                        now: now
+                    ),
+                    verifiedOn: question.verifiedOn
                 )
             }
         } catch {
@@ -183,10 +250,56 @@ private struct DIRowItem: Identifiable, Equatable {
     let id: UUID
     let title: String
     let classLabel: String
-    let isDraft: Bool
-    let answeredAt: Date?
+    let freshness: FreshnessState
+    let verifiedOn: Date
 }
 
 private struct IdentifiedID: Identifiable, Equatable {
     let id: UUID
+}
+
+/// The staleness interstitial: it names the last verification date and offers
+/// one-tap re-verification or a deliberate view-anyway. Dismissing it lasts
+/// only for this presentation; the next open interposes again.
+private struct StaleAnswerInterstitial: View {
+    let row: DIRowItem
+    let onReverify: () -> Void
+    let onViewAnyway: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("This answer may be out of date")
+                    .font(.title2)
+                    .bold()
+                HStack {
+                    Text("Last verified")
+                    Text(row.verifiedOn, format: .dateTime.year().month().day())
+                        .bold()
+                }
+                Text("Drug information changes. Re-verify this answer against current references before relying on it, or view it knowing its review window has passed.")
+                Button {
+                    onReverify()
+                } label: {
+                    Text("I re-verified this answer today")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                Button("View without re-verifying") {
+                    onViewAnyway()
+                }
+                Spacer()
+            }
+            .padding()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
 }
