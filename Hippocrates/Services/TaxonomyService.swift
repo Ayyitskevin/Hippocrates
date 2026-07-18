@@ -54,7 +54,9 @@ enum TaxonomyService {
     /// Rows are returned in the deterministic editor order: configured
     /// `sortOrder`, then case-insensitive label as the stable tie-breaker.
     static func allInterventionTypes(in context: ModelContext) throws -> [InterventionType] {
-        try context.fetch(FetchDescriptor<InterventionType>()).sorted(by: rowOrder)
+        try context.fetch(FetchDescriptor<InterventionType>()).sorted {
+            orderedBefore($0.sortOrder, $0.label, $1.sortOrder, $1.label)
+        }
     }
 
     @discardableResult
@@ -136,7 +138,9 @@ enum TaxonomyService {
     // MARK: Drug classes
 
     static func allDrugClasses(in context: ModelContext) throws -> [DrugClass] {
-        try context.fetch(FetchDescriptor<DrugClass>()).sorted(by: rowOrder)
+        try context.fetch(FetchDescriptor<DrugClass>()).sorted {
+            orderedBefore($0.sortOrder, $0.label, $1.sortOrder, $1.label)
+        }
     }
 
     @discardableResult
@@ -205,7 +209,9 @@ enum TaxonomyService {
     // MARK: Service lines
 
     static func allServiceLines(in context: ModelContext) throws -> [ServiceLine] {
-        try context.fetch(FetchDescriptor<ServiceLine>()).sorted(by: rowOrder)
+        try context.fetch(FetchDescriptor<ServiceLine>()).sorted {
+            orderedBefore($0.sortOrder, $0.label, $1.sortOrder, $1.label)
+        }
     }
 
     @discardableResult
@@ -307,14 +313,16 @@ enum TaxonomyService {
 
     // MARK: Shared helpers
 
-    private nonisolated static func rowOrder<Row: TaxonomyRowOrdering>(
-        _ left: Row,
-        _ right: Row
+    private nonisolated static func orderedBefore(
+        _ leftOrder: Int,
+        _ leftLabel: String,
+        _ rightOrder: Int,
+        _ rightLabel: String
     ) -> Bool {
-        if left.sortOrder != right.sortOrder {
-            return left.sortOrder < right.sortOrder
+        if leftOrder != rightOrder {
+            return leftOrder < rightOrder
         }
-        return left.label.lowercased() < right.label.lowercased()
+        return leftLabel.lowercased() < rightLabel.lowercased()
     }
 
     /// The reference check fetches the full intervention set and filters in
@@ -395,15 +403,3 @@ enum TaxonomyService {
         }
     }
 }
-
-/// Editor ordering needs the three shared columns without merging the models
-/// (A-001). The conformances add no stored property, so the persisted schema
-/// and backup surface are unchanged.
-protocol TaxonomyRowOrdering {
-    var label: String { get }
-    var sortOrder: Int { get }
-}
-
-extension SchemaV1.InterventionType: TaxonomyRowOrdering {}
-extension SchemaV1.DrugClass: TaxonomyRowOrdering {}
-extension SchemaV1.ServiceLine: TaxonomyRowOrdering {}
