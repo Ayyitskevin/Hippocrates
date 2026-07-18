@@ -295,9 +295,11 @@ final class DIVaultServiceTests: XCTestCase {
         XCTAssertEqual(findings.count, 1)
         XCTAssertEqual(findings.first?.matchedText, "445566")
 
-        let cleanArchive = try BackupService.makeArchive(
-            from: HippocratesStore.makeContainer(inMemory: true).mainContext
-        )
+        // The container must outlive the archive fetch: ARC may release a
+        // temporary container right after mainContext returns, leaving the
+        // context on a deallocated store and crashing the runner.
+        let cleanContainer = try HippocratesStore.makeContainer(inMemory: true)
+        let cleanArchive = try BackupService.makeArchive(from: cleanContainer.mainContext)
         XCTAssertTrue(DIQuestionService.gateFindings(forArchive: cleanArchive).isEmpty)
     }
 
