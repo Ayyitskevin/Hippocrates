@@ -2,10 +2,10 @@
 
 [![iOS CI](https://github.com/Ayyitskevin/Hippocrates/actions/workflows/ios-ci.yml/badge.svg)](https://github.com/Ayyitskevin/Hippocrates/actions/workflows/ios-ci.yml)
 
-Hippocrates is a personal, offline professional ledger for one hospital clinical
-pharmacist. It records interventions she has already made and drug-information
-answers she has already completed. It does not calculate, interpret, dose,
-recommend, or advise.
+Hippocrates is a free, personal, offline professional ledger for hospital
+clinical pharmacists. It records interventions the pharmacist has already made
+and drug-information answers they have already completed. It does not
+calculate, interpret, dose, recommend, or advise.
 
 Project direction and delivery evidence live in:
 
@@ -135,29 +135,23 @@ Account Holder, Admin, or App Manager must separately publish **Data Not
 Collected** before distribution. No TestFlight or App Store action is authorized
 by this repository milestone.
 
-## Required decisions before affected features ship
+## Product decisions and remaining gates
 
-1. Whether hospital policy permits a PHI-free personal work ledger on a personal
-   device. This gates use on shift, not foundation development.
-2. Whether the institution publishes cost-avoidance values. Stored defaults
-   remain `nil`; the schema and backup preserve `nil` separately from zero.
-3. Whether the department has an intervention taxonomy; otherwise ASHP categories
-   require explicit approval before seeding. Taxonomies remain empty.
-4. Whether the default summary range is annual or quarterly.
-5. Whether DI staleness defaults to 12 months or 6 months. The stored default
-   remains `nil`.
-6. Whether the frozen DI requestor, question-class, urgency, and source-tier
-   vocabulary matches the intended workflow. DI UI does not ship until confirmed.
-
-Supply and record these answers through the canonical
-[D0 response worksheet](docs/decision-register.md#d0-response-worksheet). It
-requires a deciding authority, date, and non-sensitive provenance, and it forbids
-committing private institutional material to this public repository.
-
-The accepted implementation decisions and remaining gates—including restore
-readiness, editable-label identifier risk, metric semantics, local-file import,
-and `lastExportAt` meaning—are tracked in
+The 2026-07-18 owner pivot re-scoped Hippocrates from a single-user tool to a
+free, general-audience app for hospital pharmacists. The former
+institution-gated product decisions P-001 through P-006 are accepted as
+user-owned choices — a first-run responsibility notice, an explicitly offered
+and skippable starter taxonomy, user-entered cost defaults, a visible summary
+range, a user-selected staleness interval, and the frozen DI vocabulary — and
+are recorded with deciding authority, date, and provenance in
 [`docs/decision-register.md`](docs/decision-register.md).
+
+The accepted implementation decisions and remaining gates—including
+editable-label identifier risk, metadata identifier channels, and the
+local-file import boundary—are tracked in the same register. The sequenced
+build plan is [`docs/opus-execution-plan.md`](docs/opus-execution-plan.md);
+the motivating workflow review is
+[`docs/pharmacist-review.md`](docs/pharmacist-review.md).
 
 ## Primary implementation references
 
