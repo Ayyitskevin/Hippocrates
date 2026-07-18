@@ -28,7 +28,7 @@ cross a decision or evidence gate.
 | F15 — configuration creation save-failure rollback | Verified | Implementation commit [`078afad`](https://github.com/Ayyitskevin/Hippocrates/commit/078afad5a89f644a9199328e29b4d5a89a3a8c0b) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 32 simulator tests in [hosted run 29524757883](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29524757883) |
 | F16 — canonical backup record ordering | Verified | Implementation commit [`d64f7bd`](https://github.com/Ayyitskevin/Hippocrates/commit/d64f7bde3359c6734d58c737ee6a2583751c7096) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 33 simulator tests in [hosted run 29529607273](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29529607273) |
 | F17 — scanner-owned privacy-manifest semantics | Verified | Implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372) passed 270 scanner checks, both planted privacy-manifest probes, Release build, analyzer, and 33 simulator tests in [hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329) |
-| D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); remaining gates are implementation decisions I-004, I-005, I-009, and I-010 |
+| D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); remaining gates are implementation decisions I-005, I-009, and I-010 |
 
 ## Milestone 0 — foundation evidence (complete)
 
@@ -483,10 +483,10 @@ skippable starter taxonomy, user-entered cost defaults, a visible summary range
 defaulting to the current calendar year, a required per-user staleness choice,
 and the unchanged frozen DI vocabulary.
 
-I-003, I-007, I-008, I-011, I-012, and I-013 are likewise accepted and bind
-their features as recorded. Before the affected feature ships, still resolve
-I-004 (editable taxonomy identifier risk), I-005 (verification provenance),
-I-009 (metadata identifier channels), and I-010 (local-file import boundary).
+I-003, I-004, I-007, I-008, I-011, I-012, and I-013 are likewise accepted and
+bind their features as recorded. Before the affected feature ships, still
+resolve I-005 (verification provenance), I-009 (metadata identifier channels),
+and I-010 (local-file import boundary).
 
 ## Milestone 1 — configuration and taxonomy ownership
 
