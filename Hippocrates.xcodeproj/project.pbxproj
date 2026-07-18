@@ -40,6 +40,7 @@
 		10000000000000000000001F /* InterventionCSV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* InterventionCSV.swift */; };
 		100000000000000000000020 /* SummarySnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* SummarySnapshotService.swift */; };
 		100000000000000000000021 /* SummaryAndCSVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* SummaryAndCSVTests.swift */; };
+		100000000000000000000022 /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* SummaryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +90,7 @@
 		200000000000000000000022 /* InterventionCSV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterventionCSV.swift; sourceTree = "<group>"; };
 		200000000000000000000023 /* SummarySnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummarySnapshotService.swift; sourceTree = "<group>"; };
 		200000000000000000000024 /* SummaryAndCSVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryAndCSVTests.swift; sourceTree = "<group>"; };
+		200000000000000000000025 /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -201,8 +203,17 @@
 				30000000000000000000000F /* Capture */,
 				30000000000000000000000D /* Onboarding */,
 				30000000000000000000000E /* Settings */,
+				300000000000000000000011 /* Summary */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		300000000000000000000011 /* Summary */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000025 /* SummaryView.swift */,
+			);
+			path = Summary;
 			sourceTree = "<group>";
 		};
 		300000000000000000000010 /* Export */ = {
@@ -399,6 +410,8 @@
 				"$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings",
 				"$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
+				"$(SRCROOT)/Hippocrates/Features/Summary",
+				"$(SRCROOT)/Hippocrates/Features/Summary/SummaryView.swift",
 				"$(SRCROOT)/Hippocrates/Models",
 				"$(SRCROOT)/Hippocrates/Models/DomainEnums.swift",
 				"$(SRCROOT)/Hippocrates/Persistence",
@@ -474,6 +487,7 @@
 				10000000000000000000001E /* SummaryEngine.swift in Sources */,
 				10000000000000000000001F /* InterventionCSV.swift in Sources */,
 				100000000000000000000020 /* SummarySnapshotService.swift in Sources */,
+				100000000000000000000022 /* SummaryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

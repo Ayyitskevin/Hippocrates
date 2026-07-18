@@ -14,6 +14,11 @@ struct CaptureHomeView: View {
                     RecentLedgerView()
                 }
             }
+            Tab("Summary", systemImage: "chart.bar.xaxis") {
+                NavigationStack {
+                    SummaryView()
+                }
+            }
             Tab("Categories", systemImage: "slider.horizontal.3") {
                 TaxonomySettingsView()
             }

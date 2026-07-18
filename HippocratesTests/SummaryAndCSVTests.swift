@@ -140,6 +140,39 @@ final class SummaryAndCSVTests: XCTestCase {
         XCTAssertEqual(stats.countsByMonth.last?.monthKey, "2026-12")
     }
 
+    func testRangeChoiceMapping() {
+        let now = date(2026, 7, 18)
+        let thisYear = SummaryRangeChoice.thisYear.range(now: now, calendar: utcCalendar)
+        XCTAssertTrue(thisYear.contains(date(2026, 1, 1, hour: 0)))
+        XCTAssertFalse(thisYear.contains(date(2025, 12, 31)))
+
+        let lastYear = SummaryRangeChoice.lastYear.range(now: now, calendar: utcCalendar)
+        XCTAssertTrue(lastYear.contains(date(2025, 6, 15)))
+        XCTAssertFalse(lastYear.contains(date(2026, 1, 15)))
+
+        let allTime = SummaryRangeChoice.allTime.range(now: now, calendar: utcCalendar)
+        XCTAssertTrue(allTime.contains(date(1990, 1, 1)))
+        XCTAssertTrue(allTime.contains(date(2090, 1, 1)))
+    }
+
+    func testAllTimeStatisticsBucketMonthsAcrossDataSpanOnly() {
+        let allTime = SummaryRangeChoice.allTime.range(now: date(2026, 7, 18), calendar: utcCalendar)
+        let rows = [
+            row(date(2025, 11, 10)),
+            row(date(2026, 2, 10)),
+        ]
+        let stats = SummaryEngine.statistics(for: rows, in: allTime, calendar: utcCalendar)
+        XCTAssertEqual(
+            stats.countsByMonth.map(\.monthKey),
+            ["2025-11", "2025-12", "2026-01", "2026-02"]
+        )
+        XCTAssertEqual(stats.countsByMonth.first?.count, 1)
+        XCTAssertEqual(stats.countsByMonth.last?.count, 1)
+
+        let emptyStats = SummaryEngine.statistics(for: [], in: allTime, calendar: utcCalendar)
+        XCTAssertTrue(emptyStats.countsByMonth.isEmpty)
+    }
+
     // MARK: CSV formatting
 
     func testCSVQuotingAndInjectionNeutralization() {

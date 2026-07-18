@@ -28,6 +28,37 @@ struct SummaryDateRange: Equatable, Sendable {
     }
 }
 
+/// P-004: the visible range control's choices. Raw values persist the user's
+/// last selection in app storage; they are UI state, not clinical data.
+enum SummaryRangeChoice: Int, CaseIterable, Sendable {
+    case thisYear = 0
+    case lastYear = 1
+    case allTime = 2
+
+    var title: String {
+        switch self {
+        case .thisYear:
+            return "This year"
+        case .lastYear:
+            return "Last year"
+        case .allTime:
+            return "All time"
+        }
+    }
+
+    func range(now: Date, calendar: Calendar) -> SummaryDateRange {
+        switch self {
+        case .thisYear:
+            return SummaryDateRange.calendarYear(containing: now, calendar: calendar)
+        case .lastYear:
+            let previous = calendar.date(byAdding: .year, value: -1, to: now) ?? now
+            return SummaryDateRange.calendarYear(containing: previous, calendar: calendar)
+        case .allTime:
+            return SummaryDateRange(start: .distantPast, end: .distantFuture)
+        }
+    }
+}
+
 /// One intervention flattened to summary-relevant values. Snapshots are taken
 /// on the main actor; everything below this line is pure and Sendable.
 struct SummaryInputRow: Equatable, Sendable {
@@ -132,6 +163,21 @@ enum SummaryEngine {
             }
         }
 
+        // An unbounded range (all time) buckets months across the actual data
+        // span; a bounded range keeps its full month axis including zero
+        // months. Iterating distantPast..distantFuture is never attempted.
+        let monthAxisRange: SummaryDateRange
+        if range.start == .distantPast || range.end == .distantFuture {
+            if let earliest = included.map(\.timestamp).min(),
+               let latest = included.map(\.timestamp).max() {
+                monthAxisRange = SummaryDateRange(start: earliest, end: latest.addingTimeInterval(1))
+            } else {
+                monthAxisRange = SummaryDateRange(start: range.start, end: range.start)
+            }
+        } else {
+            monthAxisRange = range
+        }
+
         return SummaryStatistics(
             range: range,
             totalCount: included.count,
@@ -142,7 +188,7 @@ enum SummaryEngine {
                 notApplicable: notApplicable
             ),
             countsByType: sortedLabelCounts(typeCounts),
-            countsByMonth: monthSequence(in: range, calendar: calendar).map { key in
+            countsByMonth: monthSequence(in: monthAxisRange, calendar: calendar).map { key in
                 MonthCount(monthKey: key, count: monthCounts[key, default: 0])
             },
             topDrugClasses: sortedLabelCounts(classCounts),
@@ -171,6 +217,9 @@ enum SummaryEngine {
     /// Every month intersecting the range appears, including zero-count
     /// months, so charts and tables keep continuous axes.
     static func monthSequence(in range: SummaryDateRange, calendar: Calendar) -> [String] {
+        guard range.start < range.end else {
+            return []
+        }
         var keys: [String] = []
         var components = calendar.dateComponents([.year, .month], from: range.start)
         components.day = 1

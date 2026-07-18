@@ -497,6 +497,7 @@ private func projectPolicyFindings(in projectText: String, path: String) -> [Fin
 
 
 private let shippingAllowedImports: Set<String> = [
+    "Charts",
     "CoreTransferable",
     "Foundation",
     "SwiftData",
@@ -591,6 +592,7 @@ private enum ReviewedSourceIdentity: String {
     case backupService = "Hippocrates/Backup/BackupService.swift"
     case taxonomyService = "Hippocrates/Services/TaxonomyService.swift"
     case interventionLedgerService = "Hippocrates/Services/InterventionLedgerService.swift"
+    case summaryView = "Hippocrates/Features/Summary/SummaryView.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
     case privacyManifestTests = "HippocratesTests/PrivacyManifestTests.swift"
@@ -713,7 +715,15 @@ private func appSourceFindings(
         )
     }
 
-    results.append(contentsOf: try findings(in: reviewedSource, path: path))
+    // Milestone 3: SummaryView owns the one reviewed ShareLink boundary. Its
+    // Transferable is backed by DataRepresentation over app-owned bytes, so
+    // no file URL exists and the system has no link preview to fetch.
+    // ShareLink anywhere else in shipping code remains closed.
+    results.append(
+        contentsOf: try findings(in: reviewedSource, path: path) { ruleID, _ in
+            identity == .summaryView && ruleID == .shareLink
+        }
+    )
     return results
 }
 
@@ -3644,6 +3654,8 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings",
     "$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
+    "$(SRCROOT)/Hippocrates/Features/Summary",
+    "$(SRCROOT)/Hippocrates/Features/Summary/SummaryView.swift",
     "$(SRCROOT)/Hippocrates/Models",
     "$(SRCROOT)/Hippocrates/Models/DomainEnums.swift",
     "$(SRCROOT)/Hippocrates/Persistence",
