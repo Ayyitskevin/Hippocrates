@@ -22,6 +22,10 @@
 		10000000000000000000000D /* BackupRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* BackupRoundTripTests.swift */; };
 		10000000000000000000000E /* PrivacyManifestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* PrivacyManifestTests.swift */; };
 		10000000000000000000000F /* AppConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* AppConfigService.swift */; };
+		100000000000000000000010 /* BootstrapPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000013 /* BootstrapPolicy.swift */; };
+		100000000000000000000011 /* StarterTaxonomy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* StarterTaxonomy.swift */; };
+		100000000000000000000012 /* TaxonomyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* TaxonomyService.swift */; };
+		100000000000000000000013 /* TaxonomyGovernanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* TaxonomyGovernanceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +57,10 @@
 		200000000000000000000010 /* Hippocrates.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hippocrates.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		200000000000000000000011 /* HippocratesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HippocratesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		200000000000000000000012 /* AppConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigService.swift; sourceTree = "<group>"; };
+		200000000000000000000013 /* BootstrapPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootstrapPolicy.swift; sourceTree = "<group>"; };
+		200000000000000000000014 /* StarterTaxonomy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarterTaxonomy.swift; sourceTree = "<group>"; };
+		200000000000000000000015 /* TaxonomyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyService.swift; sourceTree = "<group>"; };
+		200000000000000000000016 /* TaxonomyGovernanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxonomyGovernanceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +98,7 @@
 				300000000000000000000004 /* Models */,
 				300000000000000000000005 /* Persistence */,
 				300000000000000000000006 /* Backup */,
+				30000000000000000000000B /* Services */,
 				300000000000000000000007 /* Resources */,
 			);
 			path = Hippocrates;
@@ -142,12 +151,23 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		30000000000000000000000B /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000013 /* BootstrapPolicy.swift */,
+				200000000000000000000014 /* StarterTaxonomy.swift */,
+				200000000000000000000015 /* TaxonomyService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 		300000000000000000000008 /* HippocratesTests */ = {
 			isa = PBXGroup;
 			children = (
 				20000000000000000000000C /* SchemaContractTests.swift */,
 				20000000000000000000000D /* BackupRoundTripTests.swift */,
 				20000000000000000000000E /* PrivacyManifestTests.swift */,
+				200000000000000000000016 /* TaxonomyGovernanceTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -293,10 +313,15 @@
 				"$(SRCROOT)/Hippocrates/Persistence/SchemaV1.swift",
 				"$(SRCROOT)/Hippocrates/Resources",
 				"$(SRCROOT)/Hippocrates/Resources/PrivacyInfo.xcprivacy",
+				"$(SRCROOT)/Hippocrates/Services",
+				"$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
+				"$(SRCROOT)/Hippocrates/Services/StarterTaxonomy.swift",
+				"$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
 				"$(SRCROOT)/HippocratesTests",
 				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
 				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
+				"$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
 				"$(SRCROOT)/Hippocrates.xcodeproj",
 				"$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
 				"$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata",
@@ -333,6 +358,9 @@
 				100000000000000000000009 /* BackupService.swift in Sources */,
 				10000000000000000000000A /* BackupDocument.swift in Sources */,
 				10000000000000000000000F /* AppConfigService.swift in Sources */,
+				100000000000000000000010 /* BootstrapPolicy.swift in Sources */,
+				100000000000000000000011 /* StarterTaxonomy.swift in Sources */,
+				100000000000000000000012 /* TaxonomyService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,6 +371,7 @@
 				10000000000000000000000C /* SchemaContractTests.swift in Sources */,
 				10000000000000000000000D /* BackupRoundTripTests.swift in Sources */,
 				10000000000000000000000E /* PrivacyManifestTests.swift in Sources */,
+				100000000000000000000013 /* TaxonomyGovernanceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

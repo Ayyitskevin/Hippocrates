@@ -589,6 +589,7 @@ private enum ReviewedSourceIdentity: String {
     case hippocratesStore = "Hippocrates/Persistence/HippocratesStore.swift"
     case backupArchive = "Hippocrates/Backup/BackupArchive.swift"
     case backupService = "Hippocrates/Backup/BackupService.swift"
+    case taxonomyService = "Hippocrates/Services/TaxonomyService.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
     case privacyManifestTests = "HippocratesTests/PrivacyManifestTests.swift"
@@ -666,6 +667,44 @@ private func testFindings(
     results.append(contentsOf: try findings(in: reviewedSource, path: path))
     return results
 }
+private func appSourceFindings(
+    in source: String,
+    path: String,
+    identity: ReviewedSourceIdentity
+) throws -> [Finding] {
+    var reviewedSource = source
+    var results: [Finding] = []
+
+    func maskExactlyOnce(_ seam: String, with replacement: String) {
+        let count = reviewedSource.components(separatedBy: seam).count - 1
+        guard count == 1 else {
+            results.append(
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "Reviewed taxonomy lifecycle seam changed or was duplicated"
+                )
+            )
+            return
+        }
+        reviewedSource = reviewedSource.replacingOccurrences(of: seam, with: replacement)
+    }
+
+    if identity == .taxonomyService {
+        // Milestone 1: the one reviewed shipping model-deletion seam. Only an
+        // unreferenced taxonomy row reaches it, and only through
+        // TaxonomyService's checked delete paths. Every other .delete spelling
+        // in shipping code remains closed.
+        maskExactlyOnce(
+            "        context.delete(row)",
+            with: "        context.rollback()"
+        )
+    }
+
+    results.append(contentsOf: try findings(in: reviewedSource, path: path))
+    return results
+}
+
 private func importFindings(
     in source: String,
     path: String,
@@ -3589,10 +3628,15 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Persistence/SchemaV1.swift",
     "$(SRCROOT)/Hippocrates/Resources",
     "$(SRCROOT)/Hippocrates/Resources/PrivacyInfo.xcprivacy",
+    "$(SRCROOT)/Hippocrates/Services",
+    "$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
+    "$(SRCROOT)/Hippocrates/Services/StarterTaxonomy.swift",
+    "$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
     "$(SRCROOT)/HippocratesTests",
     "$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
     "$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
     "$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
+    "$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
     "$(SRCROOT)/Hippocrates.xcodeproj",
     "$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
     "$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata",
@@ -4666,7 +4710,7 @@ private func repositoryFindings(
     for file in try swiftFiles(under: sourceRoot) {
         let source = try String(contentsOf: file, encoding: .utf8)
         let identity = reviewedSourceIdentity(for: file, repositoryRoot: repositoryRoot)
-        results.append(contentsOf: try findings(in: source, path: file.path))
+        results.append(contentsOf: try appSourceFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try architectureSemanticFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try appConfigOwnershipFindings(in: source, path: file.path, identity: identity))
