@@ -20,7 +20,7 @@ struct RootView: View {
             case .setupNeeded:
                 setupNeededView
             case .captureReady:
-                capturePlaceholderView
+                CaptureHomeView()
             }
         }
         .onAppear(perform: refreshBootstrapState)
@@ -40,20 +40,6 @@ struct RootView: View {
                 isPresentingSettings = true
             }
             .buttonStyle(.borderedProminent)
-        }
-        .padding()
-    }
-
-    private var capturePlaceholderView: some View {
-        VStack(spacing: 16) {
-            Text("Ready for capture")
-                .font(.title2)
-                .bold()
-            Text("Three-tap intervention capture arrives in the next build. Your categories are configured and backed by the local store.")
-                .multilineTextAlignment(.center)
-            Button("Edit categories") {
-                isPresentingSettings = true
-            }
         }
         .padding()
     }
