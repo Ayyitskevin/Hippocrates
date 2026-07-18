@@ -1,9 +1,11 @@
 # Decision register
 
-This register separates product facts that only Jenn/Kevin can decide from
+This register separates product facts that only the owner can decide from
 implementation decisions the repository owner can make. Pending product facts
 are never filled with plausible defaults and never silently converted into
-requirements.
+requirements. On 2026-07-18 the owner re-scoped Hippocrates as a free,
+general-audience app for hospital pharmacists; the former single-user product
+gates closed as the user-owned choices recorded below.
 
 ## Accepted architecture decisions
 
@@ -26,12 +28,17 @@ requirements.
 
 ## Accepted product decisions
 
-No product decision is accepted yet. A P-ID enters this table only after the
-named owner or institutional authority reviews an explicit answer. Accepted rows
-use the following canonical schema:
+A P-ID enters this table only after the named owner or institutional authority
+reviews an explicit answer.
 
 | ID | Decision | Deciding authority role | Decision date | Non-sensitive provenance | Implementation consequence |
 |---|---|---|---|---|---|
+| P-001 | Institutional permission is each user's own responsibility, affirmed through a first-run notice; the app never claims to verify hospital policy | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 (`docs/opus-execution-plan.md`) | First-run shows a responsibility notice; the store listing carries the same disclaimer; no institutional gate blocks development |
+| P-002 | No official cost-avoidance values ship; users may enter their institution's figures per intervention type | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | Defaults remain `nil`; zero never substitutes for unknown; exports label figures as user-configured estimates |
+| P-003 | Taxonomies ship empty plus an explicitly offered, reviewable, skippable ASHP-derived starter set at first run | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | No silent seeding; the starter list ships as a reviewed Swift constant, not a bundled resource |
+| P-004 | The summary range is a visible user control whose initial state is the current calendar year; the last selection is remembered | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | No hidden fixed cadence ships |
+| P-005 | The DI staleness interval is a required per-user choice (6, 12, or custom months) at first DI use | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | `AppConfig.stalenessIntervalMonths` stays `nil` until the user chooses; no hidden default ships |
+| P-006 | The frozen DI requestor, question-class, urgency, and source-tier vocabulary ships unchanged | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | Raw values remain persistence identifiers; every enum retains its `other` escape hatch |
 
 ## Accepted implementation decisions
 
@@ -40,62 +47,44 @@ use the following canonical schema:
 | I-001 | `InterventionType.defaultCostAvoidanceCents` is the single configurable source; each intervention stores an optional historical snapshot |
 | I-002 | One main-actor `AppConfigService` owns lookup, clean-context creation, validation, transactional restore insertion, and the canonical identity-checked authority required for model construction and mutation; unreviewed model deletion remains closed at the source boundary |
 | I-006 | Decode each supported backup version explicitly and migrate value DTOs before store mutation |
+| I-003 | v1 restore is offered only pre-bootstrap or into a logically pristine store; destructive replacement of a store containing user records is out of v1 |
+| I-007 | Acceptance rate = accepted ÷ (accepted + rejected); pending and not-applicable are excluded from the denominator; all four counts are always displayed and exported beside the rate, and artifacts state the rule in text |
+| I-008 | Optional service-line, minutes, and cost-override controls live in a collapsed strip above the three required capture controls; the collapsed state applies defaults and the required path stays exactly three taps; post-save corrections go through the I-013 ledger |
+| I-011 | `lastExportAt` records the successful generation of a full-backup archive handed to the share sheet; reminder copy says "last backup created", never delivered or verified; summary and DI-portfolio exports never update it |
+| I-012 | Capture is possible when at least one active intervention type and one active drug class exist; service lines are optional; first-run records the user's explicit onboarding choice, distinguishing never-configured from intentionally-minimal |
+| I-013 | A bounded recent-interventions ledger permits structured-field edits, acceptance updates, and confirmed deletion through one reviewed service; it never offers free text or narrative; the no-detail-screen doctrine is amended to "no narrative detail screen" |
 
 ## Pending product decisions — required before affected features
 
+No product decision is pending. A future product question enters this table
+with an owner, an exact question, and a safe state before its feature ships:
+
 | ID | Owner | Question | Safe state until answered |
 |---|---|---|---|
-| P-001 | Jenn / institution | Does hospital policy permit this PHI-free personal work ledger on a personal device? | Build may continue; shift use is prohibited |
-| P-002 | Jenn / institution | Are official cost-avoidance values assigned per intervention type? | Type defaults and captured costs remain `nil` unless explicitly supplied; zero never substitutes for unknown |
-| P-003 | Jenn | Does the department have an intervention taxonomy, or should an explicitly approved ASHP-derived set be used? | Taxonomies remain empty |
-| P-004 | Jenn | Is the default review/export cadence annual or quarterly? | No default summary range is shipped |
-| P-005 | Jenn | Is DI staleness 12 months or 6 months? | `AppConfig.stalenessIntervalMonths` remains `nil`; freshness-default UI does not ship |
-| P-006 | Jenn | Do the frozen DI requestor, question-class, urgency, and source-tier values match the intended workflow? | No DI UI or distributed schema containing this vocabulary ships |
 
-### D0 response worksheet
+### D0 closure record (2026-07-18)
 
-Use this worksheet to collect P-001 through P-006 without turning a plausible
-default or an informal comment into product policy. For each P-ID, provide:
+P-001 through P-006 closed together when the owner re-scoped Hippocrates as a
+free, general-audience app for hospital pharmacists. For each P-ID: disposition
+`answered`; deciding authority `owner (product)`; decision date `2026-07-18`;
+non-sensitive provenance the merged plan PR #1 (`docs/opus-execution-plan.md`
+and `docs/pharmacist-review.md`). The answers are the accepted rows above.
 
-- **Disposition:** select one listed answer, request an exact change, or defer.
-- **Answer:** the selected option or the precise replacement requested.
-- **Deciding authority:** role or approving body, without private contact details.
-- **Decision date:** an ISO `YYYY-MM-DD` date.
-- **Non-sensitive provenance:** a public citation, repository commit/handoff, or
-  stable owner-held locator such as `offline-review:<id>`.
-- **Affected IDs and follow-up:** any still-open P/I dependencies.
+The worksheet mechanism remains canonical for any future product decision: a
+disposition, an exact answer, a deciding authority role, an ISO `YYYY-MM-DD`
+date, and non-sensitive provenance are all required, and a partial answer
+leaves the safe state in force.
 
-| ID | Answer requested | Required authority/provenance |
-|---|---|---|
-| P-001 | `permitted`, `not permitted`, or `defer` | Name the deciding institutional role/body and record only a non-sensitive or opaque offline reference |
-| P-002 | `official values exist` with an owner-supplied list reference, `no official values`, or `defer` | Name the institutional authority; do not infer values or copy an unapproved/private schedule into the repository |
-| P-003 | `department taxonomy supplied`, an explicitly named alternative submitted for approval, or `defer` | Jenn approves the exact referenced list; this repository preapproves no ASHP-derived taxonomy |
-| P-004 | `annual`, `quarterly`, or `defer` | Jenn's dated response is sufficient provenance |
-| P-005 | `12 months`, `6 months`, or `defer` | Jenn's dated response is sufficient provenance |
-| P-006 | approve the listed raw vocabulary unchanged, request exact raw-value changes, or `defer` | Jenn reviews all four groups below; partial approval leaves P-006 pending |
-
-P-006 currently asks Jenn to review these persisted raw values:
-
-- requestor role: `resident`, `nurse`, `attending`, `pharmacist`,
-  `student`, `careTeam`, `other`;
-- DI question class: `dosing`, `adverseEffect`, `interaction`,
-  `compatibility`, `availability`, `administration`,
-  `pregnancyLactation`, `therapeutics`, `toxicology`,
-  `pharmacokinetics`, `other`;
-- urgency: `routine`, `sameDay`, `stat`; and
-- source tier: `tertiary`, `secondary`, `primary`, `guideline`, `label`,
-  `institutionPolicy`.
+P-006's approved raw vocabulary is the four frozen groups in
+`Hippocrates/Models/DomainEnums.swift` (requestor role, DI question class,
+urgency, source tier). Renaming a displayed label never changes a persisted
+raw value.
 
 Hippocrates is public. Never commit hospital policy documents, internal cost
 schedules, private correspondence, credentials, patient data, or other sensitive
 source material. Sensitive evidence stays outside the repository; record only
 the deciding authority, date, and a stable non-sensitive locator. The generic
 phrase `private evidence reviewed offline` alone is not sufficient provenance.
-
-A completed worksheet is still advisory until human review. Once accepted, add
-one row to **Accepted product decisions**, remove that P-ID from the pending
-table, and update D0 plus the affected milestone. Missing authority, date,
-provenance, or a partial answer leaves the existing safe state in force.
 
 ## Pending implementation decisions
 
@@ -104,15 +93,10 @@ institutional facts.
 
 | ID | Decision needed | Current position |
 |---|---|---|
-| I-003 | Restore into a bootstrapped clean install | Permit only pre-bootstrap or logically pristine stores unless a separately reviewed destructive replacement flow is approved |
 | I-004 | Editable taxonomy labels as an indirect identifier channel | Do not permit per-intervention category creation; approve purpose-specific constraints or guard behavior before the taxonomy editor ships |
 | I-005 | Re-verification history representation | Current `[Date]` is adequate for V1 if only timestamp is required; introduce a model only if provenance metadata becomes a real requirement |
-| I-007 | Acceptance-rate denominator | Do not ship the metric until accepted, rejected, pending, and not-applicable treatment is explicitly approved and labeled |
-| I-008 | Optional service-line, minutes, and cost-override capture UX | Preserve type -> class -> acceptance as the only required taps; do not assume placement or defaults before review |
 | I-009 | De-identification treatment of tags, citation metadata, and other editable strings | Treat them as possible identifier channels; decide purpose-specific constraints or guard behavior before their editors ship |
 | I-010 | Local-file URL boundary for restore | Permit one reviewed security-scoped file adapter only; require `isFileURL`, immediate `Data` capture, and no remote/open/share behavior |
-| I-011 | Meaning of `lastExportAt` | Choose an observable event in the full-backup flow; summary/portfolio exports never update it, and generation/presentation is never called confirmed delivery |
-| I-012 | Bootstrap readiness predicate | Define the exact minimum configuration that permits capture and distinguish never-configured, intentionally-empty, and restored states before first-run UI ships |
 
 ## Rejected directions
 

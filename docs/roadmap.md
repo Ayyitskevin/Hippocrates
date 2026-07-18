@@ -28,7 +28,7 @@ cross a decision or evidence gate.
 | F15 — configuration creation save-failure rollback | Verified | Implementation commit [`078afad`](https://github.com/Ayyitskevin/Hippocrates/commit/078afad5a89f644a9199328e29b4d5a89a3a8c0b) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 32 simulator tests in [hosted run 29524757883](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29524757883) |
 | F16 — canonical backup record ordering | Verified | Implementation commit [`d64f7bd`](https://github.com/Ayyitskevin/Hippocrates/commit/d64f7bde3359c6734d58c737ee6a2583751c7096) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 33 simulator tests in [hosted run 29529607273](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29529607273) |
 | F17 — scanner-owned privacy-manifest semantics | Verified | Implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372) passed 270 scanner checks, both planted privacy-manifest probes, Release build, analyzer, and 33 simulator tests in [hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329) |
-| D0 — Jenn decisions | Awaiting answers | P-001 through P-006 use the canonical [D0 response worksheet](decision-register.md#d0-response-worksheet); affected product features remain gated |
+| D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); remaining gates are implementation decisions I-004, I-005, I-009, and I-010 |
 
 ## Milestone 0 — foundation evidence (complete)
 
@@ -476,23 +476,17 @@ The hosted log specifically records
 
 ## Feature-specific decision gate
 
-P-001 gates use on shift, not local foundation work. P-002 gates entry of nonnil
-cost defaults; P-003 and I-004 gate taxonomy seeds and editor behavior; P-004
-gates the default summary range; P-005 gates DI freshness defaults; and P-006
-gates the frozen DI vocabulary and its UI. If answers are unavailable, continue
-only foundation hardening, tests, documentation, and non-product-specific tooling.
+The 2026-07-18 owner pivot closed P-001 through P-006 as user-owned choices.
+Their accepted rows in the [decision register](decision-register.md) bind the
+affected features: a first-run responsibility notice, an explicitly offered and
+skippable starter taxonomy, user-entered cost defaults, a visible summary range
+defaulting to the current calendar year, a required per-user staleness choice,
+and the unchanged frozen DI vocabulary.
 
-Collect and accept P-001 through P-006 only through the canonical
-[D0 response worksheet](decision-register.md#d0-response-worksheet). An informal
-answer missing authority, date, provenance, or a complete response does not close
-the gate.
-
-Before the affected feature ships, also resolve I-003 (restore readiness), I-004
-(editable taxonomy identifier risk), I-005 (verification provenance), I-007
-(acceptance denominator), I-008 (optional capture controls), I-009 (metadata
-identifier channels), I-010 (local-file import boundary), I-011 (`lastExportAt`
-semantics), and I-012 (bootstrap readiness). These implementation decisions are
-not substitutes for Jenn's unanswered P-001 through P-006.
+I-003, I-007, I-008, I-011, I-012, and I-013 are likewise accepted and bind
+their features as recorded. Before the affected feature ships, still resolve
+I-004 (editable taxonomy identifier risk), I-005 (verification provenance),
+I-009 (metadata identifier channels), and I-010 (local-file import boundary).
 
 ## Milestone 1 — configuration and taxonomy ownership
 
@@ -525,9 +519,9 @@ Deliverables:
 - aggregate filters only—no intervention detail/search screen; and
 - performance instrumentation usable in tests without shipping analytics.
 
-Exit gate: Jenn logs ten representative interventions one-handed on her own phone
-in airplane mode, with every entry under five seconds. Simulator timing does not
-close this gate.
+Exit gate: the pilot user logs ten representative interventions one-handed on
+their own phone in airplane mode, with every entry under five seconds. Simulator
+timing does not close this gate.
 
 ## Milestone 3 — summary and TestFlight Build 1
 
@@ -540,9 +534,10 @@ Deliverables:
   the artifact;
 - deterministic RFC 4180 CSV export with spreadsheet formula-injection defense;
 - printable Swift Charts summary; and
-- real data review with Jenn.
+- real data review with the pilot user.
 
-Exit gate: Jenn would hand the output to her manager without editing. TestFlight
+Exit gate: the pilot user would hand the output to their manager without
+editing. TestFlight
 submission occurs only after explicit approval; stop and collect feedback before
 starting DI UI.
 
@@ -619,6 +614,18 @@ privacy-manifest consistency; and absence of clinical calculation or
 recommendation paths. The real-device five-second test, institutional permission
 for shift use, TestFlight/App Store actions, and the App Store privacy label are
 human/external gates and remain visibly open until observed.
+
+## V1 product execution (2026-07-18 pivot)
+
+The owner re-scoped Hippocrates as a free, general-audience app for hospital
+pharmacists. The sequenced build plan — Phase 0 doctrine re-scope through
+Phase 8 App Store readiness, including the scanner co-evolution procedure and
+per-phase exit gates — lives in
+[`opus-execution-plan.md`](opus-execution-plan.md), with the workflow review
+that motivated it in [`pharmacist-review.md`](pharmacist-review.md).
+Milestones 1–7 above remain the feature specification; the plan maps its
+Phases 1–7 onto them, adds the I-013 pending-resolution ledger to Milestone 2,
+and adds Phase 8 distribution readiness, which no earlier milestone covered.
 
 ## Permanent stop conditions
 
