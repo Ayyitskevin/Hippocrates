@@ -29,6 +29,8 @@ cross a decision or evidence gate.
 | F16 — canonical backup record ordering | Verified | Implementation commit [`d64f7bd`](https://github.com/Ayyitskevin/Hippocrates/commit/d64f7bde3359c6734d58c737ee6a2583751c7096) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 33 simulator tests in [hosted run 29529607273](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29529607273) |
 | F17 — scanner-owned privacy-manifest semantics | Verified | Implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372) passed 270 scanner checks, both planted privacy-manifest probes, Release build, analyzer, and 33 simulator tests in [hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329) |
 | D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); remaining gates are implementation decisions I-005, I-009, and I-010 |
+| M1 — configuration and taxonomy ownership | Verified | Taxonomy service, starter set, first-run gate, and editors passed the hosted Release build, analyzer, boundary probes, and simulator tests on the merged head in [run 29646317092](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646317092) |
+| M2 — five-second capture and resolution ledger | Implemented | Capture, frecency ranking, and the I-013 ledger passed the hosted pipeline on the merged head in [run 29646789732](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646789732); the real-device one-handed five-second acceptance run remains an open owner gate |
 
 ## Milestone 0 — foundation evidence (complete)
 
