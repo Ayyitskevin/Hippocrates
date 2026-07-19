@@ -104,8 +104,11 @@ at exact commit `1381c6ed8faae824658066855c9635ab2fd917c6` in
 [hosted run 29694386275](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29694386275).
 R1.1 adds structured units, evidence-aware discovery, input ergonomics, and a
 deterministic unsigned clinical-review packet without changing formula
-arithmetic. The packet supports Draft candidate review only; it exposes no
-production status-activation path. Real-device acceptance, P-008 clinical review,
+arithmetic. That engineering slice passed at exact commit
+[`3bdad14`](https://github.com/Ayyitskevin/Hippocrates/commit/3bdad1477ff830919e1735338d9219ac64246355)
+in [hosted run 29701925114](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29701925114).
+The packet supports Draft candidate review only; it exposes no production
+status-activation path. Real-device acceptance, P-008 clinical review,
 a regulatory/claims determination, and owner-authorized distribution remain
 distinct gates; none is
 implied by engineering evidence.
