@@ -78,7 +78,7 @@ The pre-release foundation now contains:
    including exact re-export, both DI inverses, and canonical configuration
    reconstruction, plus a forced save-boundary failure that clears pending work
    and leaves the reopened store empty;
-7. a fail-closed PBX/configuration/scheme parser plus 288 executable checks and
+7. a fail-closed PBX/configuration/scheme parser plus 297 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical identity, canonical-path collision, target
    dependency, local store, model lifecycle, SwiftData backing data/value,

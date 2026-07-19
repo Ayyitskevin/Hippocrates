@@ -52,9 +52,15 @@ HippocratesTests/
   RXCalcTests.swift               vectors, unit parity, boundaries, review registry
 
 docs/clinical-review/rxcalc-r1-v1/
+  activation-boundary.json        fail-closed no-activation contract
   bundle-files.txt                exact immutable candidate path set
   bundle.sha256                   CI-enforced worktree content manifest
+  claims-and-policy-matrix.md     display claims, units, and review questions
+  golden-vectors.json             formula and unit-conversion fixtures
+  packet-schema.json              external review-record schema
+  reviewer-checklist.md           blank identity and evidence checklist
   reviewer-packet.md              unsigned P-008 evidence map and procedure
+  source-provenance.json          source identities and artifact gaps
 ```
 
 `RXCalculations.swift` is pure and imports Foundation only. It has no SwiftUI,

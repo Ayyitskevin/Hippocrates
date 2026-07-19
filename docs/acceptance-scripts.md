@@ -93,26 +93,33 @@ connection, no "offline" error, and no feature that requires connectivity.
 2. Search for `renal 2021`, `cockcroft-gault`, and `bmi bsa` with
    mixed case and extra whitespace. Confirm each query returns only the intended
    tool. Search `renal mosteller` and confirm there are no matches.
-3. Turn on VoiceOver and open each tool. Confirm Draft status, summary,
+3. On a compact supported iPhone, set Text Size to the largest Accessibility
+   size. Confirm every catalog title, complete summary, Draft badge, and category
+   heading wraps without clipping or overlap, and that search and every row
+   remain reachable by scrolling. Open each tool and confirm all inputs, actions,
+   results, and safety/evidence sections remain reachable. Restore the normal
+   text size afterward.
+4. Turn on VoiceOver and open each tool. Confirm Draft status, summary,
    population, and required inputs are encountered before long-form limitations
    and evidence. Focus every numeric input and confirm the keyboard **Done**
    action is reachable and dismisses the keyboard without changing the value.
-4. Cockcroft-Gault: age 50, male equation sex, 70 kg, serum creatinine 1.0
+5. Cockcroft-Gault: age 50, male equation sex, 70 kg, serum creatinine 1.0
    mg/dL. Calculate and record **87.5 mL/min**.
-5. 2021 CKD-EPI: age 90, female equation sex, serum creatinine 1.5 mg/dL.
+6. 2021 CKD-EPI: age 90, female equation sex, serum creatinine 1.5 mg/dL.
    Calculate and record a displayed whole-number result of **33
    mL/min/1.73 m²**.
-6. Body size: age 40, 170 cm, 70 kg. Calculate and record displayed **BMI 24.22**
+7. Body size: age 40, 170 cm, 70 kg. Calculate and record displayed **BMI 24.22**
    and **BSA 1.82 m²**. Confirm age 19 is rejected for this adult BMI surface.
-7. With a locale that uses a comma decimal separator, enter `1,5` and confirm it
+8. With a locale that uses a comma decimal separator, enter `1,5` and confirm it
    is accepted as 1.5. Restore the normal locale afterward.
-8. Calculate a result, then edit any input; the displayed result must disappear.
+9. Calculate a result, then edit any input; the displayed result must disappear.
    Calculate again, change the associated unit, and confirm the numeric input is
    cleared rather than reinterpreted.
-9. Enter values and calculate in all three tools. Force-quit and relaunch.
+10. Enter values and calculate in all three tools. Force-quit and relaunch.
 
 **Pass:** category/search behavior is exact; VoiceOver reaches safety and input
-context before long-form evidence; the keyboard is dismissible; every
+context before long-form evidence; catalog and detail text remains complete and
+usable at the largest Accessibility size; the keyboard is dismissible; every
 calculation works in airplane mode and matches the listed values;
 review/formula/limitation context stays adjacent; invalidation and unit clearing
 work; and relaunch retains no RXcalc inputs, results, favorites, or history.

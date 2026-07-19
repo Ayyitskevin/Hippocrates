@@ -107,7 +107,6 @@ private struct RXCalculatorRow: View {
             Text(descriptor.summary)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .lineLimit(3)
             Label(
                 descriptor.reviewStatus.title,
                 systemImage: "exclamationmark.shield.fill"
