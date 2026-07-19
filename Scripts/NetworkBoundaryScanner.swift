@@ -590,6 +590,7 @@ private enum ReviewedSourceIdentity: String {
     case hippocratesStore = "Hippocrates/Persistence/HippocratesStore.swift"
     case backupArchive = "Hippocrates/Backup/BackupArchive.swift"
     case backupService = "Hippocrates/Backup/BackupService.swift"
+    case backupImportAdapter = "Hippocrates/Backup/BackupImportAdapter.swift"
     case taxonomyService = "Hippocrates/Services/TaxonomyService.swift"
     case interventionLedgerService = "Hippocrates/Services/InterventionLedgerService.swift"
     case diQuestionService = "Hippocrates/Services/DIQuestionService.swift"
@@ -739,12 +740,49 @@ private func appSourceFindings(
         .diVaultView,
         .backupSettingsView,
     ]
+
+    // I-010: BackupImportAdapter is the one reviewed local-file ingress path.
+    // Its exact body is pinned below, so the file-picker, security-scope, and
+    // immediate-Data-read tokens are permitted only inside that frozen source;
+    // any drift fails the pin. Every other spelling of these APIs, in every
+    // other file, stays closed.
+    let importAdapterAllowed: Set<SourceRuleID> = [
+        .fileBoundarySurface,
+        .securityScopedResource,
+        .contentsOfLoader,
+    ]
     results.append(
         contentsOf: try findings(in: reviewedSource, path: path) { ruleID, _ in
-            shareLinkIdentities.contains(identity) && ruleID == .shareLink
+            (shareLinkIdentities.contains(identity) && ruleID == .shareLink)
+                || (identity == .backupImportAdapter && importAdapterAllowed.contains(ruleID))
         }
     )
+    if identity == .backupImportAdapter {
+        results.append(contentsOf: try importAdapterFindings(in: source, path: path))
+    }
     return results
+}
+
+/// I-010: the reviewed local-file import adapter is frozen to this exact body.
+/// It must present the system importer for one JSON file, require a local file,
+/// acquire and release security-scoped access around a single immediate read
+/// into app-owned Data, and do nothing else. Any drift emits a finding.
+private func importAdapterFindings(in source: String, path: String) throws -> [Finding] {
+    let visibleSource = sourceWithoutComments(source)
+    let sourceRange = NSRange(visibleSource.startIndex..<visibleSource.endIndex, in: visibleSource)
+    let canonicalAdapter = try NSRegularExpression(
+        pattern: #"(?s)^\s*import\s+Foundation\s+import\s+SwiftUI\s+import\s+UniformTypeIdentifiers\s+struct\s+BackupImportAdapter\s*:\s*ViewModifier\s*\{\s*@Binding\s+var\s+isPresented\s*:\s*Bool\s+let\s+onData\s*:\s*\(\s*Data\s*\)\s*->\s*Void\s+let\s+onFailure\s*:\s*\(\s*\)\s*->\s*Void\s+func\s+body\s*\(\s*content\s*:\s*Content\s*\)\s*->\s*some\s+View\s*\{\s*content\s*\.\s*fileImporter\s*\(\s*isPresented\s*:\s*\$isPresented\s*,\s*allowedContentTypes\s*:\s*\[\s*\.json\s*\]\s*,\s*allowsMultipleSelection\s*:\s*false\s*\)\s*\{\s*result\s+in\s+guard\s+case\s+let\s+\.success\s*\(\s*selection\s*\)\s*=\s*result\s*,\s*let\s+file\s*=\s*selection\s*\.\s*first\s*,\s*file\s*\.\s*isFileURL\s+else\s*\{\s*onFailure\s*\(\s*\)\s*return\s*\}\s*let\s+didAccess\s*=\s*file\s*\.\s*startAccessingSecurityScopedResource\s*\(\s*\)\s*defer\s*\{\s*if\s+didAccess\s*\{\s*file\s*\.\s*stopAccessingSecurityScopedResource\s*\(\s*\)\s*\}\s*\}\s*guard\s+let\s+data\s*=\s*try\?\s*Data\s*\(\s*contentsOf\s*:\s*file\s*\)\s+else\s*\{\s*onFailure\s*\(\s*\)\s*return\s*\}\s*onData\s*\(\s*data\s*\)\s*\}\s*\}\s*\}\s*$"#
+    )
+    guard canonicalAdapter.matches(in: visibleSource, range: sourceRange).count == 1 else {
+        return [
+            Finding(
+                path: path,
+                line: 1,
+                message: "BackupImportAdapter must remain the exact reviewed local-file ingress body"
+            )
+        ]
+    }
+    return []
 }
 
 private func importFindings(
@@ -3686,6 +3724,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Backup/BackupArchive.swift",
     "$(SRCROOT)/Hippocrates/Backup/BackupCodec.swift",
     "$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
+    "$(SRCROOT)/Hippocrates/Backup/BackupImportAdapter.swift",
     "$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
     "$(SRCROOT)/Hippocrates/Export",
     "$(SRCROOT)/Hippocrates/Export/DIPortfolio.swift",
@@ -3721,6 +3760,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Services",
     "$(SRCROOT)/Hippocrates/Services/BackupExportService.swift",
     "$(SRCROOT)/Hippocrates/Services/BackupReminderPolicy.swift",
+    "$(SRCROOT)/Hippocrates/Services/BackupRestoreService.swift",
     "$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
     "$(SRCROOT)/Hippocrates/Services/DIQuestionService.swift",
     "$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
@@ -3732,6 +3772,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
     "$(SRCROOT)/HippocratesTests",
     "$(SRCROOT)/HippocratesTests/BackupAndPortfolioTests.swift",
+    "$(SRCROOT)/HippocratesTests/BackupRestoreServiceTests.swift",
     "$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
     "$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
     "$(SRCROOT)/HippocratesTests/CompoundingLinkTests.swift",
@@ -5951,6 +5992,77 @@ private func runSelfTests() throws {
         "A second test-owned SwiftData container escaped the persistence boundary"
     )
 
+    // I-010: the reviewed local-file import adapter. Its exact body passes with
+    // the file-ingress rules excepted for its identity only; any drift, and the
+    // same body under any other identity, fails.
+    let compliantImportAdapter = """
+    import Foundation
+    import SwiftUI
+    import UniformTypeIdentifiers
+
+    struct BackupImportAdapter: ViewModifier {
+        @Binding var isPresented: Bool
+        let onData: (Data) -> Void
+        let onFailure: () -> Void
+
+        func body(content: Content) -> some View {
+            content.fileImporter(
+                isPresented: $isPresented,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                guard case let .success(selection) = result,
+                    let file = selection.first,
+                    file.isFileURL else {
+                    onFailure()
+                    return
+                }
+                let didAccess = file.startAccessingSecurityScopedResource()
+                defer {
+                    if didAccess {
+                        file.stopAccessingSecurityScopedResource()
+                    }
+                }
+                guard let data = try? Data(contentsOf: file) else {
+                    onFailure()
+                    return
+                }
+                onData(data)
+            }
+        }
+    }
+    """
+    try check(
+        try appSourceFindings(
+            in: compliantImportAdapter,
+            path: "Hippocrates/Backup/BackupImportAdapter.swift",
+            identity: .backupImportAdapter
+        ).isEmpty,
+        "The reviewed local-file import adapter body was rejected"
+    )
+    try check(
+        try appSourceFindings(
+            in: compliantImportAdapter,
+            path: "Hippocrates/App/RootView.swift",
+            identity: .other
+        ).isEmpty == false,
+        "The import adapter's file-ingress APIs were permitted outside the reviewed adapter identity"
+    )
+    let driftedImportAdapter = compliantImportAdapter.replacingOccurrences(
+        of: "guard let data = try? Data(contentsOf: file) else {",
+        with: "let handle = try? FileHandle(forReadingFrom: file)\n            guard let data = try? handle?.readToEnd() else {"
+    )
+    try check(
+        try appSourceFindings(
+            in: driftedImportAdapter,
+            path: "Hippocrates/Backup/BackupImportAdapter.swift",
+            identity: .backupImportAdapter
+        ).contains(where: {
+            $0.message == "BackupImportAdapter must remain the exact reviewed local-file ingress body"
+        }),
+        "A drifted import adapter body escaped the exact ingress contract"
+    )
+
     let XMLHeader = #"<?xml version="1.0" encoding="UTF-8"?>"#
     let expectedXML: [SchemeXMLEvent] = [
         .start("Root", ["mode": "NO"]),
@@ -7269,13 +7381,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 271 else {
+    guard completedChecks == 274 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 271, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 274, completed \(completedChecks)"
             ]
         )
     }

@@ -3,8 +3,9 @@ import SwiftUI
 
 /// The sanctioned pre-bootstrap gate: a responsibility notice (P-001) and the
 /// explicit starter-taxonomy offer (P-003). It appears once; after completion
-/// every ordinary launch goes directly to capture. Restore joins this gate in
-/// a later milestone (I-003) and is shown disabled until then.
+/// every ordinary launch goes directly to capture. Restore (I-003, I-010)
+/// happens here, before any configuration exists, through the one reviewed
+/// local-file import adapter and the de-identification gate.
 struct FirstRunView: View {
     private enum Step {
         case notice
@@ -17,6 +18,8 @@ struct FirstRunView: View {
     @State private var selectedClassLabels = Set(StarterTaxonomy.drugClassLabels)
     @State private var selectedLineLabels = Set(StarterTaxonomy.serviceLineLabels)
     @State private var failureText: String?
+    @State private var isImportingBackup = false
+    @State private var restoreBlockedFindingCount: Int?
 
     let onComplete: () -> Void
 
@@ -46,13 +49,68 @@ struct FirstRunView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 Button("Restore from a backup") {
+                    isImportingBackup = true
                 }
-                .disabled(true)
-                Text("Restore becomes available in an upcoming build.")
+                Text("Restoring replaces this fresh install's empty records with a backup file you previously created.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             .padding()
+        }
+        .modifier(
+            BackupImportAdapter(
+                isPresented: $isImportingBackup,
+                onData: restore(from:),
+                onFailure: {
+                    failureText = "That file could not be read as a backup."
+                }
+            )
+        )
+        .alert("Backup could not be restored", isPresented: failureAlertBinding) {
+            Button("OK", role: .cancel) {
+            }
+        } message: {
+            Text(restoreFailureMessage)
+        }
+    }
+
+    private var failureAlertBinding: Binding<Bool> {
+        Binding(
+            get: { failureText != nil || restoreBlockedFindingCount != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    failureText = nil
+                    restoreBlockedFindingCount = nil
+                }
+            }
+        )
+    }
+
+    private var restoreFailureMessage: String {
+        if let count = restoreBlockedFindingCount {
+            let noun = count == 1 ? "value" : "values"
+            return "This backup contains " + String(count) + " " + noun
+                + " that look like patient identifiers, so it was not restored. Backups created by this app never contain identifiers."
+        }
+        return failureText ?? "Try again."
+    }
+
+    /// I-010: `data` is app-owned bytes from the reviewed import adapter. The
+    /// restore service decodes, validates, runs the de-identification gate, and
+    /// only then mutates this pre-bootstrap store. On success the store is
+    /// configured, so first-run completes straight into capture.
+    private func restore(from data: Data) {
+        do {
+            try BackupRestoreService.restore(from: data, into: modelContext)
+            onComplete()
+        } catch BackupRestoreError.identifierFindingsPresent(let findings) {
+            restoreBlockedFindingCount = findings.count
+        } catch BackupRestoreError.destinationNotEmpty {
+            failureText = "Restore is only available on a fresh install."
+        } catch BackupRestoreError.malformedFile {
+            failureText = "That file is not a valid Hippocrates backup."
+        } catch {
+            failureText = "The backup could not be restored."
         }
     }
 
