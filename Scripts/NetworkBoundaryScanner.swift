@@ -7269,13 +7269,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 270 else {
+    guard completedChecks == 271 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 270, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 271, completed \(completedChecks)"
             ]
         )
     }
