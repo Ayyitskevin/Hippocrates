@@ -2,10 +2,11 @@
 
 [![iOS CI](https://github.com/Ayyitskevin/Hippocrates/actions/workflows/ios-ci.yml/badge.svg)](https://github.com/Ayyitskevin/Hippocrates/actions/workflows/ios-ci.yml)
 
-Hippocrates is a free, personal, offline professional ledger for hospital
-clinical pharmacists. It records interventions the pharmacist has already made
-and drug-information answers they have already completed. It does not
-calculate, interpret, dose, recommend, or advise.
+Hippocrates is a free, offline professional workspace for hospital
+clinical pharmacists. It records interventions and completed drug-information
+work, and includes draft, source-versioned, stateless RXcalc equations. RXcalc
+does not choose inputs or doses, interpret results, recommend, diagnose, or
+advise.
 
 Project direction and delivery evidence live in:
 
@@ -13,14 +14,18 @@ Project direction and delivery evidence live in:
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/decision-register.md`](docs/decision-register.md)
 - [`docs/roadmap.md`](docs/roadmap.md)
+- [RXcalc implementation plan](docs/rxcalc-plan.md)
 
-This repository supersedes the discarded calculator-oriented prototype. No code,
-data model, drug exclusion list, or history from that prototype is carried forward.
+RXcalc is a clean, governed rebuild, not a revival of the discarded
+calculator-oriented prototype. No prototype code, data model, drug exclusion
+list, or history is carried forward.
 
 ## Permanent boundaries
 
 - `Intervention` has no patient identifier or free-text field.
-- The app contains no clinical calculation or recommendation path.
+- Clinical arithmetic is allowed only inside the reviewed, stateless RXcalc
+  boundary; dose selection, result interpretation, treatment recommendations,
+  and institutional protocol/reference content remain prohibited.
 - The app contains no networking, server, account, sync, CloudKit, analytics,
   crash-reporting SDK, notification, widget, intent, or third-party package.
 - SwiftData is explicitly configured with managed CloudKit sync disabled.
@@ -37,18 +42,18 @@ data model, drug exclusion list, or history from that prototype is carried forwa
   address literals, altered build configurations or schemes, project-bundle
   symlinks, physical-file aliases, or package dependencies.
 
-Hippocrates contains no networking code and declares "Data Not Collected." Data
-lives in a local SwiftData store on one device. This is verifiable by inspecting
-the source and the App Store privacy label. It is not a HIPAA compliance program,
-and this app is not a substitute for institutional policy.
+Hippocrates contains no networking code and the repository is designed to
+support an App Store **Data Not Collected** label. The actual privacy answer must
+be verified against the exact release build and published separately by the
+owner. Ledger data lives in a local SwiftData store on one device; RXcalc inputs
+and results are transient. This is not a HIPAA compliance program or a substitute
+for institutional policy.
 
 > This regex guard is a heuristic aid. It is not a compliance control and it does
 > not make output HIPAA-compliant. The compliance controls are (1) the absence of
 > identifier properties in the schema and (2) the user's professional judgment.
 > Do not represent this guard as more than it is.
 
-The de-identification guard is intentionally not exposed until DI capture ships;
-backup import remains an internal service until that same guard protects restore.
 
 ## Current foundation
 
@@ -72,13 +77,18 @@ The pre-release foundation now contains:
    seams and a complete current-format restore without a caller-side save,
    including exact re-export, both DI inverses, and canonical configuration
    reconstruction, plus a forced save-boundary failure that clears pending work
-   and leaves the reopened store empty; and
-7. a fail-closed PBX/configuration/scheme parser plus 270 executable checks and
+   and leaves the reopened store empty;
+7. a fail-closed PBX/configuration/scheme parser plus 288 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
-   ingress, symlink, physical-identity, canonical-path collision,
-   target-dependency, local-store, model-lifecycle, SwiftData backing-data/value,
-   persisted-schema/backup-shape drift, historical-decoder drift, and exact
-   privacy-manifest format, key-cardinality, and value semantics.
+   ingress, symlink, physical identity, canonical-path collision, target
+   dependency, local store, model lifecycle, SwiftData backing data/value,
+   persisted-schema/backup-shape drift, historical-decoder drift, RXcalc
+   placement/persisted-state/arithmetic boundaries, calculation/equation and
+   dose-selection naming heuristics, and exact privacy-manifest semantics; and
+8. a searchable, stateless draft RXcalc catalog with Cockcroft–Gault,
+   2021 CKD-EPI creatinine eGFR, BMI, and Mosteller BSA, backed by versioned
+   source metadata, official golden vectors, unit-parity tests, and visible
+   limitations.
 
 The three persisted properties intentionally represented without their own
 same-named backup fields are `DIQuestion.citations` (rebuilt from
@@ -88,9 +98,11 @@ canonical `"app"` value). Synthesized `Codable` checks the represented archive's
 record types during decoding; `BackupService.validate(_:)` separately owns
 cross-record graph integrity and domain invariants.
 
-This hardens persistence without inventing product policy. Taxonomy editors,
-capture, summary, DI, and restore UI remain gated by the affected product and
-implementation decisions listed below.
+The ledger and DI v1 surfaces through backup/restore are implemented. RXcalc R1
+is the first draft stateless calculation slice. Exact-head engineering evidence,
+real-device acceptance, P-008 clinical review, a regulatory/claims determination,
+and owner-authorized distribution remain distinct gates; none is implied by the
+others.
 
 ## Build
 
@@ -108,9 +120,10 @@ xcodebuild test \
 The GitHub workflow runs the source boundary directly before Xcode mutates its
 project bundle, producing recursive orphan and shadow-scheme diagnostics. It
 plants network, inferred file-ingress, external-drop, path/stream-loader,
-security-scoped, AppConfig-ownership/lifecycle, persisted-schema/backup-shape,
-historical-decoder, source, resource, test-loader, privacy-manifest, and
-configuration violations,
+security-scoped, AppConfig-ownership/lifecycle, RXcalc placement, persisted-state,
+arithmetic-seam, calculation/equation, and dose-selection violations, plus
+persisted-schema/backup-shape, historical-decoder, source, resource, test-loader,
+privacy-manifest, and configuration violations,
 then proves the sandboxed Xcode phase rejects every declared-input class without
 traversing
 Xcode's generated `project.xcworkspace`, before running the Xcode 16.4 Release
@@ -146,12 +159,16 @@ range, a user-selected staleness interval, and the frozen DI vocabulary — and
 are recorded with deciding authority, date, and provenance in
 [`docs/decision-register.md`](docs/decision-register.md).
 
-The accepted implementation decisions and remaining gates—including
-editable-label identifier risk, metadata identifier channels, and the
-local-file import boundary—are tracked in the same register. The sequenced
-build plan is [`docs/opus-execution-plan.md`](docs/opus-execution-plan.md);
-the motivating workflow review is
-[`docs/pharmacist-review.md`](docs/pharmacist-review.md).
+P-007 records the owner-directed RXcalc pivot. P-008 remains open and keeps every
+formula visibly draft until an independent clinical review is bound to immutable
+source evidence. Device acceptance, a regulatory/claims determination, and every
+TestFlight or App Store action are separate owner/external gates.
+
+The active sequence and evidence ledger are [`docs/roadmap.md`](docs/roadmap.md)
+and [`docs/rxcalc-plan.md`](docs/rxcalc-plan.md). The dated
+[`docs/opus-execution-plan.md`](docs/opus-execution-plan.md) and
+[`docs/pharmacist-review.md`](docs/pharmacist-review.md) are historical ledger/DI
+snapshots, not current RXcalc approval.
 
 ## Primary implementation references
 

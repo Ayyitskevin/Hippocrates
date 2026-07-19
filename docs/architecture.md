@@ -20,6 +20,7 @@ Hippocrates/
     Summary/       aggregate views and CSV/print export
     DIVault/       DI form, freshness, search, links, portfolio
     Settings/      editable taxonomies and app configuration
+    RXCalc/        stateless, source-versioned formulas and transient forms
   Export/          CSV, printable documents, and portfolio formatting
   Resources/       privacy manifest and app-owned assets
 ```
@@ -41,6 +42,10 @@ SwiftUI views -> application services -> SwiftData models/container
 ```
 
 No layer owns a networking client because no networking layer exists.
+
+RXcalc follows a separate one-way branch: SwiftUI form to pure Foundation
+calculation values. That branch cannot import SwiftData or call ledger,
+configuration, backup, or persistence services.
 
 ## State ownership
 
@@ -89,8 +94,10 @@ the persistence layer contains no six- or twelve-month default.
 ### View state
 
 Capture selections, snackbar visibility, dismissed staleness interstitials, and
-multi-step form position are ephemeral SwiftUI state. They are not persisted as
-extra model fields. A DI draft is durable once the user first saves it.
+multi-step form position are ephemeral SwiftUI state. RXcalc inputs/results are
+view-local: they may remain while the live tab/detail hierarchy exists, but are
+discarded when that view is destroyed or the process exits. They never enter
+SwiftData or backup DTOs. A DI draft is durable once the user first saves it.
 
 After bootstrap, every ordinary launch opens directly into capture. A genuinely
 empty installation may instead present the configuration gate needed to make
@@ -105,6 +112,35 @@ User-correctable failures are visible in the feature that caused them: matched
 identifier ranges in the de-identification sheet, validation errors in import,
 and a backup/export reminder in the shell. Store-open and migration failures fail
 loudly; the app never silently deletes the store or falls back to memory.
+
+
+## RXcalc calculation boundary
+
+RXcalc is a stateless feature branch beside the durable ledger, not a service on
+top of SwiftData. RXCalculatorCatalog.swift owns typed descriptors, stable
+formula identifiers, source review dates, limitations, and draft clinical-review
+status. RXCalculations.swift owns unit conversion, validation, and pure formulas;
+RXCalcView.swift owns transient text entry and display.
+
+The R1 catalog contains Cockcroft–Gault creatinine clearance, 2021 CKD-EPI
+creatinine eGFR, CDC metric adult BMI for age 20 or older, and Mosteller BSA.
+Competitor products influence navigation only; formula code is derived from the
+primary publication or official source recorded in the descriptor. BMI and BSA
+retain separate source identities even though they share one height/weight form.
+
+Every formula rejects missing, non-finite, nonpositive, implausible-age, and
+numeric-overflow inputs. Unit changes clear the affected numeric field so a
+retained number cannot silently change meaning. Locale decimal separators are
+normalized before parsing. Results retain full precision, round only for display,
+repeat draft status and formula identifiers beside the output, and never emit a
+dose, CKD stage, BMI category, or treatment interpretation.
+
+All R1 content remains draft until P-008 binds independent clinical review to the
+exact Git commit, a digest of the reviewed source/evidence bundle, all four
+formula identifiers, reviewer roles, date, disposition, and review cadence. Any
+clinical-content or displayed-claim change returns the affected descriptor to
+draft. Device acceptance, P-009 regulatory/claims review, and explicit owner
+distribution approval remain separate gates.
 
 ## Concurrency and SwiftData rules
 
@@ -361,6 +397,16 @@ Canonical source privileges are keyed only by exact normalized
 repository-relative paths. A matching basename or path suffix grants no
 store, schema, interpolation, URL, citation, typealias, or extension exception.
 
+
+RXcalc is the sole reviewed clinical-arithmetic exception. Exact source identity
+permits the five audited division seams only in `RXCalculations.swift`. The
+scanner uses fail-closed naming heuristics to flag calculator/equation types
+outside `Features/RXCalc` and dose-selection types/declarations anywhere. Inside
+RXcalc it rejects `@AppStorage`, `@SceneStorage`, `UserDefaults`, SwiftData,
+ledger models, configuration, schema, and backup coupling. These controls force
+review rather than proving semantics; direct and sandboxed CI probes plant each
+diagnostic category.
+
 Shipping imports are allowlisted to the five frameworks the current foundation
 uses. `SchemaContractTests` may use Foundation `URL` only in three exact
 `storeLocation` declaration/call seams for its file-backed SwiftData fixture;
@@ -412,12 +458,16 @@ a HIPAA compliance program. README language must preserve that distinction.
    Canonical export fixtures invert store insertion and relationship-assignment
    order, reverse all six UUID-bearing payload arrays, and require equal archives
    and encoded bytes.
-3. Portable scanner self-tests cover privacy property-list format, malformed
-   roots, missing and duplicate key cardinality, value types, forbidden nonempty
-   arrays, and repository-file integration. Source/project contract tests cover
-   no free text in `Intervention`, no network surface, zero packages, and
-   schema/migration registration.
-4. SwiftUI tests cover the three-tap path, guard interstitials, stale-answer
-   interposition, and search badges.
+3. Portable scanner self-tests cover privacy property-list semantics and
+   repository integration, plus exact RXcalc identities, formula-division seams,
+   persisted-state isolation, and calculation/equation and dose-selection naming
+   heuristics. Source/project contract tests cover no free text in Intervention,
+   no network surface, zero packages, schema/migration registration, and exact
+   app/test source inventory.
+4. Pure RXcalc tests cover authoritative formula vectors, unit equivalence,
+   locale-decimal parsing, population/error bounds, numeric overflow, and
+   supported monotonicity properties. There is no RXcalc UI-test target yet.
 5. Manual device acceptance covers one-handed timing, haptics, airplane mode,
-   printable artifacts, and restore on a clean install.
+   printable artifacts, clean-store restore, locale-aware decimal entry,
+   input/result invalidation, unit-change input clearing, relaunch non-retention,
+   and adjacent RXcalc review/limitation notices.

@@ -57,6 +57,10 @@ jobs:
             >> "$probe/Hippocrates/App/RootView.swift"
           printf '\nprivate func plantedAppConfigLifecycleViolation(_ context: ModelContext, _ configuration: AppConfig) { context.delete(configuration); configuration.setValue(forKey: \.stalenessIntervalMonths, to: 6) }\n' \
             >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate struct PlantedRenalEquation {}; private struct PlantedDosingRule {}; private func calculateDoseForProbe() {}\n' \
+            >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate let plantedRXCalcPersistenceCoupling = UserDefaults.standard; private let plantedUnreviewedRXCalcDivision = 1 / 2\n' \
+            >> "$probe/Hippocrates/Features/RXCalc/RXCalculations.swift"
           printf 'struct PlantedOrphanSource {}\n' \
             > "$probe/Hippocrates/App/PlantedOrphan.swift"
           printf 'unreviewed resource\n' \
@@ -102,6 +106,11 @@ jobs:
             "Dynamic invocation, unsafe memory, and runtime symbol lookup are forbidden inside the reviewed source boundary" \
             "Model deletion requires an explicitly reviewed lifecycle service" \
             "SwiftData backing-data APIs bypass reviewed model initialization" \
+            "Clinical calculation types must live in the reviewed RXcalc feature boundary" \
+            "Dose-selection types require separately approved clinical governance" \
+            "Dose-selection declarations require separately approved clinical governance" \
+            "RXcalc must remain stateless and isolated from persisted app state" \
+            "RXcalc arithmetic changed outside reviewed formula division seams" \
             "SchemaV1 persisted-property surface changed without backup-format review" \
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \
             "BackupArchive v1 decoder changed outside immutable compatibility contract" \
@@ -118,7 +127,7 @@ jobs:
             fi
           done
 
-          echo "The direct scanner rejected planted network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, source, resource, test-loader, privacy-manifest, and configuration violations."
+          echo "The direct scanner rejected planted network, file-ingress, AppConfig-ownership, RXcalc-boundary, persisted-schema, current-backup-shape, historical-backup-decoder, source, resource, test-loader, privacy-manifest, and configuration violations."
 
       - name: Prove the sandboxed Xcode build rejects declared-input boundary, backup-contract, and privacy-manifest violations
         run: |
@@ -137,6 +146,10 @@ jobs:
             >> "$probe/Hippocrates/App/RootView.swift"
           printf '\nprivate func plantedAppConfigLifecycleViolation(_ context: ModelContext, _ configuration: AppConfig) { context.delete(configuration); configuration.setValue(forKey: \.stalenessIntervalMonths, to: 6) }\n' \
             >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate struct PlantedRenalEquation {}; private struct PlantedDosingRule {}; private func calculateDoseForProbe() {}\n' \
+            >> "$probe/Hippocrates/App/RootView.swift"
+          printf '\nprivate let plantedRXCalcPersistenceCoupling = UserDefaults.standard; private let plantedUnreviewedRXCalcDivision = 1 / 2\n' \
+            >> "$probe/Hippocrates/Features/RXCalc/RXCalculations.swift"
           printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
             >> "$probe/HippocratesTests/SchemaContractTests.swift"
           /usr/bin/perl -0pi -e 's#(<key>NSPrivacyTracking</key>\s*)<false/>#$1<true/># or die "reviewed privacy-manifest tracking value not found\n"' \
@@ -184,6 +197,11 @@ jobs:
             "Dynamic invocation, unsafe memory, and runtime symbol lookup are forbidden inside the reviewed source boundary" \
             "Model deletion requires an explicitly reviewed lifecycle service" \
             "SwiftData backing-data APIs bypass reviewed model initialization" \
+            "Clinical calculation types must live in the reviewed RXcalc feature boundary" \
+            "Dose-selection types require separately approved clinical governance" \
+            "Dose-selection declarations require separately approved clinical governance" \
+            "RXcalc must remain stateless and isolated from persisted app state" \
+            "RXcalc arithmetic changed outside reviewed formula division seams" \
             "SchemaV1 persisted-property surface changed without backup-format review" \
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \
             "BackupArchive v1 decoder changed outside immutable compatibility contract" \
@@ -198,7 +216,7 @@ jobs:
             fi
           done
 
-          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, AppConfig-ownership, persisted-schema, current-backup-shape, historical-backup-decoder, loader, privacy-manifest, and configuration violation."
+          echo "The sandboxed Xcode build ran the boundary phase and rejected every declared-input network, file-ingress, AppConfig-ownership, RXcalc-boundary, persisted-schema, current-backup-shape, historical-backup-decoder, loader, privacy-manifest, and configuration violation."
 
       - name: Build release configuration
         run: |

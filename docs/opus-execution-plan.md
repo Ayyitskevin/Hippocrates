@@ -1,5 +1,11 @@
 # Hippocrates — execution plan (start to finish)
 
+> **Historical snapshot:** this plan was written against `5f62977` and was
+> executed for the ledger/DI build. Its zero-product status and absolute
+> no-calculation rule are superseded by accepted P-007 and the live
+> [`roadmap.md`](roadmap.md)/[`rxcalc-plan.md`](rxcalc-plan.md). It does not
+> clinically approve RXcalc or authorize distribution.
+
 Audience: the Claude Opus session (or any capable engineer) that will carry
 this project from its current state — verified foundation, zero user-facing
 product — to a free, App Store-ready app for hospital pharmacists. Companion

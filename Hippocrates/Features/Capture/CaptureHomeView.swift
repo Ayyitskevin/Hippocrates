@@ -28,6 +28,9 @@ struct CaptureHomeView: View {
                     DIVaultView()
                 }
             }
+            Tab("RXcalc", systemImage: "function") {
+                RXCalcView()
+            }
             Tab("Categories", systemImage: "slider.horizontal.3") {
                 TaxonomySettingsView()
             }

@@ -25,6 +25,8 @@ gates closed as the user-owned choices recorded below.
 | A-012 | `AppConfigService` is the only configuration-row owner | Its file-private authority is identity-checked by every model initializer and mutator; exact model initializer/mutator bodies and reviewed service seams are pinned, while direct SwiftData value/backing mutation and unreviewed model deletion are source-forbidden; main-actor fetch-or-create requires a clean context, while restore inserts without saving inside its own transaction |
 | A-013 | Type-owned defaults and optional intervention snapshots are the only cost representation | Unknown/unassigned remains `nil`, explicit zero remains zero, and no app-wide duplicate map exists |
 | A-014 | Backup format dispatch and migration happen in value space | Format v2 is current; development-format v1 owns private let-only historical records, never reuses current-format DTOs, explicitly maps every field before validation or store mutation, and rejects conflicts |
+| A-015 | RXcalc is a stateless feature boundary beside the ledger store | Calculator inputs/results never enter SwiftData, backup, logs, analytics, or free text; the scanner rejects persistence coupling and clinical calculator types elsewhere |
+| A-016 | Every RXcalc formula and source has a stable version identifier and dated provenance | Content changes create a new reviewed identifier and golden evidence; combined views retain separate formula/source identities |
 
 ## Accepted product decisions
 
@@ -39,6 +41,7 @@ reviews an explicit answer.
 | P-004 | The summary range is a visible user control whose initial state is the current calendar year; the last selection is remembered | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | No hidden fixed cadence ships |
 | P-005 | The DI staleness interval is a required per-user choice (6, 12, or custom months) at first DI use | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | `AppConfig.stalenessIntervalMonths` stays `nil` until the user chooses; no hidden default ships |
 | P-006 | The frozen DI requestor, question-class, urgency, and source-tier vocabulary ships unchanged | Owner (product) | 2026-07-18 | Owner-directed pivot merged in PR #1 | Raw values remain persistence identifiers; every enum retains its `other` escape hatch |
+| P-007 | Add RXcalc as a clean, stateless, source-versioned formula surface beside the ledger, beginning with the bounded R1 adult renal/body-size slice; it never selects inputs or doses, interprets results, recommends therapy, or carries protocol/drug content | Owner (product) | 2026-07-19 | Owner-directed RXcalc planning and implementation request; scope recorded in `docs/rxcalc-plan.md` | R1 may be engineered as visibly draft; clinical, device, regulatory/claims, and distribution gates remain independent |
 
 ## Accepted implementation decisions
 
@@ -55,14 +58,33 @@ reviews an explicit answer.
 | I-013 | A bounded recent-interventions ledger permits structured-field edits, acceptance updates, and confirmed deletion through one reviewed service; it never offers free text or narrative; the no-detail-screen doctrine is amended to "no narrative detail screen" |
 | I-004 | Taxonomy labels are single-line, trimmed, at most 60 characters, and unique per taxonomy, enforced by `TaxonomyService`; they are generic department categories, editor UI carries that purpose guidance, per-intervention category creation stays forbidden, and labels join the Phase 4 identifier-scan surface before backup-export UI ships |
 | I-009 | Citation titles and locators are single-line, at most 200 characters, and pass through the same de-identification gate as the four guarded DI fields, enforced by `DIQuestionService`; tags are scanned on the archive-import surface, and a tags editor ships only with the same constraints and gate |
+| I-010 | One exact-body-pinned `BackupImportAdapter` owns local-file ingress; it requires `isFileURL`, acquires security-scoped access, immediately captures `Data`, releases access, and exposes no remote/open/share path |
+| I-014 | RXcalc is a post-first-run tab beside the ledger; its catalog, inputs, and results remain transient, and scanner exceptions are limited to exact source identities and reviewed formula-division seams |
 
 ## Pending product decisions — required before affected features
 
-No product decision is pending. A future product question enters this table
-with an owner, an exact question, and a safe state before its feature ships:
-
 | ID | Owner | Question | Safe state until answered |
 |---|---|---|---|
+| P-008 | Independent qualified clinical reviewers | Are the exact four R1 formula versions, sources, units, rounding rules, limitations, test evidence, and displayed claims approved for the reviewed build and a stated review cadence? | Every descriptor remains `.draft`; no clinical/field use, TestFlight, App Store, or other distribution |
+| P-009 | Owner with qualified regulatory/claims review | What regulatory posture and exact user-facing claims are appropriate for a release that includes the approved RXcalc formulas? | Store copy is provisional and no distribution submission occurs |
+
+P-008 uses a two-phase, immutable transition rather than asking a commit to
+approve itself:
+
+1. Reviewers sign the exact **draft candidate commit**, a digest of the RXcalc
+   source/evidence bundle, the proposed approved-status copy, their roles, date,
+   disposition, and cadence for `cockcroft_gault_1976@1.0.0`,
+   `ckd_epi_creatinine_2021@1.0.0`, `body_mass_index_cdc_metric@1.0.0`, and
+   `body_size_mosteller_1987@1.0.0`.
+2. An activation commit may change only review-status/provenance metadata to the
+   pre-reviewed copy; it cannot alter a formula, source, unit conversion, rounding
+   policy, limitation, or other displayed clinical claim.
+3. An independent release verifier recomputes the signed digest, confirms that
+   status-only diff, and appends the exact activation commit hash to the P-008
+   record before any distribution.
+
+Any other change or digest mismatch keeps/returns the affected descriptor to
+`.draft` and requires a new review. P-008 clinical approval does not answer P-009.
 
 ### D0 closure record (2026-07-18)
 
@@ -71,6 +93,8 @@ free, general-audience app for hospital pharmacists. For each P-ID: disposition
 `answered`; deciding authority `owner (product)`; decision date `2026-07-18`;
 non-sensitive provenance the merged plan PR #1 (`docs/opus-execution-plan.md`
 and `docs/pharmacist-review.md`). The answers are the accepted rows above.
+P-007 and the pending P-008/P-009 gates are a separate RXcalc track; they are
+not part of the D0 worksheet or its 2026-07-18 closure.
 
 The worksheet mechanism remains canonical for any future product decision: a
 disposition, an exact answer, a deciding authority role, an ISO `YYYY-MM-DD`
@@ -96,14 +120,15 @@ institutional facts.
 | ID | Decision needed | Current position |
 |---|---|---|
 | I-005 | Re-verification history representation | Current `[Date]` is adequate for V1 if only timestamp is required; introduce a model only if provenance metadata becomes a real requirement |
-| I-010 | Local-file URL boundary for restore | Permit one reviewed security-scoped file adapter only; require `isFileURL`, immediate `Data` capture, and no remote/open/share behavior |
 
 ## Rejected directions
 
 - a generic `Entry` model;
 - free text on `Intervention`;
 - CloudKit or any other sync in v1;
-- clinical calculation/recommendation/reference content;
+- drug-specific dosing, result interpretation, treatment recommendations,
+  unversioned clinical reference content, or clinical formulas outside the
+  reviewed RXcalc boundary;
 - hidden permanent dismissal of stale-answer warnings;
 - silent backup merge or store replacement;
 - hardcoded cost values or unapproved taxonomy seeds; and

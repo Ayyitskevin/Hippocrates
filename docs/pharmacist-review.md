@@ -1,5 +1,9 @@
 # Hippocrates — hospital pharmacist workflow review
 
+> **Historical snapshot:** these findings describe commit `5f62977`. Current
+> status and gates live in [`roadmap.md`](roadmap.md). This review predates RXcalc
+> and provides no clinical approval for any RXcalc formula or release claim.
+
 Date: 2026-07-18. Reviewed at commit `5f62977` by a full read of the source,
 tests, scanner, CI workflow, and all four project documents. Perspective: a
 hospital clinical pharmacist who would use this app every shift, plus a product

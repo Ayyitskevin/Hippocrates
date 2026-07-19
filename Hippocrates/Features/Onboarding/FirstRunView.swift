@@ -38,8 +38,9 @@ struct FirstRunView: View {
                 Text("Welcome to Hippocrates")
                     .font(.largeTitle)
                     .bold()
-                Text("Hippocrates is a private, offline ledger of your own completed professional work: interventions you have already made and drug-information answers you have already written.")
-                Text("It stores no patient identifiers, performs no clinical calculations, gives no recommendations, and never connects to a network. Your records stay on this device.")
+                Text("Hippocrates is a private, offline workspace for your own completed professional work and source-identified formula tools.")
+                Text("It stores no patient identifiers, gives no recommendations, and never connects to a network. Your durable records stay on this device; RXcalc inputs and results are not saved.")
+                Text("RXcalc performs only named arithmetic from values you enter. It does not choose an input or dose, interpret a result, diagnose, or advise. Its current clinical content is draft and not for patient care.")
                 Text("You are responsible for following your institution's policies on personal devices and professional documentation. Hippocrates cannot verify hospital policy and is not a substitute for it.")
                 Button {
                     step = .starterOffer

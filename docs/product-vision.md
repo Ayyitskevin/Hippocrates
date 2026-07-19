@@ -2,17 +2,23 @@
 
 ## The promise
 
-Hippocrates is the private professional ledger a hospital pharmacist can trust
-during a shift and years later. It turns two kinds of already-completed work
-into durable evidence:
+Hippocrates is the private professional workspace a hospital pharmacist can
+trust during a shift and years later. It has three deliberately separate work
+surfaces:
 
-1. interventions, captured in seconds and valuable in aggregate; and
+1. interventions, captured in seconds and valuable in aggregate;
 2. drug-information records, written deliberately and valuable one record at a
-   time.
+   time; and
+3. RXcalc, a source-backed set of offline formulas whose inputs and results are
+   never persisted.
 
-It is not a clinical tool. It never computes a patient-specific result, interprets
-patient data, recommends therapy, or advises care. It has no network path and no
-field for patient identity. Those are product boundaries, not backlog items.
+The first two surfaces create durable evidence; RXcalc supplies transient,
+auditable arithmetic.
+
+RXcalc computes only the named equation from clinician-entered values. It does
+not select a drug, choose a patient-specific input strategy, interpret a result,
+recommend therapy, or advise care. Hippocrates has no network path and no field
+for patient identity. Those remain product boundaries, not backlog items.
 
 Hippocrates is distributed free: no purchase price, no subscription, no ads, no
 accounts, and no analytics, ever, for v1. There is no server and therefore no
@@ -31,6 +37,10 @@ They need to record an intervention in under five seconds without typing. The
 record exists to support later counts, acceptance rates, cost-avoidance totals,
 and service-line summaries. An individual intervention is not a narrative chart.
 
+They also need fast access to a small, curated set of transparent calculations
+without relying on signal. Every result must show which equation produced it,
+which units were used, and what the equation cannot establish.
+
 ### After a shift
 
 They need to preserve a drug-information question, the de-identified context
@@ -48,10 +58,10 @@ the underlying asset.
 ## Product thesis
 
 The intervention ledger proves breadth and impact; the DI vault preserves depth
-and compounding knowledge. Their only domain relationship is intentional: an
-intervention can raise a DI question, and a DI answer can accumulate linked
-interventions over time. They share a store, search shell, and export system, but
-they remain separate models and separate capture experiences.
+and compounding knowledge; RXcalc supplies ephemeral, auditable math. The
+ledger and DI vault share a store, search shell, and export system, but remain
+separate models and capture experiences. RXcalc does not join that store or
+backup graph. Its only relationship to the durable features is navigation.
 
 ## Non-negotiable invariants
 
@@ -59,8 +69,12 @@ they remain separate models and separate capture experiences.
 - DI free text cannot be saved without the de-identification review gate.
 - The shipping app has no networking, account, sync, server, analytics, or SDK.
 - Every user path works in airplane mode.
-- No feature calculates, interprets, scores, doses, recommends, or advises.
-- No hospital protocol or reference database is stored.
+- RXcalc formulas are deterministic, versioned, source-backed, stateless, and
+  isolated from SwiftData.
+- No feature chooses a dose, interprets a result, recommends therapy, or advises
+  care.
+- No hospital protocol, formulary, dosing table, or reference database is stored.
+- RXcalc never requests or retains patient identity or free-text clinical context.
 - SwiftData schemas are versioned and migrations are explicit from the first
   release.
 - A backup is not complete until import and lossless round-trip behavior are
@@ -80,21 +94,29 @@ tests and direct acceptance sessions, not telemetry.
 | Durable ownership | A populated store exports, restores into a clean installation, and re-exports byte-equivalent logical data |
 | Useful annual artifact | The pilot user says the summary is ready to hand to their manager without editing |
 | DI freshness safety | Green, amber, and red fixtures render distinctly; amber/red records interpose before answer content every time |
+| RXcalc trustworthiness | Official or primary-source golden vectors, unit-equivalence tests, invalid-input tests, and an independent clinical review cover every active formula version |
 
 ## Release shape
 
-The first field build ends after editable configuration, five-second intervention
-capture, and CSV summary. Real pilot usage then determines capture ordering and
-later native surfaces. DI capture and its de-identification gate ship together in
-the next build; staleness, search, links, portfolio export, and backup reminders
-follow in the specified order.
+The ledger and DI v1 surfaces are implemented; their real-device and owner
+acceptance gates remain open. RXcalc R1 is the draft calculation slice. R2-R4
+are unstarted and outside the current v1 release, while drug-specific content is
+outside the product unless a new owner/doctrine decision explicitly reopens it.
 
-No TestFlight or App Store submission is automatic. Code may be prepared and
-verified autonomously; distribution remains an explicit owner action.
+RXcalc engineering completion does not authorize use or distribution. Device
+acceptance, immutable P-008 clinical approval, P-009 regulatory/claims review,
+and every TestFlight or App Store action remain separate human/external gates.
 
 ## Explicit non-goals
 
-- clinical calculations or recommendation logic;
+- drug-specific dosing, treatment recommendations, or hidden clinical
+  interpretation;
+- uncited, unversioned, or externally fetched calculator content;
+- pediatric, time-critical, narrow-therapeutic-index, chemotherapy,
+  anticoagulation, insulin, opioid, electrolyte, or compounding calculators in
+  the first RXcalc release;
+- persisted calculator inputs, results, favorites, or history without a separate
+  schema/backup/privacy decision;
 - patient, room, encounter, or hospital-system integration;
 - CloudKit, accounts, multi-user behavior, or sharing;
 - widgets, App Intents, Siri, Action Button, or Control Center in v1;

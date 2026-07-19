@@ -58,6 +58,10 @@
 		100000000000000000000031 /* BackupImportAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000034 /* BackupImportAdapter.swift */; };
 		100000000000000000000032 /* BackupRestoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000035 /* BackupRestoreService.swift */; };
 		100000000000000000000033 /* BackupRestoreServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000036 /* BackupRestoreServiceTests.swift */; };
+		100000000000000000000034 /* RXCalculatorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000037 /* RXCalculatorCatalog.swift */; };
+		100000000000000000000035 /* RXCalculations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000038 /* RXCalculations.swift */; };
+		100000000000000000000036 /* RXCalcView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000039 /* RXCalcView.swift */; };
+		100000000000000000000037 /* RXCalcTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000003A /* RXCalcTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -125,6 +129,10 @@
 		200000000000000000000034 /* BackupImportAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupImportAdapter.swift; sourceTree = "<group>"; };
 		200000000000000000000035 /* BackupRestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreService.swift; sourceTree = "<group>"; };
 		200000000000000000000036 /* BackupRestoreServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupRestoreServiceTests.swift; sourceTree = "<group>"; };
+		200000000000000000000037 /* RXCalculatorCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalculatorCatalog.swift; sourceTree = "<group>"; };
+		200000000000000000000038 /* RXCalculations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalculations.swift; sourceTree = "<group>"; };
+		200000000000000000000039 /* RXCalcView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcView.swift; sourceTree = "<group>"; };
+		20000000000000000000003A /* RXCalcTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -244,10 +252,21 @@
 				30000000000000000000000F /* Capture */,
 				300000000000000000000013 /* DIVault */,
 				30000000000000000000000D /* Onboarding */,
+				300000000000000000000014 /* RXCalc */,
 				30000000000000000000000E /* Settings */,
 				300000000000000000000011 /* Summary */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		300000000000000000000014 /* RXCalc */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000037 /* RXCalculatorCatalog.swift */,
+				200000000000000000000038 /* RXCalculations.swift */,
+				200000000000000000000039 /* RXCalcView.swift */,
+			);
+			path = RXCalc;
 			sourceTree = "<group>";
 		};
 		300000000000000000000013 /* DIVault */ = {
@@ -328,6 +347,7 @@
 				20000000000000000000002E /* CompoundingLinkTests.swift */,
 				200000000000000000000033 /* BackupAndPortfolioTests.swift */,
 				200000000000000000000036 /* BackupRestoreServiceTests.swift */,
+				20000000000000000000003A /* RXCalcTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -480,6 +500,10 @@
 				"$(SRCROOT)/Hippocrates/Features/DIVault/DIVaultView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
+				"$(SRCROOT)/Hippocrates/Features/RXCalc",
+				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalcView.swift",
+				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculations.swift",
+				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings",
 				"$(SRCROOT)/Hippocrates/Features/Settings/BackupSettingsView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
@@ -519,6 +543,7 @@
 				"$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
 				"$(SRCROOT)/HippocratesTests/FreshnessAndSearchTests.swift",
 				"$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
+				"$(SRCROOT)/HippocratesTests/RXCalcTests.swift",
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
 				"$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
 				"$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
@@ -549,6 +574,9 @@
 			files = (
 				100000000000000000000001 /* HippocratesApp.swift in Sources */,
 				100000000000000000000002 /* RootView.swift in Sources */,
+				100000000000000000000034 /* RXCalculatorCatalog.swift in Sources */,
+				100000000000000000000035 /* RXCalculations.swift in Sources */,
+				100000000000000000000036 /* RXCalcView.swift in Sources */,
 				100000000000000000000003 /* DomainEnums.swift in Sources */,
 				100000000000000000000004 /* SchemaV1.swift in Sources */,
 				100000000000000000000005 /* HippocratesMigrationPlan.swift in Sources */,
@@ -604,6 +632,7 @@
 				10000000000000000000002B /* CompoundingLinkTests.swift in Sources */,
 				100000000000000000000030 /* BackupAndPortfolioTests.swift in Sources */,
 				100000000000000000000033 /* BackupRestoreServiceTests.swift in Sources */,
+				100000000000000000000037 /* RXCalcTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

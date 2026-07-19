@@ -85,6 +85,31 @@ you deliberately corrupt (edit one byte) is refused with a clear message.
 **Pass:** every path works with no network. There is no spinner waiting on a
 connection, no "offline" error, and no feature that requires connectivity.
 
+## A8 — RXcalc draft safety and non-retention
+
+1. Keep airplane mode on. Complete first run and open RXcalc. Confirm the catalog
+   warning and every row show **Draft**. Open each tool and confirm its detail
+   shows the formula identifier(s) and limitations; after calculation, confirm
+   the result keeps **Draft**, formula identifier(s), units, and a core limitation
+   adjacent to the value.
+2. Cockcroft-Gault: age 50, male equation sex, 70 kg, serum creatinine 1.0
+   mg/dL. Calculate and record **87.5 mL/min**.
+3. 2021 CKD-EPI: age 90, female equation sex, serum creatinine 1.5 mg/dL.
+   Calculate and record a displayed whole-number result of **33
+   mL/min/1.73 m²**.
+4. Body size: age 40, 170 cm, 70 kg. Calculate and record displayed **BMI 24.22**
+   and **BSA 1.82 m²**. Confirm age 19 is rejected for this adult BMI surface.
+5. With a locale that uses a comma decimal separator, enter `1,5` and confirm it
+   is accepted as 1.5. Restore the normal locale afterward.
+6. Calculate a result, then edit any input; the displayed result must disappear.
+   Calculate again, change the associated unit, and confirm the numeric input is
+   cleared rather than reinterpreted.
+7. Enter values and calculate in all three tools. Force-quit and relaunch.
+
+**Pass:** every calculation works in airplane mode and matches the listed values;
+review/formula/limitation context stays adjacent; invalidation and unit clearing
+work; and relaunch retains no RXcalc inputs, results, favorites, or history.
+
 ## Recording results
 
 For each script, record: date, device model, iOS version, pass/fail, and any

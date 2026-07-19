@@ -5,6 +5,10 @@ Schema and backup protect the asset; configuration enables capture; real capture
 data informs later ergonomics. Work may be parallelized only when it does not
 cross a decision or evidence gate.
 
+RXcalc is an independent stateless delivery track: it may advance without a
+SwiftData decision because it cannot read or write the ledger store, but every
+clinical formula still requires its own source, version, tests, and approval.
+
 ## Current status
 
 | Milestone | Status | Exit evidence |
@@ -28,7 +32,9 @@ cross a decision or evidence gate.
 | F15 — configuration creation save-failure rollback | Verified | Implementation commit [`078afad`](https://github.com/Ayyitskevin/Hippocrates/commit/078afad5a89f644a9199328e29b4d5a89a3a8c0b) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 32 simulator tests in [hosted run 29524757883](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29524757883) |
 | F16 — canonical backup record ordering | Verified | Implementation commit [`d64f7bd`](https://github.com/Ayyitskevin/Hippocrates/commit/d64f7bde3359c6734d58c737ee6a2583751c7096) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 33 simulator tests in [hosted run 29529607273](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29529607273) |
 | F17 — scanner-owned privacy-manifest semantics | Verified | Implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372) passed 270 scanner checks, both planted privacy-manifest probes, Release build, analyzer, and 33 simulator tests in [hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329) |
-| D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); remaining gates are implementation decisions I-005, I-009, and I-010 |
+| R0 — RXcalc product/boundary pivot | Locally verified; hosted evidence pending | Product and architecture contracts, exact source identities, 288 scanner checks, and planted direct/sandboxed probe definitions are implemented |
+| R1 — stateless RXcalc MVP | Implemented as draft; hosted and external gates pending | Searchable Cockcroft-Gault, 2021 CKD-EPI, adult BMI, and Mosteller BSA catalog with formula vectors, unit parity, input bounds, and visible draft limitations |
+| D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); I-005 is the remaining unrelated implementation decision |
 | M1 — configuration and taxonomy ownership | Verified | Taxonomy service, starter set, first-run gate, and editors passed the hosted Release build, analyzer, boundary probes, and simulator tests on the merged head in [run 29646317092](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646317092) |
 | M2 — five-second capture and resolution ledger | Implemented | Capture, frecency ranking, and the I-013 ledger passed the hosted pipeline on the merged head in [run 29646789732](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646789732); the real-device one-handed five-second acceptance run remains an open owner gate |
 | M3 — summary and CSV export | Implemented | Summary engine, I-007 rate, deterministic CSV, Charts, and the reviewed ShareLink seam passed the hosted pipeline on the merged head in [run 29647799507](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29647799507); manager acceptance of the artifact remains an open owner gate |
@@ -36,7 +42,7 @@ cross a decision or evidence gate.
 | M5 — freshness and retrieval | Verified | Freshness policy boundaries, one-tap re-verification, the staleness interstitial, and DI search passed on the exact merged head in [run 29657142388](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29657142388) |
 | M6 — the compounding link | Verified | The intervention-to-DI link, year-aware aggregate, and the multi-year backup fixture passed the hosted pipeline on the merged head in [run 29659879056](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29659879056) |
 | M7 — portfolio, restore, and reminders | Implemented | Backup export with the I-011 timestamp, the DI portfolio, the 90-day reminder, and the I-010 reviewed restore adapter with its exact-body pin and import gate passed the hosted pipeline across [run 29667549115](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29667549115) (7a) and the 7b merge; the clean-install export/restore acceptance run remains an open owner gate |
-| Phase 8 — store readiness | In progress | Store-listing, acceptance-script, and app-icon docs written; app icon art, on-device acceptance, and App Store submission remain owner gates |
+| Phase 8 — store readiness | Blocked on external gates | Store-listing, acceptance-script, and app-icon docs exist; app icon art, on-device acceptance, P-008/P-009, signing, and App Store submission remain owner/external gates |
 
 ## Milestone 0 — foundation evidence (complete)
 
@@ -612,54 +618,80 @@ DI-portfolio exports do not update this backup timestamp.
 Exit gate: export/import is exercised on a clean device/simulator installation,
 re-export is logically identical, and no raw DI text can bypass the guard.
 
+
+## RXcalc delivery track
+
+The canonical slice plan is [`rxcalc-plan.md`](rxcalc-plan.md).
+
+- R0 replaces the former no-calculation doctrine with an exact stateless RXcalc
+  exception and scanner/CI controls for source identity, persisted state,
+  division seams, calculation/equation types, and dose-selection declarations.
+- R1 supplies the searchable draft catalog, Cockcroft-Gault, 2021 CKD-EPI
+  creatinine eGFR, CDC metric adult BMI for age 20 or older, and Mosteller BSA.
+  Sources are independently identified, unit systems are equivalent, changing a
+  unit clears the affected numeric entry, locale decimal separators are accepted,
+  and age/overflow failures are explicit.
+- R2-R4 are unstarted hypotheses outside the current v1 commitment. Drug-specific
+  clinical content is outside the product, not an approved later slice.
+
+R1 engineering exit requires 288 portable scanner checks, planted direct and
+sandboxed RXcalc violations, an exact-head Xcode Release build and analyzer, and
+all simulator tests including official NKF vectors. Real-device acceptance,
+immutable P-008 clinical approval, P-009 regulatory/claims review, and explicit
+owner distribution authorization are separate gates. Until they close, every
+R1 descriptor and result remains visibly draft.
+
 ## V1 completion audit
 
-Product v1 is complete only with direct evidence for: exact-head hosted build,
-analysis, and tests; planted-network rejection; persisted schema privacy; backup
-compatibility and logical equality; approved summary semantics and manager
-acceptance; freshness boundaries; de-identification fixtures and import parity;
-privacy-manifest consistency; and absence of clinical calculation or
-recommendation paths. The real-device five-second test, institutional permission
-for shift use, TestFlight/App Store actions, and the App Store privacy label are
-human/external gates and remain visibly open until observed.
+A distributable product needs direct evidence for: exact-head hosted build,
+analyzer, tests, and planted boundary rejection; persisted-schema privacy;
+backup compatibility and logical equality; approved summary semantics and
+manager acceptance; freshness/de-identification/import behavior; manifest
+consistency; and the bounded, source-versioned, stateless RXcalc slice.
+
+Real-device capture and RXcalc acceptance exercises, institutional permission,
+immutable P-008 clinical approval, P-009 regulatory/claims review, owner-authorized
+TestFlight/App Store actions, and the external privacy label remain visibly open
+until observed. Engineering evidence never closes those gates.
 
 ## V1 product execution (2026-07-18 pivot)
 
-The owner re-scoped Hippocrates as a free, general-audience app for hospital
-pharmacists. The sequenced build plan — Phase 0 doctrine re-scope through
-Phase 8 App Store readiness, including the scanner co-evolution procedure and
-per-phase exit gates — lives in
-[`opus-execution-plan.md`](opus-execution-plan.md), with the workflow review
-that motivated it in [`pharmacist-review.md`](pharmacist-review.md).
-Milestones 1–7 above remain the feature specification; the plan maps its
-Phases 1–7 onto them, adds the I-013 pending-resolution ledger to Milestone 2,
-and adds Phase 8 distribution readiness, which no earlier milestone covered.
+The 2026-07-18 owner pivot re-scoped Hippocrates as a free, general-audience app
+for hospital pharmacists. The now-executed ledger/DI Phase 0-8 plan is preserved
+as a dated snapshot in [`opus-execution-plan.md`](opus-execution-plan.md), with
+its motivating review in [`pharmacist-review.md`](pharmacist-review.md).
+Milestones 1-7 above remain the ledger/DI specification. The live RXcalc sequence
+and gates are this roadmap plus [`rxcalc-plan.md`](rxcalc-plan.md).
 
 ### v1 feature completion (2026-07-19)
 
-All product feature phases are implemented and merged to `main` with hosted
-CI evidence recorded above: first-run and taxonomy ownership, five-second
-capture and the resolution ledger, the summary and CSV export, the DI vault
-with the service-enforced de-identification gate, freshness decay with the
-staleness interstitial and search, the intervention-to-DI compounding link,
-and backup export/portfolio/restore with the one reviewed local-file ingress
-adapter. There is no remaining feature code.
+All ledger/DI v1 feature phases are implemented and merged to `main` with hosted
+CI evidence recorded above: first-run and taxonomy ownership, capture and the
+resolution ledger, summary/CSV, the DI vault and de-identification gate,
+freshness and search, the intervention-to-DI link, and backup/portfolio/restore.
+There is no remaining ledger/DI v1 feature code. RXcalc R1 is a separate newly
+implemented draft slice; its later slices and external gates remain open.
 
-The open v1 gates are all human or external, not code:
+The open release gates are human or external, not hidden engineering claims:
 
 - app icon artwork and its reviewed asset-catalog PR
   ([`app-icon.md`](app-icon.md));
-- the on-device acceptance run ([`acceptance-scripts.md`](acceptance-scripts.md)):
-  one-handed five-second capture, real airplane-mode integrity, the file
-  importer, and a clean-install restore;
+- the full on-device acceptance run
+  ([`acceptance-scripts.md`](acceptance-scripts.md)), including RXcalc locale,
+  invalidation, non-retention, and vector exercises;
+- manager acceptance of the summary artifact and clean-install restore evidence;
 - institutional permission for shift use (each user's responsibility, P-001);
-- App Store Connect submission and the **Data Not Collected** privacy label
+- immutable P-008 clinical approval and P-009 regulatory/claims determination
+  for the exact RXcalc release content; and
+- explicit owner authorization for TestFlight/App Store submission and publication
+  of the **Data Not Collected** privacy label
   ([`store-listing.md`](store-listing.md)).
 
 ## Permanent stop conditions
 
 Stop implementation and escalate if a request introduces networking, CloudKit,
 an account/server, patient identifiers, intervention free text, a clinical
-calculation or recommendation, hospital reference/protocol storage, third-party
-packages, notifications/analytics, or any post-v1 product surface before usage
-data from product v1 defines it.
+formula outside the reviewed RXcalc boundary, dose/result/treatment
+recommendations, unversioned or unapproved clinical content, hospital
+reference/protocol storage, third-party packages, notifications/analytics, or
+any post-v1 product surface before its explicit decision and evidence gate.

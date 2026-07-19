@@ -564,18 +564,21 @@ private func findings(
         )
     }
     if let slashIndex = structuralSource.firstIndex(of: "/") {
-        let location = NSRange(
-            structuralSource.startIndex..<slashIndex,
-            in: structuralSource
-        ).length
-        results.append(
-            Finding(
-                path: path,
-                line: lineNumber(in: structuralSource, at: location),
-                message: "Bare slash operators and regex literals require explicit boundary-parser review",
-                sourceRuleID: .bareSlashToken
+        let matchedText = String(structuralSource[slashIndex])
+        if exception?(.bareSlashToken, matchedText) != true {
+            let location = NSRange(
+                structuralSource.startIndex..<slashIndex,
+                in: structuralSource
+            ).length
+            results.append(
+                Finding(
+                    path: path,
+                    line: lineNumber(in: structuralSource, at: location),
+                    message: "Bare slash operators and regex literals require explicit boundary-parser review",
+                    sourceRuleID: .bareSlashToken
+                )
             )
-        )
+        }
     }
 
 
@@ -597,6 +600,10 @@ private enum ReviewedSourceIdentity: String {
     case summaryView = "Hippocrates/Features/Summary/SummaryView.swift"
     case diVaultView = "Hippocrates/Features/DIVault/DIVaultView.swift"
     case backupSettingsView = "Hippocrates/Features/Settings/BackupSettingsView.swift"
+    case rxCalculatorCatalog = "Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift"
+    case rxCalculations = "Hippocrates/Features/RXCalc/RXCalculations.swift"
+    case rxCalcView = "Hippocrates/Features/RXCalc/RXCalcView.swift"
+    case rxCalcTests = "HippocratesTests/RXCalcTests.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
     case privacyManifestTests = "HippocratesTests/PrivacyManifestTests.swift"
@@ -614,6 +621,146 @@ private func reviewedSourceIdentity(
     }
     let relativePath = String(normalizedFile.dropFirst(normalizedRoot.count + 1))
     return ReviewedSourceIdentity(rawValue: relativePath) ?? .other
+}
+
+private func rxCalcDivisionFindings(
+    in source: String,
+    path: String,
+    identity: ReviewedSourceIdentity
+) -> [Finding] {
+    guard identity == .rxCalculations else { return [] }
+
+    let reviewedDivisionSeams = [
+        "            value / 88.4",
+        "        let clearance = numerator / denominator",
+        "        let normalizedCreatinine = creatinine / kappa",
+        "        let bodyMassIndex = weightKilograms / (heightMeters * heightMeters)",
+        "        let mostellerRadicand = (heightCentimeters * weightKilograms) / 3_600.0"
+    ]
+    var structuralSource = sourceForStructure(source)
+
+    for seam in reviewedDivisionSeams {
+        let count = structuralSource.components(separatedBy: seam).count - 1
+        guard count == 1 else {
+            return [
+                Finding(
+                    path: path,
+                    line: 1,
+                    message: "RXcalc arithmetic changed outside reviewed formula division seams"
+                )
+            ]
+        }
+        structuralSource = structuralSource.replacingOccurrences(
+            of: seam,
+            with: seam.replacingOccurrences(of: "/", with: " ")
+        )
+    }
+
+    guard structuralSource.contains("/") == false else {
+        return [
+            Finding(
+                path: path,
+                line: 1,
+                message: "RXcalc arithmetic changed outside reviewed formula division seams"
+            )
+        ]
+    }
+    return []
+}
+
+private func rxCalcArchitectureFindings(
+    in source: String,
+    path: String,
+    identity: ReviewedSourceIdentity
+) throws -> [Finding] {
+    let structuralSource = sourceForStructure(source)
+    let sourceRange = NSRange(
+        structuralSource.startIndex..<structuralSource.endIndex,
+        in: structuralSource
+    )
+    var results: [Finding] = []
+
+    let isRXCalcSource: Bool
+    switch identity {
+    case .rxCalculatorCatalog, .rxCalculations, .rxCalcView:
+        isRXCalcSource = true
+    default:
+        isRXCalcSource = false
+    }
+
+    // These checks are deliberately fail-closed naming heuristics. They do not
+    // claim semantic proof; instead, suspicious clinical arithmetic or dose
+    // selection must receive an explicit reviewed boundary before it can ship.
+    let calculationTypeExpression = try NSRegularExpression(
+        pattern: #"\b(?:class|struct|enum|protocol)\s+[A-Za-z_][A-Za-z0-9_]*(?:Calculator|Equation|PhysiologicUnit)[A-Za-z0-9_]*\b"#
+    )
+    if
+        isRXCalcSource == false,
+        let match = calculationTypeExpression.firstMatch(
+            in: structuralSource,
+            range: sourceRange
+        )
+    {
+        results.append(
+            Finding(
+                path: path,
+                line: lineNumber(in: structuralSource, at: match.range.location),
+                message: "Clinical calculation types must live in the reviewed RXcalc feature boundary"
+            )
+        )
+    }
+
+    let doseSelectionTypeExpression = try NSRegularExpression(
+        pattern: #"\b(?:class|struct|enum|protocol)\s+[A-Za-z_][A-Za-z0-9_]*(?:(?:Dose|Dosing)(?:Calculator|Recommendation|Rule|Regimen|Adjustment)|(?:Recommended|Adjusted|Selected)Dose)[A-Za-z0-9_]*\b"#
+    )
+    if let match = doseSelectionTypeExpression.firstMatch(
+        in: structuralSource,
+        range: sourceRange
+    ) {
+        results.append(
+            Finding(
+                path: path,
+                line: lineNumber(in: structuralSource, at: match.range.location),
+                message: "Dose-selection types require separately approved clinical governance"
+            )
+        )
+    }
+
+    let doseSelectionDeclarationExpression = try NSRegularExpression(
+        pattern: #"\b(?:func|var|let)\s+(?:(?:calculate|compute|estimate|recommend|select|adjust|derive)[A-Za-z0-9_]*(?:Dose|Regimen)[A-Za-z0-9_]*|(?:dose|regimen)For[A-Za-z0-9_]*|titrate[A-Za-z0-9_]*)\b"#
+    )
+    if let match = doseSelectionDeclarationExpression.firstMatch(
+        in: structuralSource,
+        range: sourceRange
+    ) {
+        results.append(
+            Finding(
+                path: path,
+                line: lineNumber(in: structuralSource, at: match.range.location),
+                message: "Dose-selection declarations require separately approved clinical governance"
+            )
+        )
+    }
+
+    if isRXCalcSource {
+        let persistedStateExpression = try NSRegularExpression(
+            pattern: #"@\s*(?:Model|AppStorage|SceneStorage|Query)\b|\b(?:SwiftData|ModelContext|ModelContainer|PersistentModel|UserDefaults|NSUbiquitousKeyValueStore|SchemaV[A-Za-z0-9_]*|BackupService|AppConfig|Intervention|DIQuestion|Citation)\b"#
+        )
+        if let match = persistedStateExpression.firstMatch(
+            in: structuralSource,
+            range: sourceRange
+        ) {
+            results.append(
+                Finding(
+                    path: path,
+                    line: lineNumber(in: structuralSource, at: match.range.location),
+                    message: "RXcalc must remain stateless and isolated from persisted app state"
+                )
+            )
+        }
+    }
+
+    return results
 }
 
 private func testFindings(
@@ -755,6 +902,7 @@ private func appSourceFindings(
         contentsOf: try findings(in: reviewedSource, path: path) { ruleID, _ in
             (shareLinkIdentities.contains(identity) && ruleID == .shareLink)
                 || (identity == .backupImportAdapter && importAdapterAllowed.contains(ruleID))
+                || (identity == .rxCalculations && ruleID == .bareSlashToken)
         }
     )
     if identity == .backupImportAdapter {
@@ -3741,6 +3889,10 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Features/DIVault/DIVaultView.swift",
     "$(SRCROOT)/Hippocrates/Features/Onboarding",
     "$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
+    "$(SRCROOT)/Hippocrates/Features/RXCalc",
+    "$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalcView.swift",
+    "$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculations.swift",
+    "$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings",
     "$(SRCROOT)/Hippocrates/Features/Settings/BackupSettingsView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
@@ -3780,6 +3932,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/HippocratesTests/DIVaultServiceTests.swift",
     "$(SRCROOT)/HippocratesTests/FreshnessAndSearchTests.swift",
     "$(SRCROOT)/HippocratesTests/PrivacyManifestTests.swift",
+    "$(SRCROOT)/HippocratesTests/RXCalcTests.swift",
     "$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
     "$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
     "$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
@@ -4857,6 +5010,8 @@ private func repositoryFindings(
         let source = try String(contentsOf: file, encoding: .utf8)
         let identity = reviewedSourceIdentity(for: file, repositoryRoot: repositoryRoot)
         results.append(contentsOf: try appSourceFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: rxCalcDivisionFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: try rxCalcArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try architectureSemanticFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try appConfigOwnershipFindings(in: source, path: file.path, identity: identity))
@@ -4869,20 +5024,6 @@ private func repositoryFindings(
             )
         )
 
-        let visibleSource = sourceForStructure(source)
-        let clinicalTypePattern =
-            #"\b(class|struct|enum|protocol)\s+[A-Za-z0-9_]*(Calculator|DoseRecommendation|PhysiologicUnit)[A-Za-z0-9_]*\b"#
-        let clinicalTypeExpression = try NSRegularExpression(pattern: clinicalTypePattern)
-        let visibleRange = NSRange(visibleSource.startIndex..<visibleSource.endIndex, in: visibleSource)
-        if let match = clinicalTypeExpression.firstMatch(in: visibleSource, range: visibleRange) {
-            results.append(
-                Finding(
-                    path: file.path,
-                    line: lineNumber(in: visibleSource, at: match.range.location),
-                    message: "Clinical calculation types are permanently outside Hippocrates"
-                )
-            )
-        }
     }
 
     // Tests may use local filesystem URL values and one inert citation fixture at
@@ -5281,6 +5422,10 @@ private func runSelfTests() throws {
         .hippocratesStore,
         .backupArchive,
         .backupService,
+        .rxCalculatorCatalog,
+        .rxCalculations,
+        .rxCalcView,
+        .rxCalcTests,
         .schemaContractTests,
         .backupRoundTripTests,
         .privacyManifestTests
@@ -5301,6 +5446,125 @@ private func runSelfTests() throws {
             return reviewedSourceIdentity(for: file, repositoryRoot: identityFixtureRoot) == .other
         },
         "A nested suffix-collision source inherited a canonical identity"
+    )
+
+    let canonicalRXCalcArithmetic =
+        "            value / 88.4\n" +
+        "        let clearance = numerator / denominator\n" +
+        "        let normalizedCreatinine = creatinine / kappa\n" +
+        "        let bodyMassIndex = weightKilograms / (heightMeters * heightMeters)\n" +
+        "        let mostellerRadicand = (heightCentimeters * weightKilograms) / 3_600.0"
+    try check(
+        rxCalcDivisionFindings(
+            in: canonicalRXCalcArithmetic,
+            path: "canonical RXcalc arithmetic",
+            identity: .rxCalculations
+        ).isEmpty,
+        "The reviewed RXcalc formula division seams were rejected"
+    )
+    try check(
+        rxCalcDivisionFindings(
+            in: canonicalRXCalcArithmetic.replacingOccurrences(of: "88.4", with: "88.5"),
+            path: "changed RXcalc arithmetic",
+            identity: .rxCalculations
+        ).count == 1,
+        "A changed RXcalc formula division seam escaped review"
+    )
+    try check(
+        rxCalcDivisionFindings(
+            in: canonicalRXCalcArithmetic + "\nlet extra = 1 / 2",
+            path: "extra RXcalc division",
+            identity: .rxCalculations
+        ).count == 1,
+        "An extra RXcalc division escaped review"
+    )
+    try check(
+        try findings(
+            in: "let ratio = 1 / 2",
+            path: "reviewed RXcalc slash",
+            allowing: { ruleID, _ in ruleID == .bareSlashToken }
+        ).isEmpty,
+        "The boundary parser could not delegate reviewed RXcalc slash handling"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "struct ExampleCalculator {}",
+            path: "reviewed RXcalc type",
+            identity: .rxCalculations
+        ).isEmpty,
+        "A calculator inside the reviewed RXcalc boundary was rejected"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "struct ExampleCalculator {}",
+            path: "outside RXcalc type",
+            identity: .other
+        ).count == 1,
+        "A calculator outside the reviewed RXcalc boundary escaped review"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "struct ExampleDoseRecommendation {}",
+            path: "dose recommendation type",
+            identity: .rxCalculations
+        ).count == 1,
+        "A dose-recommendation type escaped the clinical governance boundary"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "import SwiftData\nstruct ExampleCalculator {}",
+            path: "persisted RXcalc type",
+            identity: .rxCalculations
+        ).count == 1,
+        "RXcalc persistence coupling escaped the stateless boundary"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "struct RenalEquation {}",
+            path: "outside RXcalc equation type",
+            identity: .other
+        ).count == 1,
+        "An equation type outside the reviewed RXcalc boundary escaped review"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "struct ExampleDosingRule {}",
+            path: "dosing rule type",
+            identity: .rxCalculations
+        ).count == 1,
+        "A dosing-rule type escaped the clinical governance boundary"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "func calculateDose() {}",
+            path: "dose-selection declaration",
+            identity: .rxCalculations
+        ).count == 1,
+        "A dose-selection declaration escaped the clinical governance boundary"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "@AppStorage(\"value\") var value = 0",
+            path: "RXcalc AppStorage",
+            identity: .rxCalcView
+        ).count == 1,
+        "RXcalc AppStorage escaped the stateless boundary"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "@SceneStorage(\"value\") var value = 0",
+            path: "RXcalc SceneStorage",
+            identity: .rxCalcView
+        ).count == 1,
+        "RXcalc SceneStorage escaped the stateless boundary"
+    )
+    try check(
+        try rxCalcArchitectureFindings(
+            in: "let defaults = UserDefaults.standard",
+            path: "RXcalc UserDefaults",
+            identity: .rxCalculations
+        ).count == 1,
+        "RXcalc UserDefaults escaped the stateless boundary"
     )
 
     let compliantAppConfigModel = """
@@ -7381,13 +7645,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 274 else {
+    guard completedChecks == 288 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 274, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 288, completed \(completedChecks)"
             ]
         )
     }

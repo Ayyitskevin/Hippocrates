@@ -4,6 +4,10 @@ This is the owner's checklist and copy source for submitting Hippocrates to the
 App Store as a free app. Nothing here is submitted automatically; every App
 Store Connect action is a human step (A-009).
 
+**Submission hold:** this listing is not release-ready while RXcalc remains
+`.draft`. Exact-head engineering evidence, the full device script, P-008, P-009,
+and explicit owner authorization must all be recorded before any submission.
+
 ## Name
 
 "Hippocrates" is a common name in medical software. **Before reserving the
@@ -16,13 +20,13 @@ Candidate display names, in preference order:
 2. **Hippocrates Ledger** — narrows the meaning to the product.
 3. **Pharmacist's Ledger** — descriptive fallback, no name collision.
 
-Subtitle (30 characters max): `Private intervention ledger`.
+Subtitle (30 characters max): `Offline pharmacist workspace`.
 
 ## Description
 
-Copy that makes no clinical-decision claim (App Store Guideline 1.4.1 posture:
-this is a professional record-keeping tool; it does not calculate, recommend,
-diagnose, or contain drug content):
+This copy is provisional and makes no autonomous clinical-decision claim. It may
+be submitted only after exact-head engineering evidence, device acceptance,
+immutable P-008 clinical approval, and P-009 regulatory/claims review:
 
 > Hippocrates is a private, offline ledger for hospital pharmacists. Record the
 > interventions you have already made in three taps, resolve their outcomes
@@ -33,10 +37,14 @@ diagnose, or contain drug content):
 > each answer's verification date and warns you before you rely on one that has
 > gone out of date.
 >
-> Everything stays on your device. Hippocrates has no account, no server, and
-> no network connection of any kind. It stores no patient identifiers and
-> performs no clinical calculations. Your records are yours: export a complete
-> backup whenever you want.
+> RXcalc performs only named, source-identified formulas from values you enter.
+> It shows the formula version, units, limitations, and review status; it does not
+> choose an input or dose, interpret a result, diagnose, or recommend care.
+>
+> Everything stays on your device. Hippocrates has no account, no server, and no
+> network connection of any kind. It stores no patient identifiers. Your durable
+> records are yours: export a complete backup whenever you want. RXcalc inputs and
+> results are not retained.
 >
 > Hippocrates is free, with no ads and no in-app purchases.
 >
@@ -51,26 +59,27 @@ formulary, preceptor, residency, offline`
 
 ## Privacy label — the differentiator
 
-Answer the App Store Connect privacy questionnaire as **Data Not Collected**.
-This is truthful and provable from source: the app has no networking code (the
-boundary scanner enforces this), and `PrivacyInfo.xcprivacy` declares no
-tracking and no collected data types. Do not add any SDK or analytics that
-would make this answer false.
+Publish **Data Not Collected** only after the owner verifies the exact release
+build and answers the then-current App Store Connect questionnaire. The repository
+is designed to support that answer: it has no networking code, the boundary
+scanner enforces the source contract, and `PrivacyInfo.xcprivacy` declares no
+tracking and no collected data types. Do not add an SDK, analytics, or any other
+behavior that makes the answer false.
 
 ## Category and age
 
-- Primary category: **Medical** (or **Productivity** if a lighter regulatory
-  posture is preferred; Medical is the honest fit).
-- Age rating: complete the questionnaire truthfully; the app has no objectionable
-  content, no user-generated content sharing, and no web access.
+- Primary category: **Medical**, subject to the completed P-009 assessment and
+  then-current App Store requirements. Category selection never substitutes for
+  regulatory/claims review.
+- Age rating: complete the then-current questionnaire truthfully for the exact
+  release build.
 
 ## Support and marketing URLs
 
-A free static page satisfies the required support URL — a GitHub Pages site or
-the repository README is sufficient at no cost. No privacy-policy URL is
-strictly required when the label is Data Not Collected, but a one-paragraph
-"this app collects nothing and never connects to a network" page is good
-practice.
+Provide a stable support URL and a plain-language privacy page before submission.
+Verify the then-current App Store URL and privacy-policy requirements for the
+exact category, age rating, claims, and release build; do not assume the **Data
+Not Collected** answer removes either obligation.
 
 ## Pricing
 
@@ -78,11 +87,11 @@ Free. No in-app purchases. No subscriptions.
 
 ## Screenshots
 
-Required per device size. Capture on a real device or simulator, in airplane
-mode, showing: first-run responsibility notice, three-tap capture, the recent
-ledger with an outcome flip, the summary with the acceptance rate, and the DI
-vault with a freshness badge. Use only fictional, non-identifying category
-names.
+Required per device size. Capture on a real device or simulator in airplane mode,
+showing: first-run responsibility notice; three-tap capture; recent-ledger outcome
+resolution; summary; DI freshness; the RXcalc catalog; and an RXcalc result with
+its draft/review badge, formula identifier, units, and adjacent limitation all
+visible. Use only fictional, non-identifying values and category names.
 
 ## Remaining owner-only actions
 
@@ -94,5 +103,7 @@ These are external gates; none is performed by this repository.
   project).
 - Marketing version 1.0 / build number (project sets `MARKETING_VERSION = 1.0`).
 - On-device acceptance run ([`docs/acceptance-scripts.md`](acceptance-scripts.md)).
+- Immutable P-008 clinical approval for the exact RXcalc evidence bundle and
+  P-009 regulatory/claims determination.
 - TestFlight upload, then App Store submission.
 - Publish the **Data Not Collected** privacy label.
