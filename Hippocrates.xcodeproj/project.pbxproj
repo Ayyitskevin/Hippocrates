@@ -62,6 +62,7 @@
 		100000000000000000000035 /* RXCalculations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000038 /* RXCalculations.swift */; };
 		100000000000000000000036 /* RXCalcView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000039 /* RXCalcView.swift */; };
 		100000000000000000000037 /* RXCalcTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000003A /* RXCalcTests.swift */; };
+		100000000000000000000038 /* RXClinicalReviewRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000003B /* RXClinicalReviewRegistry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -133,6 +134,7 @@
 		200000000000000000000038 /* RXCalculations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalculations.swift; sourceTree = "<group>"; };
 		200000000000000000000039 /* RXCalcView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcView.swift; sourceTree = "<group>"; };
 		20000000000000000000003A /* RXCalcTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcTests.swift; sourceTree = "<group>"; };
+		20000000000000000000003B /* RXClinicalReviewRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXClinicalReviewRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -263,6 +265,7 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000037 /* RXCalculatorCatalog.swift */,
+				20000000000000000000003B /* RXClinicalReviewRegistry.swift */,
 				200000000000000000000038 /* RXCalculations.swift */,
 				200000000000000000000039 /* RXCalcView.swift */,
 			);
@@ -504,6 +507,7 @@
 				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalcView.swift",
 				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculations.swift",
 				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift",
+				"$(SRCROOT)/Hippocrates/Features/RXCalc/RXClinicalReviewRegistry.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings",
 				"$(SRCROOT)/Hippocrates/Features/Settings/BackupSettingsView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
@@ -575,6 +579,7 @@
 				100000000000000000000001 /* HippocratesApp.swift in Sources */,
 				100000000000000000000002 /* RootView.swift in Sources */,
 				100000000000000000000034 /* RXCalculatorCatalog.swift in Sources */,
+				100000000000000000000038 /* RXClinicalReviewRegistry.swift in Sources */,
 				100000000000000000000035 /* RXCalculations.swift in Sources */,
 				100000000000000000000036 /* RXCalcView.swift in Sources */,
 				100000000000000000000003 /* DomainEnums.swift in Sources */,

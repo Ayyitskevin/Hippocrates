@@ -10,22 +10,43 @@ struct RXCalcView: View {
         }
     }
 
+    private var visibleCategories: [RXCalculatorCategory] {
+        Dictionary(grouping: visibleCalculators) { calculator in
+            calculator.descriptor.category
+        }
+        .map { category, calculators in
+            RXCalculatorCategory(
+                name: category,
+                calculators: calculators.sorted { lhs, rhs in
+                    lhs.descriptor.shortTitle.localizedStandardCompare(
+                        rhs.descriptor.shortTitle
+                    ) == .orderedAscending
+                }
+            )
+        }
+        .sorted { lhs, rhs in
+            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private var catalogReviewStatus: RXClinicalReviewStatus {
+        .draft
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(
-                            "Draft clinical content",
+                            catalogReviewStatus.catalogTitle,
                             systemImage: "exclamationmark.triangle.fill"
                         )
                         .font(.headline)
                         .foregroundStyle(.orange)
 
-                        Text(
-                            "This development build has not passed independent clinical review. Do not use RXcalc for patient care. It performs source-identified arithmetic only."
-                        )
-                        .font(.subheadline)
+                        Text(catalogReviewStatus.catalogMessage)
+                            .font(.subheadline)
 
                         Text(
                             "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers."
@@ -36,26 +57,43 @@ struct RXCalcView: View {
                     .padding(.vertical, 4)
                 }
 
-                Section("Calculators") {
-                    if visibleCalculators.isEmpty {
+                if visibleCategories.isEmpty {
+                    Section("Calculators") {
                         Text("No calculators match this search.")
                             .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(visibleCalculators) { calculator in
-                            NavigationLink(value: calculator) {
-                                RXCalculatorRow(calculator: calculator)
+                    }
+                } else {
+                    ForEach(visibleCategories) { category in
+                        Section(category.name) {
+                            ForEach(category.calculators) { calculator in
+                                NavigationLink(value: calculator) {
+                                    RXCalculatorRow(calculator: calculator)
+                                }
+                                .accessibilityIdentifier(
+                                    "rxcalc.catalog." + calculator.rawValue
+                                )
                             }
                         }
                     }
                 }
             }
             .navigationTitle("RXcalc")
-            .searchable(text: $searchText, prompt: "Search formulas or categories")
+            .searchable(
+                text: $searchText,
+                prompt: "Search formulas, evidence, or categories"
+            )
             .navigationDestination(for: RXCalculatorKind.self) { calculator in
                 RXCalculatorDetailView(calculator: calculator)
             }
         }
     }
+}
+
+private struct RXCalculatorCategory: Identifiable {
+    let name: String
+    let calculators: [RXCalculatorKind]
+
+    var id: String { name }
 }
 
 private struct RXCalculatorRow: View {
@@ -70,12 +108,15 @@ private struct RXCalculatorRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
-            Text(descriptor.category)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tint)
-            Label(descriptor.reviewStatus.title, systemImage: "exclamationmark.shield.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
+            Label(
+                descriptor.reviewStatus.title,
+                systemImage: "exclamationmark.shield.fill"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.orange)
+            .accessibilityIdentifier(
+                "rxcalc.catalog." + calculator.rawValue + ".reviewStatus"
+            )
         }
         .padding(.vertical, 4)
     }
@@ -100,17 +141,27 @@ private struct RXCalculatorDetailView: View {
     }
 }
 
-private struct RXCalculatorContextSections: View {
+private struct RXCalculatorSafetyPrelude: View {
     let descriptor: RXCalculatorDescriptor
 
     var body: some View {
         Section("When to use") {
             Text(descriptor.summary)
             LabeledContent("Population", value: descriptor.intendedPopulation)
-            Label(descriptor.reviewStatus.title, systemImage: "exclamationmark.shield.fill")
-                .foregroundStyle(.orange)
+            Label(
+                descriptor.reviewStatus.title,
+                systemImage: "exclamationmark.shield.fill"
+            )
+            .foregroundStyle(.orange)
+            .accessibilityIdentifier("rxcalc.detail.reviewStatus")
         }
+    }
+}
 
+private struct RXCalculatorEvidenceSections: View {
+    let descriptor: RXCalculatorDescriptor
+
+    var body: some View {
         Section("Limitations") {
             ForEach(descriptor.limitations, id: \.self) { limitation in
                 Label(limitation, systemImage: "exclamationmark.circle")
@@ -119,6 +170,12 @@ private struct RXCalculatorContextSections: View {
         }
 
         Section("Equation and evidence") {
+            ForEach(descriptor.canonicalInputUnits, id: \.self) { unit in
+                LabeledContent("Canonical input", value: unit)
+            }
+            ForEach(descriptor.canonicalOutputUnits, id: \.self) { unit in
+                LabeledContent("Canonical output", value: unit)
+            }
             Text(descriptor.equation)
                 .font(.callout.monospaced())
                 .textSelection(.enabled)
@@ -129,15 +186,22 @@ private struct RXCalculatorContextSections: View {
                 LabeledContent("Formula version", value: source.formulaIdentifier)
                 LabeledContent("Citation", value: source.citation)
                 LabeledContent("Locator", value: source.sourceLocator)
-                LabeledContent("Source reviewed", value: source.sourceReviewedOn)
+                LabeledContent("Source metadata checked", value: source.sourceMetadataCheckedOn)
             }
         }
     }
 }
 
 private struct CreatinineClearanceView: View {
+    private enum FocusField: Hashable {
+        case age
+        case weight
+        case creatinine
+    }
+
     let calculator: RXCalculatorKind
 
+    @FocusState private var focusedField: FocusField?
     @State private var ageText = ""
     @State private var equationSex: RXEquationSex?
     @State private var weightText = ""
@@ -149,11 +213,14 @@ private struct CreatinineClearanceView: View {
 
     var body: some View {
         Form {
-            RXCalculatorContextSections(descriptor: calculator.descriptor)
+            RXCalculatorSafetyPrelude(descriptor: calculator.descriptor)
 
             Section("Inputs") {
                 TextField("Age in years", text: $ageText)
                     .keyboardType(.numberPad)
+                    .focused($focusedField, equals: .age)
+                    .accessibilityIdentifier("rxcalc.crcl.age")
+                    .accessibilityHint("Required whole-number age in years.")
 
                 Picker("Equation sex", selection: $equationSex) {
                     Text("Select").tag(RXEquationSex?.none)
@@ -161,33 +228,44 @@ private struct CreatinineClearanceView: View {
                         Text(sex.title).tag(Optional(sex))
                     }
                 }
+                .accessibilityIdentifier("rxcalc.crcl.equationSex")
 
                 TextField("Calculation weight", text: $weightText)
                     .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .weight)
+                    .accessibilityIdentifier("rxcalc.crcl.weight")
+                    .accessibilityHint("Required calculation weight in the selected unit.")
                 Picker("Weight unit", selection: $weightUnit) {
                     ForEach(RXMassUnit.allCases) { unit in
                         Text(unit.symbol).tag(unit)
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier("rxcalc.crcl.weightUnit")
 
                 TextField("Serum creatinine", text: $creatinineText)
                     .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .creatinine)
+                    .accessibilityIdentifier("rxcalc.crcl.creatinine")
+                    .accessibilityHint("Required serum creatinine in the selected unit.")
                 Picker("Creatinine unit", selection: $creatinineUnit) {
                     ForEach(RXCreatinineUnit.allCases) { unit in
                         Text(unit.symbol).tag(unit)
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier("rxcalc.crcl.creatinineUnit")
 
                 Button("Calculate") {
                     calculate()
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("rxcalc.crcl.calculate")
 
                 Button("Clear", role: .cancel) {
                     reset()
                 }
+                .accessibilityIdentifier("rxcalc.crcl.clear")
             }
 
             if let errorMessage {
@@ -205,6 +283,7 @@ private struct CreatinineClearanceView: View {
                         unit: "mL/min",
                         fractionDigits: 1
                     )
+                    .accessibilityIdentifier("rxcalc.crcl.result")
                     RXResultReviewNotice(descriptor: calculator.descriptor)
                     Text("This is an estimate, not a dose or CKD stage.")
                         .font(.subheadline)
@@ -231,8 +310,19 @@ private struct CreatinineClearanceView: View {
                     )
                 }
             }
+
+            RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
         }
         .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    focusedField = nil
+                }
+                .accessibilityIdentifier("rxcalc.crcl.keyboardDone")
+            }
+        }
         .onChange(of: ageText) { _, _ in invalidateResult() }
         .onChange(of: equationSex) { _, _ in invalidateResult() }
         .onChange(of: weightText) { _, _ in invalidateResult() }
@@ -248,6 +338,7 @@ private struct CreatinineClearanceView: View {
     }
 
     private func calculate() {
+        focusedField = nil
         guard
             let age = Int(ageText),
             let equationSex,
@@ -289,6 +380,7 @@ private struct CreatinineClearanceView: View {
     }
 
     private func reset() {
+        focusedField = nil
         ageText = ""
         equationSex = nil
         weightText = ""
@@ -300,8 +392,14 @@ private struct CreatinineClearanceView: View {
 }
 
 private struct CKDEPI2021CreatinineView: View {
+    private enum FocusField: Hashable {
+        case age
+        case creatinine
+    }
+
     let calculator: RXCalculatorKind
 
+    @FocusState private var focusedField: FocusField?
     @State private var ageText = ""
     @State private var equationSex: RXEquationSex?
     @State private var creatinineText = ""
@@ -311,11 +409,14 @@ private struct CKDEPI2021CreatinineView: View {
 
     var body: some View {
         Form {
-            RXCalculatorContextSections(descriptor: calculator.descriptor)
+            RXCalculatorSafetyPrelude(descriptor: calculator.descriptor)
 
             Section("Inputs") {
                 TextField("Age in years", text: $ageText)
                     .keyboardType(.numberPad)
+                    .focused($focusedField, equals: .age)
+                    .accessibilityIdentifier("rxcalc.ckdEPI2021.age")
+                    .accessibilityHint("Required whole-number age in years.")
 
                 Picker("Equation sex", selection: $equationSex) {
                     Text("Select").tag(RXEquationSex?.none)
@@ -323,24 +424,31 @@ private struct CKDEPI2021CreatinineView: View {
                         Text(sex.title).tag(Optional(sex))
                     }
                 }
+                .accessibilityIdentifier("rxcalc.ckdEPI2021.equationSex")
 
                 TextField("Standardized serum creatinine", text: $creatinineText)
                     .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .creatinine)
+                    .accessibilityIdentifier("rxcalc.ckdEPI2021.creatinine")
+                    .accessibilityHint("Required serum creatinine in the selected unit.")
                 Picker("Creatinine unit", selection: $creatinineUnit) {
                     ForEach(RXCreatinineUnit.allCases) { unit in
                         Text(unit.symbol).tag(unit)
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier("rxcalc.ckdEPI2021.creatinineUnit")
 
                 Button("Calculate") {
                     calculate()
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("rxcalc.ckdEPI2021.calculate")
 
                 Button("Clear", role: .cancel) {
                     reset()
                 }
+                .accessibilityIdentifier("rxcalc.ckdEPI2021.clear")
             }
 
             if let errorMessage {
@@ -358,6 +466,7 @@ private struct CKDEPI2021CreatinineView: View {
                         unit: "mL/min/1.73 m²",
                         fractionDigits: 0
                     )
+                    .accessibilityIdentifier("rxcalc.ckdEPI2021.result")
                     RXResultReviewNotice(descriptor: calculator.descriptor)
                     Text("RXcalc does not assign a CKD stage or derive an unindexed dosing value.")
                         .font(.subheadline)
@@ -378,8 +487,19 @@ private struct CKDEPI2021CreatinineView: View {
                     )
                 }
             }
+
+            RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
         }
         .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    focusedField = nil
+                }
+                .accessibilityIdentifier("rxcalc.ckdEPI2021.keyboardDone")
+            }
+        }
         .onChange(of: ageText) { _, _ in invalidateResult() }
         .onChange(of: equationSex) { _, _ in invalidateResult() }
         .onChange(of: creatinineText) { _, _ in invalidateResult() }
@@ -390,6 +510,7 @@ private struct CKDEPI2021CreatinineView: View {
     }
 
     private func calculate() {
+        focusedField = nil
         guard
             let age = Int(ageText),
             let equationSex,
@@ -425,6 +546,7 @@ private struct CKDEPI2021CreatinineView: View {
     }
 
     private func reset() {
+        focusedField = nil
         ageText = ""
         equationSex = nil
         creatinineText = ""
@@ -434,8 +556,15 @@ private struct CKDEPI2021CreatinineView: View {
 }
 
 private struct BodySizeView: View {
+    private enum FocusField: Hashable {
+        case age
+        case height
+        case weight
+    }
+
     let calculator: RXCalculatorKind
 
+    @FocusState private var focusedField: FocusField?
     @State private var ageText = ""
     @State private var heightText = ""
     @State private var heightUnit = RXLengthUnit.centimeters
@@ -446,38 +575,51 @@ private struct BodySizeView: View {
 
     var body: some View {
         Form {
-            RXCalculatorContextSections(descriptor: calculator.descriptor)
+            RXCalculatorSafetyPrelude(descriptor: calculator.descriptor)
 
             Section("Inputs") {
                 TextField("Age in years", text: $ageText)
                     .keyboardType(.numberPad)
+                    .focused($focusedField, equals: .age)
+                    .accessibilityIdentifier("rxcalc.bodySize.age")
+                    .accessibilityHint("Required whole-number age in years.")
 
                 TextField("Height", text: $heightText)
                     .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .height)
+                    .accessibilityIdentifier("rxcalc.bodySize.height")
+                    .accessibilityHint("Required height in the selected unit.")
                 Picker("Height unit", selection: $heightUnit) {
                     ForEach(RXLengthUnit.allCases) { unit in
                         Text(unit.symbol).tag(unit)
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier("rxcalc.bodySize.heightUnit")
 
                 TextField("Weight", text: $weightText)
                     .keyboardType(.decimalPad)
+                    .focused($focusedField, equals: .weight)
+                    .accessibilityIdentifier("rxcalc.bodySize.weight")
+                    .accessibilityHint("Required weight in the selected unit.")
                 Picker("Weight unit", selection: $weightUnit) {
                     ForEach(RXMassUnit.allCases) { unit in
                         Text(unit.symbol).tag(unit)
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier("rxcalc.bodySize.weightUnit")
 
                 Button("Calculate") {
                     calculate()
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("rxcalc.bodySize.calculate")
 
                 Button("Clear", role: .cancel) {
                     reset()
                 }
+                .accessibilityIdentifier("rxcalc.bodySize.clear")
             }
 
             if let errorMessage {
@@ -495,12 +637,14 @@ private struct BodySizeView: View {
                         unit: "kg/m²",
                         fractionDigits: 2
                     )
+                    .accessibilityIdentifier("rxcalc.bodySize.bmiResult")
                     RXResultValue(
                         label: "Mosteller BSA",
                         value: result.mostellerBodySurfaceAreaSquareMeters,
                         unit: "m²",
                         fractionDigits: 2
                     )
+                    .accessibilityIdentifier("rxcalc.bodySize.bsaResult")
                     RXResultReviewNotice(descriptor: calculator.descriptor)
                     Text("RXcalc does not classify BMI or calculate a medication dose.")
                         .font(.subheadline)
@@ -526,8 +670,19 @@ private struct BodySizeView: View {
                     )
                 }
             }
+
+            RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
         }
         .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    focusedField = nil
+                }
+                .accessibilityIdentifier("rxcalc.bodySize.keyboardDone")
+            }
+        }
         .onChange(of: ageText) { _, _ in invalidateResult() }
         .onChange(of: heightText) { _, _ in invalidateResult() }
         .onChange(of: heightUnit) { _, _ in
@@ -542,6 +697,7 @@ private struct BodySizeView: View {
     }
 
     private func calculate() {
+        focusedField = nil
         guard
             let age = Int(ageText),
             let height = RXDecimalInputParser.parse(
@@ -581,6 +737,7 @@ private struct BodySizeView: View {
     }
 
     private func reset() {
+        focusedField = nil
         ageText = ""
         heightText = ""
         heightUnit = .centimeters
@@ -595,15 +752,19 @@ private struct RXResultReviewNotice: View {
     let descriptor: RXCalculatorDescriptor
 
     var body: some View {
-        Label(descriptor.reviewStatus.title, systemImage: "exclamationmark.shield.fill")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.orange)
+        Label(
+            descriptor.reviewStatus.title,
+            systemImage: "exclamationmark.shield.fill"
+        )
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.orange)
+        .accessibilityIdentifier("rxcalc.result.reviewStatus")
         ForEach(descriptor.sources) { source in
             Text(source.formulaIdentifier)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
-        Text("Development output only. Independently verify the equation, inputs, units, and result before any clinical use.")
+        Text(descriptor.reviewStatus.resultMessage)
             .font(.subheadline)
             .foregroundStyle(.orange)
     }

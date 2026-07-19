@@ -40,6 +40,166 @@ jobs:
       - name: Validate project discovery
         run: xcodebuild -list -json -project Hippocrates.xcodeproj
 
+      - name: Verify RXcalc review bundle and packet JSON
+        run: |
+          Scripts/rxcalc-review-packet.sh --verify
+          for packet in docs/clinical-review/rxcalc-r1-v1/*.json; do
+            python3 -m json.tool "$packet" >/dev/null
+          done
+
+          python3 - <<'PY'
+          import json
+          schema = json.load(open("docs/clinical-review/rxcalc-r1-v1/packet-schema.json"))
+          formula_ids = [item["const"] for item in schema["properties"]["formula_ids"]["prefixItems"]]
+          expected_refs = {
+              "renal_clinical_reviewer": "#/$defs/renalCoverage",
+              "clinical_pharmacy_body_size_reviewer": "#/$defs/bodySizeCoverage",
+              "independent_computational_release_verifier": "#/$defs/allFormulaCoverage",
+          }
+          role_refs = {}
+          for rule in schema["allOf"]:
+              role = rule.get("if", {}).get("properties", {}).get("reviewer_role", {}).get("const")
+              if role:
+                  role_refs[role] = rule["then"]["properties"]["formula_coverage"]["$ref"]
+          assert role_refs == expected_refs
+          for role, reference in expected_refs.items():
+              definition = schema["$defs"][reference.rsplit("/", 1)[1]]
+              expected = formula_ids if "independent" in role else formula_ids[:2] if "renal" in role else formula_ids[2:]
+              assert [item["const"] for item in definition["prefixItems"]] == expected
+              assert definition["minItems"] == definition["maxItems"] == len(expected)
+              assert definition["items"] is False
+          required = set(schema["required"])
+          assert {"review_set_id", "external_evidence_manifest_sha256", "signature_payload"} <= required
+          assert schema["properties"]["signature_payload"]["const"] == "exact_reviewer_record_bytes"
+          methods = set(schema["properties"]["signature_method"]["enum"])
+          assert methods == {"openssh_sshsig_detached", "openpgp_detached", "cms_detached"}
+          print("RXcalc reviewer-record schema contract passed.")
+          PY
+      - name: Prove the RXcalc review bundle rejects planted drift
+        run: |
+          probe="$RUNNER_TEMP/HippocratesRXcalcReviewProbe"
+          log="$RUNNER_TEMP/HippocratesRXcalcReviewProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$probe"
+          echo "// planted review-bundle drift" >> "$probe/Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift"
+
+          set +e
+          "$probe/Scripts/rxcalc-review-packet.sh" --verify > "$log" 2>&1
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            sed -n '1,160p' "$log"
+            echo "error: planted RXcalc review-bundle drift did not fail verification"
+            exit 1
+          fi
+          if ! grep -Fq "RXcalc review bundle verification failed: tracked manifest does not match current files" "$log"; then
+            sed -n '1,160p' "$log"
+            echo "error: RXcalc review-bundle probe did not report the stable diagnostic"
+            exit 1
+          fi
+
+          closure_probe="$RUNNER_TEMP/HippocratesRXcalcClosureProbe"
+          closure_log="$RUNNER_TEMP/HippocratesRXcalcClosureProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$closure_probe"
+          ln -s "$RUNNER_TEMP/rxcalc-missing-target" \
+            "$closure_probe/Hippocrates/Features/RXCalc/.Dangling.swift"
+
+          set +e
+          "$closure_probe/Scripts/rxcalc-review-packet.sh" --verify > "$closure_log" 2>&1
+          closure_status=$?
+          set -e
+
+          if [ "$closure_status" -eq 0 ]; then
+            sed -n '1,160p' "$closure_log"
+            echo "error: dangling RXcalc source symlink did not fail verification"
+            exit 1
+          fi
+          if ! grep -Fq "RXcalc directory contains a non-regular file or symbolic link" "$closure_log"; then
+            sed -n '1,160p' "$closure_log"
+            echo "error: dangling RXcalc source probe did not report the stable diagnostic"
+            exit 1
+          fi
+
+          run_packet_probe() {
+            packet_probe=$1
+            packet_log=$2
+            expected=$3
+            label=$4
+            set +e
+            "$packet_probe/Scripts/rxcalc-review-packet.sh" --verify > "$packet_log" 2>&1
+            packet_status=$?
+            set -e
+            if [ "$packet_status" -eq 0 ]; then
+              sed -n '1,160p' "$packet_log"
+              echo "error: $label did not fail verification"
+              exit 1
+            fi
+            if ! grep -Fq "$expected" "$packet_log"; then
+              sed -n '1,160p' "$packet_log"
+              echo "error: $label did not report the stable diagnostic"
+              exit 1
+            fi
+          }
+
+          packet_probe="$RUNNER_TEMP/HippocratesRXcalcPacketClosureProbe"
+          packet_log="$RUNNER_TEMP/HippocratesRXcalcPacketClosureProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$packet_probe"
+          printf '{}\n' \
+            > "$packet_probe/docs/clinical-review/rxcalc-r1-v1/.planted-review.json"
+          run_packet_probe \
+            "$packet_probe" \
+            "$packet_log" \
+            "RXcalc review packet directory differs from the exact reviewed file set" \
+            "hidden RXcalc packet entry"
+
+          packet_probe="$RUNNER_TEMP/HippocratesRXcalcAllowlistEOFProbe"
+          packet_log="$RUNNER_TEMP/HippocratesRXcalcAllowlistEOFProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$packet_probe"
+          /usr/bin/perl -0pi -e 's/\n\z//' \
+            "$packet_probe/docs/clinical-review/rxcalc-r1-v1/bundle-files.txt"
+          run_packet_probe \
+            "$packet_probe" \
+            "$packet_log" \
+            "bundle allowlist must end with a line feed" \
+            "unterminated RXcalc bundle allowlist"
+
+          packet_probe="$RUNNER_TEMP/HippocratesRXcalcAllowlistTabProbe"
+          packet_log="$RUNNER_TEMP/HippocratesRXcalcAllowlistTabProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$packet_probe"
+          /usr/bin/perl -0pi -e 's/\t/\t\t/' \
+            "$packet_probe/docs/clinical-review/rxcalc-r1-v1/bundle-files.txt"
+          run_packet_probe \
+            "$packet_probe" \
+            "$packet_log" \
+            "must contain exactly class<TAB>path" \
+            "multi-TAB RXcalc bundle allowlist"
+
+          packet_probe="$RUNNER_TEMP/HippocratesRXcalcRequiredPacketProbe"
+          packet_log="$RUNNER_TEMP/HippocratesRXcalcRequiredPacketProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$packet_probe"
+          rm "$packet_probe/docs/clinical-review/rxcalc-r1-v1/reviewer-checklist.md"
+          /usr/bin/perl -ni -e 'print unless /reviewer-checklist\.md/' \
+            "$packet_probe/docs/clinical-review/rxcalc-r1-v1/bundle-files.txt"
+          run_packet_probe \
+            "$packet_probe" \
+            "$packet_log" \
+            "bundle allowlist is missing required packet path" \
+            "shrunken RXcalc review packet"
+
+          packet_probe="$RUNNER_TEMP/HippocratesRXcalcManifestRecursionProbe"
+          packet_log="$RUNNER_TEMP/HippocratesRXcalcManifestRecursionProbe.log"
+          cp -R "$GITHUB_WORKSPACE" "$packet_probe"
+          /usr/bin/perl -0pi -e 's#(immutable\tdocs/clinical-review/rxcalc-r1-v1/bundle-files\.txt\n)#$1immutable\tdocs/clinical-review/rxcalc-r1-v1/bundle.sha256\n# or die "bundle-files anchor not found\n"' \
+            "$packet_probe/docs/clinical-review/rxcalc-r1-v1/bundle-files.txt"
+          run_packet_probe \
+            "$packet_probe" \
+            "$packet_log" \
+            "bundle allowlist must exclude its recursive tracked manifest" \
+            "recursive RXcalc bundle manifest"
+
+          echo "The RXcalc review-bundle verifier rejected content drift, dangling sources," \
+            "hidden packet entries, malformed/shrunken allowlists, and manifest recursion."
+
       - name: Prove the direct scanner rejects planted boundary, backup-contract, and privacy-manifest violations
         run: |
           probe="$RUNNER_TEMP/HippocratesDirectBoundaryProbe"
@@ -61,6 +221,8 @@ jobs:
             >> "$probe/Hippocrates/App/RootView.swift"
           printf '\nprivate let plantedRXCalcPersistenceCoupling = UserDefaults.standard; private let plantedUnreviewedRXCalcDivision = 1 / 2\n' \
             >> "$probe/Hippocrates/Features/RXCalc/RXCalculations.swift"
+          printf '\nextension RXClinicalReviewStatus: Codable { static func reviewed(reviewedOn: String, nextReviewDueOn: String) -> Self { .draft } }\n' \
+            >> "$probe/Hippocrates/Features/RXCalc/RXClinicalReviewRegistry.swift"
           printf 'struct PlantedOrphanSource {}\n' \
             > "$probe/Hippocrates/App/PlantedOrphan.swift"
           printf 'unreviewed resource\n' \
@@ -110,6 +272,7 @@ jobs:
             "Dose-selection types require separately approved clinical governance" \
             "Dose-selection declarations require separately approved clinical governance" \
             "RXcalc must remain stateless and isolated from persisted app state" \
+            "RXcalc reviewed status has no production construction path" \
             "RXcalc arithmetic changed outside reviewed formula division seams" \
             "SchemaV1 persisted-property surface changed without backup-format review" \
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \
@@ -150,6 +313,8 @@ jobs:
             >> "$probe/Hippocrates/App/RootView.swift"
           printf '\nprivate let plantedRXCalcPersistenceCoupling = UserDefaults.standard; private let plantedUnreviewedRXCalcDivision = 1 / 2\n' \
             >> "$probe/Hippocrates/Features/RXCalc/RXCalculations.swift"
+          printf '\nextension RXClinicalReviewStatus: Codable { static func reviewed(reviewedOn: String, nextReviewDueOn: String) -> Self { .draft } }\n' \
+            >> "$probe/Hippocrates/Features/RXCalc/RXClinicalReviewRegistry.swift"
           printf '\nprivate let plantedRemoteTestLoader = try? Data(contentsOf: URL(string: "https://example.invalid/source")!)\n' \
             >> "$probe/HippocratesTests/SchemaContractTests.swift"
           /usr/bin/perl -0pi -e 's#(<key>NSPrivacyTracking</key>\s*)<false/>#$1<true/># or die "reviewed privacy-manifest tracking value not found\n"' \
@@ -201,6 +366,7 @@ jobs:
             "Dose-selection types require separately approved clinical governance" \
             "Dose-selection declarations require separately approved clinical governance" \
             "RXcalc must remain stateless and isolated from persisted app state" \
+            "RXcalc reviewed status has no production construction path" \
             "RXcalc arithmetic changed outside reviewed formula division seams" \
             "SchemaV1 persisted-property surface changed without backup-format review" \
             "BackupArchive DTOs must retain synthesized Codable and memberwise initialization" \

@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ayyitskevin/Hippocrates/docs/clinical-review/rxcalc-r1-v1/packet-schema.json",
+  "title": "RXcalc R1 independent review record",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "renalCoverage": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "cockcroft_gault_1976@1.0.0" },
+        { "const": "ckd_epi_creatinine_2021@1.0.0" }
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "items": false
+    },
+    "bodySizeCoverage": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "body_mass_index_cdc_metric@1.0.0" },
+        { "const": "body_size_mosteller_1987@1.0.0" }
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "items": false
+    },
+    "allFormulaCoverage": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "cockcroft_gault_1976@1.0.0" },
+        { "const": "ckd_epi_creatinine_2021@1.0.0" },
+        { "const": "body_mass_index_cdc_metric@1.0.0" },
+        { "const": "body_size_mosteller_1987@1.0.0" }
+      ],
+      "minItems": 4,
+      "maxItems": 4,
+      "items": false
+    }
+  },
+  "required": [
+    "packet_schema",
+    "packet_id",
+    "review_set_id",
+    "candidate_commit",
+    "root_manifest_sha256",
+    "external_evidence_manifest_sha256",
+    "formula_ids",
+    "reviewer_id",
+    "reviewer_role",
+    "credential_class",
+    "qualification_evidence_locator",
+    "independence_attestation",
+    "formula_coverage",
+    "review_completed_on",
+    "disposition",
+    "open_findings",
+    "cadence_months",
+    "next_review_due_on",
+    "event_triggered_review_conditions",
+    "signature_method",
+    "signature_payload",
+    "signing_key_fingerprint",
+    "detached_signature_locator"
+  ],
+  "properties": {
+    "packet_schema": { "const": "rxcalc-r1-review-record-v1" },
+    "packet_id": { "type": "string", "minLength": 1 },
+    "review_set_id": { "type": "string", "minLength": 1 },
+    "candidate_commit": {
+      "type": "string",
+      "oneOf": [
+        { "pattern": "^[0-9a-f]{40}$" },
+        { "pattern": "^[0-9a-f]{64}$" }
+      ],
+      "description": "Full lowercase Git object ID; tooling must require equality with the repository's complete resolved commit ID."
+    },
+    "root_manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "external_evidence_manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "formula_ids": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "cockcroft_gault_1976@1.0.0" },
+        { "const": "ckd_epi_creatinine_2021@1.0.0" },
+        { "const": "body_mass_index_cdc_metric@1.0.0" },
+        { "const": "body_size_mosteller_1987@1.0.0" }
+      ],
+      "minItems": 4,
+      "maxItems": 4,
+      "items": false
+    },
+    "reviewer_id": { "type": "string", "minLength": 1 },
+    "reviewer_role": {
+      "enum": [
+        "renal_clinical_reviewer",
+        "clinical_pharmacy_body_size_reviewer",
+        "independent_computational_release_verifier"
+      ]
+    },
+    "credential_class": { "type": "string", "minLength": 1 },
+    "qualification_evidence_locator": { "type": "string", "minLength": 1 },
+    "independence_attestation": { "type": "string", "minLength": 1 },
+    "formula_coverage": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "cockcroft_gault_1976@1.0.0",
+          "ckd_epi_creatinine_2021@1.0.0",
+          "body_mass_index_cdc_metric@1.0.0",
+          "body_size_mosteller_1987@1.0.0"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "review_completed_on": { "type": "string", "format": "date" },
+    "disposition": {
+      "enum": ["approved", "changes_required", "not_approved", "withdrawn"]
+    },
+    "open_findings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "cadence_months": { "type": "integer", "minimum": 1 },
+    "next_review_due_on": { "type": "string", "format": "date" },
+    "event_triggered_review_conditions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "signature_method": {
+      "enum": [
+        "openssh_sshsig_detached",
+        "openpgp_detached",
+        "cms_detached"
+      ]
+    },
+    "signature_payload": { "const": "exact_reviewer_record_bytes" },
+    "signing_key_fingerprint": {
+      "type": "string",
+      "pattern": "^(SHA256:[A-Za-z0-9+/]{43}|[0-9A-F]{40}|[0-9A-F]{64})$"
+    },
+    "detached_signature_locator": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "disposition": { "const": "approved" } },
+        "required": ["disposition"]
+      },
+      "then": {
+        "properties": { "open_findings": { "maxItems": 0 } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "reviewer_role": { "const": "renal_clinical_reviewer" } },
+        "required": ["reviewer_role"]
+      },
+      "then": {
+        "properties": { "formula_coverage": { "$ref": "#/$defs/renalCoverage" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "reviewer_role": { "const": "clinical_pharmacy_body_size_reviewer" } },
+        "required": ["reviewer_role"]
+      },
+      "then": {
+        "properties": { "formula_coverage": { "$ref": "#/$defs/bodySizeCoverage" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "reviewer_role": { "const": "independent_computational_release_verifier" } },
+        "required": ["reviewer_role"]
+      },
+      "then": {
+        "properties": { "formula_coverage": { "$ref": "#/$defs/allFormulaCoverage" } }
+      }
+    }
+  ]
+}

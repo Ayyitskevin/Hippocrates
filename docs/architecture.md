@@ -117,10 +117,15 @@ loudly; the app never silently deletes the store or falls back to memory.
 ## RXcalc calculation boundary
 
 RXcalc is a stateless feature branch beside the durable ledger, not a service on
-top of SwiftData. RXCalculatorCatalog.swift owns typed descriptors, stable
-formula identifiers, source review dates, limitations, and draft clinical-review
-status. RXCalculations.swift owns unit conversion, validation, and pure formulas;
-RXCalcView.swift owns transient text entry and display.
+top of SwiftData. `RXCalculatorCatalog.swift` owns typed descriptors, stable
+formula identifiers, source metadata-check dates, limitations, and structured
+canonical input/output units. `RXClinicalReviewRegistry.swift` owns the
+fail-closed, stateless Draft-only runtime value and exact per-calculator source
+coverage. Future reviewed-state wording lives only in the external candidate
+packet; shipping code has no alternate status value, production
+activation literal or metadata-injection path. `RXCalculations.swift` owns unit
+conversion, validation, and pure
+formulas; `RXCalcView.swift` owns transient text entry and display.
 
 The R1 catalog contains Cockcroft–Gault creatinine clearance, 2021 CKD-EPI
 creatinine eGFR, CDC metric adult BMI for age 20 or older, and Mosteller BSA.
@@ -135,11 +140,40 @@ normalized before parsing. Results retain full precision, round only for display
 repeat draft status and formula identifiers beside the output, and never emit a
 dose, CKD stage, BMI category, or treatment interpretation.
 
-All R1 content remains draft until P-008 binds independent clinical review to the
-exact Git commit, a digest of the reviewed source/evidence bundle, all four
-formula identifiers, reviewer roles, date, disposition, and review cadence. Any
-clinical-content or displayed-claim change returns the affected descriptor to
-draft. Device acceptance, P-009 regulatory/claims review, and explicit owner
+All R1 content remains Draft while P-008 is open. The app does not accept a
+commit identifier, digest, date, or caller-supplied review record as authority;
+every production call to the registry returns Draft. The exact-source helper
+requires each calculator's ordered formula identifiers to match its descriptor,
+but source completeness alone cannot grant reviewed status. Candidate wording
+for a future reviewed state lives only in the external packet so reviewers can
+assess it before any separately approved runtime representation or binding
+mechanism is designed.
+
+The tracked `bundle.sha256` manifest binds each clinical source, displayed
+claim, integration seam, test, scanner/CI control, and governance artifact in the
+candidate-review packet. Every listed path is immutable for that candidate. The
+verifier closes the review-packet directory to its exact allowlisted core plus
+the sole derived `bundle.sha256` exception, and closes RXcalc to its exact four
+regular files. Both closures include hidden entries and dangling symlinks. The
+verifier requires exactly one TAB per allowlist record and a terminal line feed;
+rejects unsafe paths, duplicate or unsorted entries, missing or untracked files,
+and unsupported Git modes; and generates a timestamp-free candidate manifest
+from raw Git blobs at one exact full Git object ID. CI plants bundled content
+drift, malformed allowlists, dangling sources, and extra packet entries and
+requires stable rejection diagnostics. Copyrighted source artifacts, reviewer
+qualifications, accepted keys, signature verification, cadence, dispositions,
+and signed records stay in controlled external evidence.
+
+This packet deliberately does not implement P-008 status activation. Completing,
+signing, or hashing it cannot make the app leave Draft. Any future reviewed-status
+implementation requires a separately accepted design that verifies the transition
+from exact reviewed candidate bytes into production, continuously binds later builds
+to the signed immutable candidate, handles expiry and withdrawal, and states
+honestly which checks occur in runtime versus CI/release tooling. Until that
+design and independent review exist, any bundle change creates a new Draft
+candidate rather than preserving an approval.
+
+Device acceptance, P-009 regulatory/claims review, and explicit owner
 distribution approval remain separate gates.
 
 ## Concurrency and SwiftData rules
@@ -464,9 +498,13 @@ a HIPAA compliance program. README language must preserve that distinction.
    heuristics. Source/project contract tests cover no free text in Intervention,
    no network surface, zero packages, schema/migration registration, and exact
    app/test source inventory.
-4. Pure RXcalc tests cover authoritative formula vectors, unit equivalence,
-   locale-decimal parsing, population/error bounds, numeric overflow, and
-   supported monotonicity properties. There is no RXcalc UI-test target yet.
+4. Pure RXcalc tests cover authoritative formula vectors, structured units,
+   normalized multi-token metadata/evidence search, fail-closed review-registry
+   validation, unit equivalence, locale-decimal parsing, population/error bounds,
+   numeric overflow, and supported monotonicity properties. The deterministic
+   review-bundle script and planted CI probes cover candidate drift, exact parser
+   and directory closure, and the permanent-Draft production seam. There is no
+   RXcalc UI-test target yet.
 5. Manual device acceptance covers one-handed timing, haptics, airplane mode,
    printable artifacts, clean-store restore, locale-aware decimal entry,
    input/result invalidation, unit-change input clearing, relaunch non-retention,

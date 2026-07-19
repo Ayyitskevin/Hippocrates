@@ -60,6 +60,7 @@ reviews an explicit answer.
 | I-009 | Citation titles and locators are single-line, at most 200 characters, and pass through the same de-identification gate as the four guarded DI fields, enforced by `DIQuestionService`; tags are scanned on the archive-import surface, and a tags editor ships only with the same constraints and gate |
 | I-010 | One exact-body-pinned `BackupImportAdapter` owns local-file ingress; it requires `isFileURL`, acquires security-scoped access, immediately captures `Data`, releases access, and exposes no remote/open/share path |
 | I-014 | RXcalc is a post-first-run tab beside the ledger; its catalog, inputs, and results remain transient, and scanner exceptions are limited to exact source identities and reviewed formula-division seams |
+| I-015 | RXcalc candidate review is fail-closed: the registry has no production activation path, every packet path is immutable, and CI proves bundled drift plus hidden dangling RXcalc sources fail before any human P-008 record exists |
 
 ## Pending product decisions — required before affected features
 
@@ -68,23 +69,28 @@ reviews an explicit answer.
 | P-008 | Independent qualified clinical reviewers | Are the exact four R1 formula versions, sources, units, rounding rules, limitations, test evidence, and displayed claims approved for the reviewed build and a stated review cadence? | Every descriptor remains `.draft`; no clinical/field use, TestFlight, App Store, or other distribution |
 | P-009 | Owner with qualified regulatory/claims review | What regulatory posture and exact user-facing claims are appropriate for a release that includes the approved RXcalc formulas? | Store copy is provisional and no distribution submission occurs |
 
-P-008 uses a two-phase, immutable transition rather than asking a commit to
-approve itself:
+P-008 currently supports candidate review, not status activation:
 
-1. Reviewers sign the exact **draft candidate commit**, a digest of the RXcalc
-   source/evidence bundle, the proposed approved-status copy, their roles, date,
-   disposition, and cadence for `cockcroft_gault_1976@1.0.0`,
-   `ckd_epi_creatinine_2021@1.0.0`, `body_mass_index_cdc_metric@1.0.0`, and
+1. Reviewers may finalize and detached-sign exact reviewer-record bytes that bind
+   the exact **Draft candidate commit**, deterministic RXcalc source/evidence
+   manifest digest, external evidence-manifest digest, packet-owned non-runtime
+   future reviewed-state wording, role, date, disposition, and cadence for
+   `cockcroft_gault_1976@1.0.0`,
+   `ckd_epi_creatinine_2021@1.0.0`,
+   `body_mass_index_cdc_metric@1.0.0`, and
    `body_size_mosteller_1987@1.0.0`.
-2. An activation commit may change only review-status/provenance metadata to the
-   pre-reviewed copy; it cannot alter a formula, source, unit conversion, rounding
-   policy, limitation, or other displayed clinical claim.
-3. An independent release verifier recomputes the signed digest, confirms that
-   status-only diff, and appends the exact activation commit hash to the P-008
-   record before any distribution.
+2. No registry edit, plausible digest, completed checklist, or external record can
+   activate the current app. Every production descriptor remains `.draft`.
+3. Before any reviewed-status transition can be implemented, a separate
+   owner-approved architecture must add executable reviewed-candidate-to-production
+   and continuing-build verification,
+   trusted signature evidence, review expiry and withdrawal behavior, and an
+   honest runtime-versus-CI trust boundary. That implementation is itself a new
+   immutable Draft candidate requiring review.
 
-Any other change or digest mismatch keeps/returns the affected descriptor to
-`.draft` and requires a new review. P-008 clinical approval does not answer P-009.
+Any bundle change invalidates the current manifest and creates a new Draft
+candidate. P-008 clinical review does not answer P-009, device acceptance, or
+distribution authorization.
 
 ### D0 closure record (2026-07-18)
 

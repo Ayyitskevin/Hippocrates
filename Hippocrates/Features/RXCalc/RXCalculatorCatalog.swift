@@ -1,21 +1,10 @@
 import Foundation
 
-enum RXClinicalReviewStatus: String, Equatable, Sendable {
-    case draft
-
-    var title: String {
-        switch self {
-        case .draft:
-            "Draft — independent clinical review required"
-        }
-    }
-}
-
 struct RXClinicalSource: Equatable, Identifiable, Sendable {
     let formulaIdentifier: String
     let citation: String
     let sourceLocator: String
-    let sourceReviewedOn: String
+    let sourceMetadataCheckedOn: String
 
     var id: String { formulaIdentifier }
 }
@@ -27,11 +16,20 @@ struct RXCalculatorDescriptor: Equatable, Sendable {
     let summary: String
     let intendedPopulation: String
     let equation: String
+    let canonicalInputUnits: [String]
+    let canonicalOutputUnits: [String]
     let roundingPolicy: String
     let limitations: [String]
     let sources: [RXClinicalSource]
-    let reviewStatus: RXClinicalReviewStatus
+    let reviewFormulaIdentifiers: [String]
     let searchTerms: [String]
+
+    var reviewStatus: RXClinicalReviewStatus {
+        RXClinicalReviewRegistry.status(
+            for: sources,
+            expectedFormulaIdentifiers: reviewFormulaIdentifiers
+        )
+    }
 }
 
 enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
@@ -51,6 +49,13 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
                 summary: "Estimates unindexed adult creatinine clearance from age, entered calculation weight, serum creatinine, and equation sex.",
                 intendedPopulation: "Adults age 18 or older with stable kidney function.",
                 equation: "eCrCl = ((140 − age) × weight × sex coefficient) / (72 × serum creatinine)",
+                canonicalInputUnits: [
+                    "Age: years",
+                    "Calculation weight: kg",
+                    "Serum creatinine: mg/dL",
+                    "Equation sex: female or male"
+                ],
+                canonicalOutputUnits: ["Estimated creatinine clearance: mL/min"],
                 roundingPolicy: "The calculation retains full precision. RXcalc displays one decimal place.",
                 limitations: [
                     "Use only when kidney function and serum creatinine are stable.",
@@ -64,10 +69,10 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
                         formulaIdentifier: "cockcroft_gault_1976@1.0.0",
                         citation: "Cockcroft DW, Gault MH. Nephron. 1976;16(1):31-41.",
                         sourceLocator: "PMID 1244564 · DOI 10.1159/000180580",
-                        sourceReviewedOn: "2026-07-19"
+                        sourceMetadataCheckedOn: "2026-07-19"
                     )
                 ],
-                reviewStatus: .draft,
+                reviewFormulaIdentifiers: ["cockcroft_gault_1976@1.0.0"],
                 searchTerms: [
                     "creatinine clearance", "cockcroft gault", "crcl", "renal", "kidney", "drug dosing"
                 ]
@@ -80,6 +85,12 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
                 summary: "Estimates race-free adult GFR from age, standardized serum creatinine, and equation sex.",
                 intendedPopulation: "Adults age 18 or older with standardized serum creatinine measurement.",
                 equation: "eGFR = 142 × min(SCr/κ, 1)^α × max(SCr/κ, 1)^−1.200 × 0.9938^age × 1.012 if female",
+                canonicalInputUnits: [
+                    "Age: years",
+                    "Serum creatinine: mg/dL",
+                    "Equation sex: female or male"
+                ],
+                canonicalOutputUnits: ["Indexed eGFR: mL/min/1.73 m²"],
                 roundingPolicy: "The calculation retains full precision. RXcalc displays the indexed result as a whole number, matching NKF implementation guidance.",
                 limitations: [
                     "This is the race-free 2021 creatinine-only equation and requires standardized serum creatinine.",
@@ -93,10 +104,10 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
                         formulaIdentifier: "ckd_epi_creatinine_2021@1.0.0",
                         citation: "Inker LA et al. N Engl J Med. 2021;385:1737-1749.",
                         sourceLocator: "PMID 34554658 · official NKF/NIDDK implementation guidance",
-                        sourceReviewedOn: "2026-07-19"
+                        sourceMetadataCheckedOn: "2026-07-19"
                     )
                 ],
-                reviewStatus: .draft,
+                reviewFormulaIdentifiers: ["ckd_epi_creatinine_2021@1.0.0"],
                 searchTerms: [
                     "egfr", "ckd epi", "glomerular filtration rate", "renal", "kidney", "race free"
                 ]
@@ -109,6 +120,15 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
                 summary: "Calculates adult BMI and Mosteller body surface area from one height and weight entry.",
                 intendedPopulation: "Adults age 20 or older. RXcalc does not classify BMI or derive a dose.",
                 equation: "BMI = weight kg / height m² · BSA = √(height cm × weight kg / 3600)",
+                canonicalInputUnits: [
+                    "Age: years",
+                    "Height: cm",
+                    "Weight: kg"
+                ],
+                canonicalOutputUnits: [
+                    "Body mass index: kg/m²",
+                    "Mosteller body surface area: m²"
+                ],
                 roundingPolicy: "The calculations retain full precision. RXcalc displays BMI and BSA to two decimal places.",
                 limitations: [
                     "BMI and BSA are estimates derived from height and weight; they do not measure body composition or organ function.",
@@ -120,16 +140,19 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
                         formulaIdentifier: "body_mass_index_cdc_metric@1.0.0",
                         citation: "Centers for Disease Control and Prevention. BMI Frequently Asked Questions. June 28, 2024.",
                         sourceLocator: "CDC BMI FAQ · How is BMI calculated?",
-                        sourceReviewedOn: "2026-07-19"
+                        sourceMetadataCheckedOn: "2026-07-19"
                     ),
                     RXClinicalSource(
                         formulaIdentifier: "body_size_mosteller_1987@1.0.0",
                         citation: "Mosteller RD. N Engl J Med. 1987;317:1098.",
                         sourceLocator: "PMID 3657876 · DOI 10.1056/NEJM198710223171717",
-                        sourceReviewedOn: "2026-07-19"
+                        sourceMetadataCheckedOn: "2026-07-19"
                     )
                 ],
-                reviewStatus: .draft,
+                reviewFormulaIdentifiers: [
+                    "body_mass_index_cdc_metric@1.0.0",
+                    "body_size_mosteller_1987@1.0.0"
+                ],
                 searchTerms: [
                     "body mass index", "bmi", "body surface area", "bsa", "mosteller", "height", "weight"
                 ]
@@ -138,13 +161,50 @@ enum RXCalculatorKind: String, CaseIterable, Hashable, Identifiable, Sendable {
     }
 
     func matches(searchText: String) -> Bool {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.isEmpty == false else { return true }
+        let queryTokens = Self.normalizedSearchTokens(in: searchText)
+        guard queryTokens.isEmpty == false else { return true }
+
         let descriptor = descriptor
-        return descriptor.title.localizedCaseInsensitiveContains(query)
-            || descriptor.category.localizedCaseInsensitiveContains(query)
-            || descriptor.searchTerms.contains {
-                $0.localizedCaseInsensitiveContains(query)
-            }
+        var searchableValues = [
+            descriptor.title,
+            descriptor.shortTitle,
+            descriptor.category,
+            descriptor.summary,
+            descriptor.intendedPopulation,
+            descriptor.equation,
+            descriptor.roundingPolicy
+        ]
+        searchableValues.append(contentsOf: descriptor.canonicalInputUnits)
+        searchableValues.append(contentsOf: descriptor.canonicalOutputUnits)
+        searchableValues.append(contentsOf: descriptor.limitations)
+        searchableValues.append(contentsOf: descriptor.searchTerms)
+        for source in descriptor.sources {
+            searchableValues.append(source.formulaIdentifier)
+            searchableValues.append(source.citation)
+            searchableValues.append(source.sourceLocator)
+        }
+
+        let searchableIndex = Self.normalizedSearchTokens(
+            in: searchableValues.joined(separator: " ")
+        ).joined(separator: " ")
+
+        return queryTokens.allSatisfy { token in
+            searchableIndex.contains(token)
+        }
+    }
+
+    private static func normalizedSearchTokens(in text: String) -> [String] {
+        let folded = text.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        let normalizedCharacters = folded.unicodeScalars.map { scalar in
+            CharacterSet.alphanumerics.contains(scalar)
+                ? Character(String(scalar))
+                : Character(" ")
+        }
+        return String(normalizedCharacters)
+            .split(whereSeparator: { $0.isWhitespace })
+            .map(String.init)
     }
 }

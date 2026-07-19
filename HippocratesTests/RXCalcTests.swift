@@ -3,13 +3,13 @@ import XCTest
 @testable import Hippocrates
 
 final class RXCalcTests: XCTestCase {
-    func testCatalogHasUniqueVersionedDraftSourcesAndSearchTerms() {
+    func testCatalogHasUniqueVersionedDraftSourcesAndStructuredUnits() {
         XCTAssertEqual(RXCalculatorKind.allCases.count, 3)
 
         let identifiers = RXCalculatorKind.allCases.flatMap {
             $0.descriptor.sources.map(\.formulaIdentifier)
         }
-        XCTAssertEqual(identifiers.count, 4)
+        XCTAssertEqual(identifiers, RXClinicalReviewRegistry.requiredFormulaIdentifiers)
         XCTAssertEqual(Set(identifiers).count, identifiers.count)
 
         for calculator in RXCalculatorKind.allCases {
@@ -17,20 +17,91 @@ final class RXCalcTests: XCTestCase {
             XCTAssertFalse(descriptor.title.isEmpty)
             XCTAssertFalse(descriptor.intendedPopulation.isEmpty)
             XCTAssertFalse(descriptor.equation.isEmpty)
+            XCTAssertFalse(descriptor.canonicalInputUnits.isEmpty)
+            XCTAssertFalse(descriptor.canonicalOutputUnits.isEmpty)
             XCTAssertFalse(descriptor.limitations.isEmpty)
             XCTAssertFalse(descriptor.sources.isEmpty)
+            XCTAssertEqual(
+                descriptor.sources.map(\.formulaIdentifier),
+                descriptor.reviewFormulaIdentifiers
+            )
             for source in descriptor.sources {
                 XCTAssertFalse(source.citation.isEmpty)
                 XCTAssertFalse(source.sourceLocator.isEmpty)
-                XCTAssertEqual(source.sourceReviewedOn, "2026-07-19")
+                XCTAssertEqual(source.sourceMetadataCheckedOn, "2026-07-19")
             }
             XCTAssertEqual(descriptor.reviewStatus, .draft)
         }
+    }
 
-        XCTAssertTrue(RXCalculatorKind.creatinineClearance.matches(searchText: "CrCl"))
-        XCTAssertTrue(RXCalculatorKind.ckdEPI2021.matches(searchText: "race free"))
-        XCTAssertTrue(RXCalculatorKind.bodySize.matches(searchText: "Mosteller"))
-        XCTAssertFalse(RXCalculatorKind.bodySize.matches(searchText: "QTc"))
+    func testCatalogSearchNormalizesTokensAcrossMetadataAndEvidence() {
+        func matches(_ query: String) -> [RXCalculatorKind] {
+            RXCalculatorKind.allCases.filter { $0.matches(searchText: query) }
+        }
+
+        XCTAssertEqual(matches("renal 2021"), [.ckdEPI2021])
+        XCTAssertEqual(matches("  ReNaL   2021  "), [.ckdEPI2021])
+        XCTAssertEqual(matches("cockcroft-gault"), [.creatinineClearance])
+        XCTAssertEqual(matches("cockcroft créatinine"), [.creatinineClearance])
+        XCTAssertEqual(matches("bmi bsa"), [.bodySize])
+        XCTAssertEqual(matches("standardized adult"), [.ckdEPI2021])
+        XCTAssertEqual(matches("140 coefficient"), [.creatinineClearance])
+        XCTAssertEqual(matches("muscle mass"), [.ckdEPI2021])
+        XCTAssertEqual(
+            matches("body_size_mosteller_1987 1.0.0"),
+            [.bodySize]
+        )
+        XCTAssertEqual(matches("Inker Engl"), [.ckdEPI2021])
+        XCTAssertEqual(matches("PMID 34554658"), [.ckdEPI2021])
+        XCTAssertEqual(matches("mL/min/1.73"), [.ckdEPI2021])
+        XCTAssertEqual(matches(""), RXCalculatorKind.allCases)
+        XCTAssertTrue(matches("QTc").isEmpty)
+        XCTAssertTrue(matches("renal mosteller").isEmpty)
+    }
+
+    func testClinicalReviewRegistryStaysDraftAndRequiresExactSourceCoverage() {
+        for calculator in RXCalculatorKind.allCases {
+            let descriptor = calculator.descriptor
+            XCTAssertTrue(
+                RXClinicalReviewRegistry.hasExactSourceCoverage(
+                    for: descriptor.sources,
+                    expectedFormulaIdentifiers: descriptor.reviewFormulaIdentifiers
+                )
+            )
+            XCTAssertEqual(descriptor.reviewStatus, .draft)
+        }
+
+        let bodyDescriptor = RXCalculatorKind.bodySize.descriptor
+        XCTAssertFalse(
+            RXClinicalReviewRegistry.hasExactSourceCoverage(
+                for: [bodyDescriptor.sources[0]],
+                expectedFormulaIdentifiers: bodyDescriptor.reviewFormulaIdentifiers
+            )
+        )
+        XCTAssertFalse(
+            RXClinicalReviewRegistry.hasExactSourceCoverage(
+                for: Array(bodyDescriptor.sources.reversed()),
+                expectedFormulaIdentifiers: bodyDescriptor.reviewFormulaIdentifiers
+            )
+        )
+        XCTAssertFalse(
+            RXClinicalReviewRegistry.hasExactSourceCoverage(
+                for: bodyDescriptor.sources,
+                expectedFormulaIdentifiers: [
+                    RXClinicalReviewRegistry.requiredFormulaIdentifiers[2],
+                    RXClinicalReviewRegistry.requiredFormulaIdentifiers[2]
+                ]
+            )
+        )
+    }
+
+    func testClinicalReviewStatusHasDraftOnlyRuntimeCopy() {
+        let draft = RXClinicalReviewStatus.draft
+
+        XCTAssertEqual(draft.title, "Draft — independent clinical review required")
+        XCTAssertEqual(draft.catalogTitle, "Draft clinical content")
+        XCTAssertTrue(draft.catalogMessage.contains("not passed independent clinical review"))
+        XCTAssertTrue(draft.resultMessage.contains("Development output only"))
     }
 
     func testDecimalParserAcceptsCurrentSeparatorAndRejectsAmbiguousInput() {
@@ -50,7 +121,7 @@ final class RXCalcTests: XCTestCase {
         XCTAssertNil(RXDecimalInputParser.parse("", decimalSeparator: "."))
     }
 
-    func testCockcroftGaultMatchesIndependentReferenceFixtures() throws {
+    func testCockcroftGaultMatchesEquationDerivedEngineeringFixtures() throws {
         let male = try CreatinineClearanceCalculator.calculate(
             CreatinineClearanceInput(
                 ageYears: 50,
@@ -176,7 +247,7 @@ final class RXCalcTests: XCTestCase {
         )
     }
 
-    func testBodySizeMatchesIndependentBMIAndMostellerFixtures() throws {
+    func testBodySizeMatchesEquationDerivedEngineeringFixtures() throws {
         let result = try BodySizeCalculator.calculate(
             BodySizeInput(
                 ageYears: 40,

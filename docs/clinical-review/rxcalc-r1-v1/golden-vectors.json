@@ -1,0 +1,148 @@
+{
+  "schema": "rxcalc-r1-golden-vectors-v1",
+  "status": "engineering_fixtures_independent_clinical_confirmation_pending",
+  "unit_conversions": [
+    {
+      "conversion": "pound_to_kilogram",
+      "input": 1,
+      "expected": 0.45359237,
+      "source_id": "nist_sp811_appendix_b8"
+    },
+    {
+      "conversion": "inch_to_centimeter",
+      "input": 1,
+      "expected": 2.54,
+      "source_id": "nist_sp811_appendix_b8"
+    },
+    {
+      "conversion": "creatinine_mg_dl_to_umol_l",
+      "input": 1,
+      "expected": 88.4,
+      "source_id": "niddk_ckd_epi_2021_equation"
+    }
+  ],
+  "vectors": [
+    {
+      "formula_id": "cockcroft_gault_1976@1.0.0",
+      "source_id": "cockcroft_gault_primary_1976",
+      "source_location": "Equation-derived engineering fixture; independent transcription review pending",
+      "canonical_inputs": {
+        "age_years": 50,
+        "equation_sex": "male",
+        "calculation_weight_kg": 70,
+        "serum_creatinine_mg_dl": 1
+      },
+      "raw_expected": 87.5,
+      "display_expected": "87.5 mL/min",
+      "tolerance": 0.0000001,
+      "test": "RXCalcTests.testCockcroftGaultMatchesEquationDerivedEngineeringFixtures"
+    },
+    {
+      "formula_id": "cockcroft_gault_1976@1.0.0",
+      "source_id": "cockcroft_gault_primary_1976",
+      "source_location": "Published female-coefficient branch; independent transcription review pending",
+      "canonical_inputs": {
+        "age_years": 50,
+        "equation_sex": "female",
+        "calculation_weight_kg": 70,
+        "serum_creatinine_mg_dl": 1
+      },
+      "raw_expected": 74.375,
+      "display_expected": "74.4 mL/min",
+      "tolerance": 0.0000001,
+      "test": "RXCalcTests.testCockcroftGaultMatchesEquationDerivedEngineeringFixtures"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 18, "equation_sex": "male", "serum_creatinine_mg_dl": 0.9 },
+      "display_expected": "127 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 18, "equation_sex": "male", "serum_creatinine_mg_dl": 0.91 },
+      "display_expected": "125 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 18, "equation_sex": "female", "serum_creatinine_mg_dl": 0.7 },
+      "display_expected": "128 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 18, "equation_sex": "female", "serum_creatinine_mg_dl": 0.71 },
+      "display_expected": "126 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 90, "equation_sex": "male", "serum_creatinine_mg_dl": 0.5 },
+      "display_expected": "97 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 90, "equation_sex": "male", "serum_creatinine_mg_dl": 1.5 },
+      "display_expected": "44 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 90, "equation_sex": "female", "serum_creatinine_mg_dl": 0.5 },
+      "display_expected": "89 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "ckd_epi_creatinine_2021@1.0.0",
+      "source_id": "nkf_ckd_epi_2021_test_vectors",
+      "source_location": "NKF implementation vector set",
+      "canonical_inputs": { "age_years": 90, "equation_sex": "female", "serum_creatinine_mg_dl": 1.5 },
+      "display_expected": "33 mL/min/1.73 m²",
+      "tolerance": "whole-number rounded",
+      "test": "RXCalcTests.testCKDEPI2021MatchesOfficialNKFImplementationVectors"
+    },
+    {
+      "formula_id": "body_mass_index_cdc_metric@1.0.0",
+      "source_id": "cdc_bmi_faq_2024",
+      "source_location": "Metric equation-derived engineering fixture; independent transcription review pending",
+      "canonical_inputs": { "age_years": 40, "height_cm": 170, "weight_kg": 70 },
+      "raw_expected": 24.221453287197235,
+      "display_expected": "24.22 kg/m²",
+      "tolerance": 0.0000001,
+      "test": "RXCalcTests.testBodySizeMatchesEquationDerivedEngineeringFixtures"
+    },
+    {
+      "formula_id": "body_size_mosteller_1987@1.0.0",
+      "source_id": "mosteller_primary_1987",
+      "source_location": "Equation-derived engineering fixture; authoritative formula artifact review pending",
+      "canonical_inputs": { "age_years": 40, "height_cm": 170, "weight_kg": 70 },
+      "raw_expected": 1.818118685772619,
+      "display_expected": "1.82 m²",
+      "tolerance": 0.0000001,
+      "test": "RXCalcTests.testBodySizeMatchesEquationDerivedEngineeringFixtures"
+    }
+  ]
+}

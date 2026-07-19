@@ -601,6 +601,7 @@ private enum ReviewedSourceIdentity: String {
     case diVaultView = "Hippocrates/Features/DIVault/DIVaultView.swift"
     case backupSettingsView = "Hippocrates/Features/Settings/BackupSettingsView.swift"
     case rxCalculatorCatalog = "Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift"
+    case rxClinicalReviewRegistry = "Hippocrates/Features/RXCalc/RXClinicalReviewRegistry.swift"
     case rxCalculations = "Hippocrates/Features/RXCalc/RXCalculations.swift"
     case rxCalcView = "Hippocrates/Features/RXCalc/RXCalcView.swift"
     case rxCalcTests = "HippocratesTests/RXCalcTests.swift"
@@ -668,6 +669,43 @@ private func rxCalcDivisionFindings(
     return []
 }
 
+private func rxCalcReviewStateFindings(
+    in source: String,
+    path: String,
+    identity: ReviewedSourceIdentity
+) -> [Finding] {
+    let message = "RXcalc reviewed status has no production construction path"
+    let structuralSource = sourceForStructure(source)
+    let failure = [Finding(path: path, line: 1, message: message)]
+
+    if identity == .rxClinicalReviewRegistry {
+        let draftOnlyStatusSeam = "struct RXClinicalReviewStatus: Equatable, Sendable {\n    static let draft = Self()\n\n    private init() {}"
+        guard structuralSource.components(separatedBy: draftOnlyStatusSeam).count == 2 else { return failure }
+        let draftStatusSeam = "    static func status(\n        for sources: [RXClinicalSource],\n        expectedFormulaIdentifiers: [String]\n    ) -> RXClinicalReviewStatus {\n        guard hasExactSourceCoverage(\n            for: sources,\n            expectedFormulaIdentifiers: expectedFormulaIdentifiers\n        ) else {\n            return .draft\n        }\n        return .draft\n    }"
+        guard structuralSource.components(separatedBy: draftStatusSeam).count == 2 else { return failure }
+    }
+
+    if identity == .rxCalculatorCatalog {
+        let catalogStatusSeam = "    var reviewStatus: RXClinicalReviewStatus {\n        RXClinicalReviewRegistry.status(\n            for: sources,\n            expectedFormulaIdentifiers: reviewFormulaIdentifiers\n        )\n    }"
+        guard structuralSource.components(separatedBy: catalogStatusSeam).count == 2 else { return failure }
+    }
+
+    if structuralSource.range(
+        of: #"\bextension\s+RXClinicalReviewStatus\b"#,
+        options: .regularExpression
+    ) != nil {
+        return failure
+    }
+
+    if structuralSource.range(
+        of: #"\breviewed\b"#,
+        options: .regularExpression
+    ) != nil {
+        return failure
+    }
+    return []
+}
+
 private func rxCalcArchitectureFindings(
     in source: String,
     path: String,
@@ -682,7 +720,7 @@ private func rxCalcArchitectureFindings(
 
     let isRXCalcSource: Bool
     switch identity {
-    case .rxCalculatorCatalog, .rxCalculations, .rxCalcView:
+    case .rxCalculatorCatalog, .rxClinicalReviewRegistry, .rxCalculations, .rxCalcView:
         isRXCalcSource = true
     default:
         isRXCalcSource = false
@@ -3893,6 +3931,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalcView.swift",
     "$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculations.swift",
     "$(SRCROOT)/Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift",
+    "$(SRCROOT)/Hippocrates/Features/RXCalc/RXClinicalReviewRegistry.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings",
     "$(SRCROOT)/Hippocrates/Features/Settings/BackupSettingsView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
@@ -5011,6 +5050,7 @@ private func repositoryFindings(
         let identity = reviewedSourceIdentity(for: file, repositoryRoot: repositoryRoot)
         results.append(contentsOf: try appSourceFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: rxCalcDivisionFindings(in: source, path: file.path, identity: identity))
+        results.append(contentsOf: rxCalcReviewStateFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try rxCalcArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
         results.append(contentsOf: try architectureSemanticFindings(in: source, path: file.path, identity: identity))
@@ -5423,6 +5463,7 @@ private func runSelfTests() throws {
         .backupArchive,
         .backupService,
         .rxCalculatorCatalog,
+        .rxClinicalReviewRegistry,
         .rxCalculations,
         .rxCalcView,
         .rxCalcTests,
@@ -5477,6 +5518,94 @@ private func runSelfTests() throws {
             identity: .rxCalculations
         ).count == 1,
         "An extra RXcalc division escaped review"
+    )
+    let canonicalReviewRegistry =
+        "struct RXClinicalReviewStatus: Equatable, Sendable {\n    static let draft = Self()\n\n    private init() {}\n}\n" +
+        "    static func status(\n        for sources: [RXClinicalSource],\n        expectedFormulaIdentifiers: [String]\n    ) -> RXClinicalReviewStatus {\n        guard hasExactSourceCoverage(\n            for: sources,\n            expectedFormulaIdentifiers: expectedFormulaIdentifiers\n        ) else {\n            return .draft\n        }\n        return .draft\n    }"
+    try check(
+        rxCalcReviewStateFindings(
+            in: canonicalReviewRegistry,
+            path: "canonical review registry",
+            identity: .rxClinicalReviewRegistry
+        ).isEmpty,
+        "The permanent-Draft RXcalc review registry seam was rejected"
+    )
+    try check(
+        rxCalcReviewStateFindings(
+            in: canonicalReviewRegistry.replacingOccurrences(
+                of: "struct RXClinicalReviewStatus: Equatable, Sendable {",
+                with: "struct RXClinicalReviewStatus: Equatable, Sendable, Codable {"
+            ),
+            path: "decodable review-status declaration",
+            identity: .rxClinicalReviewRegistry
+        ).count == 1,
+        "A review-status decoding conformance escaped the permanent-Draft boundary"
+    )
+    try check(
+        rxCalcReviewStateFindings(
+            in: canonicalReviewRegistry + "\nextension RXClinicalReviewStatus: Decodable {}",
+            path: "review-status conformance extension",
+            identity: .rxClinicalReviewRegistry
+        ).count == 1,
+        "A review-status conformance extension escaped the permanent-Draft boundary"
+    )
+    try check(
+        rxCalcReviewStateFindings(
+            in: "let status = RXClinicalReviewStatus.reviewed(reviewedOn: \"today\", nextReviewDueOn: \"later\")",
+            path: "direct reviewed-status construction",
+            identity: .other
+        ).count == 1,
+        "A direct reviewed-status construction escaped the permanent-Draft boundary"
+    )
+    try check(
+        rxCalcReviewStateFindings(
+            in: "let makeReviewed = RXClinicalReviewStatus.reviewed",
+            path: "aliased reviewed-status constructor",
+            identity: .other
+        ).count == 1,
+        "An aliased reviewed-status constructor escaped the permanent-Draft boundary"
+    )
+    try check(
+        rxCalcReviewStateFindings(
+            in: "extension RXClinicalReviewStatus { static let makeReviewed = reviewed }",
+            path: "unqualified reviewed-status constructor",
+            identity: .other
+        ).count == 1,
+        "An unqualified reviewed-status constructor escaped the permanent-Draft boundary"
+    )
+    let activatedReviewRegistry = canonicalReviewRegistry
+        .replacingOccurrences(
+            of: "        return .draft\n    }",
+            with: "        return .reviewed(reviewedOn: \"today\", nextReviewDueOn: \"later\")\n    }"
+        )
+    try check(
+        rxCalcReviewStateFindings(
+            in: activatedReviewRegistry,
+            path: "activated review registry",
+            identity: .rxClinicalReviewRegistry
+        ).count == 1,
+        "A reviewed-status production return escaped the permanent-Draft boundary"
+    )
+    let canonicalReviewCatalog =
+        "    var reviewStatus: RXClinicalReviewStatus {\n        RXClinicalReviewRegistry.status(\n            for: sources,\n            expectedFormulaIdentifiers: reviewFormulaIdentifiers\n        )\n    }"
+    try check(
+        rxCalcReviewStateFindings(
+            in: canonicalReviewCatalog,
+            path: "canonical review catalog",
+            identity: .rxCalculatorCatalog
+        ).isEmpty,
+        "The reviewed catalog-to-registry status topology was rejected"
+    )
+    try check(
+        rxCalcReviewStateFindings(
+            in: canonicalReviewCatalog.replacingOccurrences(
+                of: "RXClinicalReviewRegistry.status(",
+                with: "RXClinicalReviewStatus.draft"
+            ),
+            path: "diverted review catalog",
+            identity: .rxCalculatorCatalog
+        ).count == 1,
+        "A diverted catalog review-status topology escaped the permanent-Draft boundary"
     )
     try check(
         try findings(
@@ -7645,13 +7774,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 288 else {
+    guard completedChecks == 297 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 288, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 297, completed \(completedChecks)"
             ]
         )
     }

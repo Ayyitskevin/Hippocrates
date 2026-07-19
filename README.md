@@ -99,10 +99,16 @@ record types during decoding; `BackupService.validate(_:)` separately owns
 cross-record graph integrity and domain invariants.
 
 The ledger and DI v1 surfaces through backup/restore are implemented. RXcalc R1
-is the first draft stateless calculation slice. Exact-head engineering evidence,
-real-device acceptance, P-008 clinical review, a regulatory/claims determination,
-and owner-authorized distribution remain distinct gates; none is implied by the
-others.
+is the first draft stateless calculation slice. Its base engineering exit passed
+at exact commit `1381c6ed8faae824658066855c9635ab2fd917c6` in
+[hosted run 29694386275](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29694386275).
+R1.1 adds structured units, evidence-aware discovery, input ergonomics, and a
+deterministic unsigned clinical-review packet without changing formula
+arithmetic. The packet supports Draft candidate review only; it exposes no
+production status-activation path. Real-device acceptance, P-008 clinical review,
+a regulatory/claims determination, and owner-authorized distribution remain
+distinct gates; none is
+implied by engineering evidence.
 
 ## Build
 
@@ -159,10 +165,12 @@ range, a user-selected staleness interval, and the frozen DI vocabulary — and
 are recorded with deciding authority, date, and provenance in
 [`docs/decision-register.md`](docs/decision-register.md).
 
-P-007 records the owner-directed RXcalc pivot. P-008 remains open and keeps every
-formula visibly draft until an independent clinical review is bound to immutable
-source evidence. Device acceptance, a regulatory/claims determination, and every
-TestFlight or App Store action are separate owner/external gates.
+P-007 records the owner-directed RXcalc pivot. P-008 remains open. Every formula
+stays visibly Draft even if reviewers complete the immutable candidate record;
+reviewed status requires a separately accepted activation and continuing-binding
+design that this app does not implement. Device acceptance, a regulatory/claims
+determination, and every TestFlight or App Store action are separate
+owner/external gates.
 
 The active sequence and evidence ledger are [`docs/roadmap.md`](docs/roadmap.md)
 and [`docs/rxcalc-plan.md`](docs/rxcalc-plan.md). The dated

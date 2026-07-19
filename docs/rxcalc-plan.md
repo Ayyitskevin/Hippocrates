@@ -23,7 +23,7 @@ government source.
   requested.
 - Every calculator declares a stable identifier, formula version, intended
   population, canonical units, rounding policy, limitations, citations, source
-  review date, and clinical-review status.
+  metadata-check date, and clinical-review status.
 - Missing, non-finite, nonpositive, implausible-age, out-of-population,
   conversion-overflow, and output-overflow inputs fail visibly. Values are never
   guessed, rounded up, clamped, or silently substituted.
@@ -43,12 +43,18 @@ government source.
 
 ```text
 Hippocrates/Features/RXCalc/
-  RXCalculatorCatalog.swift  typed catalog and versioned source metadata
-  RXCalculations.swift       Foundation-only inputs, units, validation, formulas
-  RXCalcView.swift           SwiftUI catalog, forms, results, and limitations
+  RXCalculatorCatalog.swift       typed catalog, structured units, source metadata
+  RXClinicalReviewRegistry.swift stateless Draft-only status and source coverage
+  RXCalculations.swift            Foundation-only units, validation, formulas
+  RXCalcView.swift                SwiftUI catalog, forms, results, and limitations
 
 HippocratesTests/
-  RXCalcTests.swift          official vectors, unit parity, boundaries, properties
+  RXCalcTests.swift               vectors, unit parity, boundaries, review registry
+
+docs/clinical-review/rxcalc-r1-v1/
+  bundle-files.txt                exact immutable candidate path set
+  bundle.sha256                   CI-enforced worktree content manifest
+  reviewer-packet.md              unsigned P-008 evidence map and procedure
 ```
 
 `RXCalculations.swift` is pure and imports Foundation only. It has no SwiftUI,
@@ -98,7 +104,7 @@ reinterpreting it. Displayed results are invalidated whenever any input changes
 and require an explicit Calculate action.
 
 Exit evidence: exact source/version metadata; National Kidney Foundation CKD-EPI
-golden vectors; independent Cockcroft–Gault, CDC BMI, and Mosteller fixtures;
+golden vectors; equation-derived Cockcroft–Gault, CDC BMI, and Mosteller engineering fixtures;
 conventional and SI unit parity; locale-decimal parsing; invalid, implausible-age,
 non-finite, and numeric-overflow tests; monotonicity checks where supported;
 288 scanner checks; Release build, analyzer, and iOS simulator tests green.
@@ -106,6 +112,31 @@ non-finite, and numeric-overflow tests; monotonicity checks where supported;
 R1 remains draft after the engineering exit. Immutable P-008 clinical review,
 real-device acceptance, P-009 regulatory/claims review, and owner-authorized
 distribution are separate gates.
+
+### R1.1 — discovery, input ergonomics, and review readiness
+
+Harden the authorized R1 workflow without changing any formula, source,
+population, limitation, rounding policy, interpretation, or product claim:
+
+- normalize punctuation, case, diacritics, and whitespace, then require every
+  search token to match across titles, categories, populations, equations,
+  structured units, limitations, formula IDs, citations, and source locators;
+- group the catalog by category;
+- keep Draft, summary, and population before inputs while moving long-form
+  limitations and evidence below the working area;
+- add keyboard dismissal and stable accessibility identifiers to required
+  controls and results; and
+- add a fail-closed registry with no production activation path plus a
+  deterministic P-008 candidate-review packet whose every path is immutable.
+
+The packet stores no reviewer identity or copyrighted source artifact. CI
+recomputes `bundle.sha256`, validates the reviewer-schema contract, and plants
+candidate drift, a hidden dangling RXcalc source, a hidden packet entry,
+malformed/shrunken allowlists, and manifest self-reference. Direct and sandboxed
+scanner probes also prove production reviewed-status construction is rejected.
+Clinical reviewers later generate a timestamp-free manifest from raw Git blobs
+at one full candidate object ID. The packet cannot activate reviewed status;
+P-008 still requires a separately accepted, executable continuing-binding design.
 
 R2-R4 are unstarted backlog hypotheses outside the current v1 commitment. Each
 requires a fresh owner decision and its stated evidence before implementation.
@@ -144,6 +175,20 @@ requires a new explicit owner/doctrine decision before implementation planning,
 followed by current label/guideline provenance, effective-date tracking,
 specialty approval, change monitoring, retirement behavior, and regulatory
 review. R0-R4 grant no approval for this work.
+
+## Review-packet commands
+
+```sh
+Scripts/rxcalc-review-packet.sh --verify
+Scripts/rxcalc-review-packet.sh --commit <full-lowercase-object-id> --output /secure/path/candidate.tsv
+```
+
+`--verify` is the ordinary source-drift gate. `--commit` reads the exact
+allowlisted blobs from Git, rejects missing files, symlinks, unsupported modes,
+malformed/unsorted/duplicate allowlists, any extra RXcalc file, and any packet
+entry outside the mandatory allowlisted core plus the sole derived
+`bundle.sha256` exception, then emits a timestamp-free manifest. Embedding that
+digest in a signed reviewer record does not itself activate review status.
 
 ## Formula authorities for R1
 

@@ -32,8 +32,9 @@ clinical formula still requires its own source, version, tests, and approval.
 | F15 — configuration creation save-failure rollback | Verified | Implementation commit [`078afad`](https://github.com/Ayyitskevin/Hippocrates/commit/078afad5a89f644a9199328e29b4d5a89a3a8c0b) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 32 simulator tests in [hosted run 29524757883](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29524757883) |
 | F16 — canonical backup record ordering | Verified | Implementation commit [`d64f7bd`](https://github.com/Ayyitskevin/Hippocrates/commit/d64f7bde3359c6734d58c737ee6a2583751c7096) passed 257 scanner checks, both planted backup-contract probes, Release build, analyzer, and 33 simulator tests in [hosted run 29529607273](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29529607273) |
 | F17 — scanner-owned privacy-manifest semantics | Verified | Implementation commit [`ebf1f4e`](https://github.com/Ayyitskevin/Hippocrates/commit/ebf1f4e0484765f57a6497482ba3ee88210a5372) passed 270 scanner checks, both planted privacy-manifest probes, Release build, analyzer, and 33 simulator tests in [hosted run 29539042329](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29539042329) |
-| R0 — RXcalc product/boundary pivot | Locally verified; hosted evidence pending | Product and architecture contracts, exact source identities, 288 scanner checks, and planted direct/sandboxed probe definitions are implemented |
-| R1 — stateless RXcalc MVP | Implemented as draft; hosted and external gates pending | Searchable Cockcroft-Gault, 2021 CKD-EPI, adult BMI, and Mosteller BSA catalog with formula vectors, unit parity, input bounds, and visible draft limitations |
+| R0 — RXcalc product/boundary pivot | Verified | Product and architecture contracts, exact source identities, 288 scanner checks, direct/sandboxed probes, Release build, analyzer, and simulator tests passed at `1381c6e` in [hosted run 29694386275](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29694386275) |
+| R1 — stateless RXcalc MVP | Engineering verified as Draft; external gates pending | Cockcroft–Gault, 2021 CKD-EPI, adult BMI, and Mosteller BSA vectors, unit parity, bounds, and visible Draft limitations passed at `1381c6e` in [hosted run 29694386275](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29694386275); P-008/P-009, physical-device A8, and distribution remain open |
+| R1.1 — discovery and review readiness | Locally verified; exact-head hosted evidence pending | Structured units, normalized evidence-aware search, category grouping, input-first detail flow, keyboard dismissal, accessibility identifiers, fail-closed permanent-Draft registry, and deterministic unsigned P-008 candidate packet |
 | D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); I-005 is the remaining unrelated implementation decision |
 | M1 — configuration and taxonomy ownership | Verified | Taxonomy service, starter set, first-run gate, and editors passed the hosted Release build, analyzer, boundary probes, and simulator tests on the merged head in [run 29646317092](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646317092) |
 | M2 — five-second capture and resolution ledger | Implemented | Capture, frecency ranking, and the I-013 ledger passed the hosted pipeline on the merged head in [run 29646789732](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646789732); the real-device one-handed five-second acceptance run remains an open owner gate |
@@ -637,9 +638,10 @@ The canonical slice plan is [`rxcalc-plan.md`](rxcalc-plan.md).
 R1 engineering exit requires 288 portable scanner checks, planted direct and
 sandboxed RXcalc violations, an exact-head Xcode Release build and analyzer, and
 all simulator tests including official NKF vectors. Real-device acceptance,
-immutable P-008 clinical approval, P-009 regulatory/claims review, and explicit
-owner distribution authorization are separate gates. Until they close, every
-R1 descriptor and result remains visibly draft.
+immutable P-008 clinical approval plus an accepted continuing-binding design,
+P-009 regulatory/claims review, and explicit owner distribution authorization
+are separate gates. Until they close, every R1 descriptor and result remains
+visibly draft.
 
 ## V1 completion audit
 
