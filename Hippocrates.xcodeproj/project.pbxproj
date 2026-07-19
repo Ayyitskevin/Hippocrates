@@ -50,6 +50,11 @@
 		100000000000000000000029 /* FreshnessPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002C /* FreshnessPolicy.swift */; };
 		10000000000000000000002A /* FreshnessAndSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002D /* FreshnessAndSearchTests.swift */; };
 		10000000000000000000002B /* CompoundingLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* CompoundingLinkTests.swift */; };
+		10000000000000000000002C /* DIPortfolio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002F /* DIPortfolio.swift */; };
+		10000000000000000000002D /* BackupReminderPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000030 /* BackupReminderPolicy.swift */; };
+		10000000000000000000002E /* BackupExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000031 /* BackupExportService.swift */; };
+		10000000000000000000002F /* BackupSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000032 /* BackupSettingsView.swift */; };
+		100000000000000000000030 /* BackupAndPortfolioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000033 /* BackupAndPortfolioTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -109,6 +114,11 @@
 		20000000000000000000002C /* FreshnessPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshnessPolicy.swift; sourceTree = "<group>"; };
 		20000000000000000000002D /* FreshnessAndSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshnessAndSearchTests.swift; sourceTree = "<group>"; };
 		20000000000000000000002E /* CompoundingLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompoundingLinkTests.swift; sourceTree = "<group>"; };
+		20000000000000000000002F /* DIPortfolio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DIPortfolio.swift; sourceTree = "<group>"; };
+		200000000000000000000030 /* BackupReminderPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupReminderPolicy.swift; sourceTree = "<group>"; };
+		200000000000000000000031 /* BackupExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupExportService.swift; sourceTree = "<group>"; };
+		200000000000000000000032 /* BackupSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupSettingsView.swift; sourceTree = "<group>"; };
+		200000000000000000000033 /* BackupAndPortfolioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupAndPortfolioTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -214,6 +224,8 @@
 				200000000000000000000023 /* SummarySnapshotService.swift */,
 				200000000000000000000028 /* DIQuestionService.swift */,
 				20000000000000000000002C /* FreshnessPolicy.swift */,
+				200000000000000000000030 /* BackupReminderPolicy.swift */,
+				200000000000000000000031 /* BackupExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -258,6 +270,7 @@
 		300000000000000000000010 /* Export */ = {
 			isa = PBXGroup;
 			children = (
+				20000000000000000000002F /* DIPortfolio.swift */,
 				200000000000000000000022 /* InterventionCSV.swift */,
 				200000000000000000000021 /* SummaryEngine.swift */,
 			);
@@ -287,6 +300,7 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000018 /* TaxonomySettingsView.swift */,
+				200000000000000000000032 /* BackupSettingsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -304,6 +318,7 @@
 				20000000000000000000002B /* DIVaultServiceTests.swift */,
 				20000000000000000000002D /* FreshnessAndSearchTests.swift */,
 				20000000000000000000002E /* CompoundingLinkTests.swift */,
+				200000000000000000000033 /* BackupAndPortfolioTests.swift */,
 			);
 			path = HippocratesTests;
 			sourceTree = "<group>";
@@ -441,6 +456,7 @@
 				"$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
 				"$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
 				"$(SRCROOT)/Hippocrates/Export",
+				"$(SRCROOT)/Hippocrates/Export/DIPortfolio.swift",
 				"$(SRCROOT)/Hippocrates/Export/InterventionCSV.swift",
 				"$(SRCROOT)/Hippocrates/Export/SummaryEngine.swift",
 				"$(SRCROOT)/Hippocrates/Features",
@@ -455,6 +471,7 @@
 				"$(SRCROOT)/Hippocrates/Features/Onboarding",
 				"$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings",
+				"$(SRCROOT)/Hippocrates/Features/Settings/BackupSettingsView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
 				"$(SRCROOT)/Hippocrates/Features/Summary",
 				"$(SRCROOT)/Hippocrates/Features/Summary/SummaryView.swift",
@@ -470,6 +487,8 @@
 				"$(SRCROOT)/Hippocrates/Safety",
 				"$(SRCROOT)/Hippocrates/Safety/DeidentificationScanner.swift",
 				"$(SRCROOT)/Hippocrates/Services",
+				"$(SRCROOT)/Hippocrates/Services/BackupExportService.swift",
+				"$(SRCROOT)/Hippocrates/Services/BackupReminderPolicy.swift",
 				"$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
 				"$(SRCROOT)/Hippocrates/Services/DIQuestionService.swift",
 				"$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
@@ -480,6 +499,7 @@
 				"$(SRCROOT)/Hippocrates/Services/SummarySnapshotService.swift",
 				"$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
 				"$(SRCROOT)/HippocratesTests",
+				"$(SRCROOT)/HippocratesTests/BackupAndPortfolioTests.swift",
 				"$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
 				"$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
 				"$(SRCROOT)/HippocratesTests/CompoundingLinkTests.swift",
@@ -547,6 +567,10 @@
 				100000000000000000000026 /* DIVaultView.swift in Sources */,
 				100000000000000000000027 /* DIQuestionEditorView.swift in Sources */,
 				100000000000000000000029 /* FreshnessPolicy.swift in Sources */,
+				10000000000000000000002C /* DIPortfolio.swift in Sources */,
+				10000000000000000000002D /* BackupReminderPolicy.swift in Sources */,
+				10000000000000000000002E /* BackupExportService.swift in Sources */,
+				10000000000000000000002F /* BackupSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -564,6 +588,7 @@
 				100000000000000000000028 /* DIVaultServiceTests.swift in Sources */,
 				10000000000000000000002A /* FreshnessAndSearchTests.swift in Sources */,
 				10000000000000000000002B /* CompoundingLinkTests.swift in Sources */,
+				100000000000000000000030 /* BackupAndPortfolioTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

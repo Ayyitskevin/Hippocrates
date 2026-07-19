@@ -318,6 +318,17 @@ enum SchemaV1: VersionedSchema {
             try AppConfigService.validate(stalenessIntervalMonths: value)
             stalenessIntervalMonths = value
         }
+
+        /// I-011: records the one observable full-backup event, a successfully
+        /// generated archive handed to the share sheet. Summary and portfolio
+        /// exports never call this.
+        func updateLastExportAt(
+            _ value: Date?,
+            authority: AppConfigService.Authority
+        ) {
+            AppConfigService.requireAuthority(authority)
+            lastExportAt = value
+        }
     }
 }
 

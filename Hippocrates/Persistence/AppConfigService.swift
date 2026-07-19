@@ -103,6 +103,15 @@ enum AppConfigService {
         )
     }
 
+    /// I-011: called only by the full-backup flow when an archive has been
+    /// generated and handed to the share sheet.
+    static func setLastExportAt(
+        _ lastExportAt: Date?,
+        on configuration: AppConfig
+    ) {
+        configuration.updateLastExportAt(lastExportAt, authority: authority)
+    }
+
     nonisolated static func validate(stalenessIntervalMonths: Int?) throws {
         if let stalenessIntervalMonths, stalenessIntervalMonths <= 0 {
             throw AppConfigServiceError.invalidStalenessIntervalMonths(
