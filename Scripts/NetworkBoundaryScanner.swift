@@ -594,6 +594,8 @@ private enum ReviewedSourceIdentity: String {
     case interventionLedgerService = "Hippocrates/Services/InterventionLedgerService.swift"
     case diQuestionService = "Hippocrates/Services/DIQuestionService.swift"
     case summaryView = "Hippocrates/Features/Summary/SummaryView.swift"
+    case diVaultView = "Hippocrates/Features/DIVault/DIVaultView.swift"
+    case backupSettingsView = "Hippocrates/Features/Settings/BackupSettingsView.swift"
     case schemaContractTests = "HippocratesTests/SchemaContractTests.swift"
     case backupRoundTripTests = "HippocratesTests/BackupRoundTripTests.swift"
     case privacyManifestTests = "HippocratesTests/PrivacyManifestTests.swift"
@@ -727,13 +729,19 @@ private func appSourceFindings(
         )
     }
 
-    // Milestone 3: SummaryView owns the one reviewed ShareLink boundary. Its
-    // Transferable is backed by DataRepresentation over app-owned bytes, so
-    // no file URL exists and the system has no link preview to fetch.
-    // ShareLink anywhere else in shipping code remains closed.
+    // Milestones 3 and 7: the reviewed ShareLink boundaries. Each file's
+    // Transferable is backed by DataRepresentation over app-owned bytes
+    // (summary CSV, DI portfolio text, backup archive), so no file URL exists
+    // and the system has no link preview to fetch. ShareLink anywhere else in
+    // shipping code remains closed.
+    let shareLinkIdentities: [ReviewedSourceIdentity] = [
+        .summaryView,
+        .diVaultView,
+        .backupSettingsView,
+    ]
     results.append(
         contentsOf: try findings(in: reviewedSource, path: path) { ruleID, _ in
-            identity == .summaryView && ruleID == .shareLink
+            shareLinkIdentities.contains(identity) && ruleID == .shareLink
         }
     )
     return results
@@ -1215,12 +1223,15 @@ private func appConfigOwnershipFindings(
         ]
         let requiredInitializer = #"(?m)^[ \t]*init\s*\(\s*stalenessIntervalMonths\s*:\s*Int\?\s*,\s*lastExportAt\s*:\s*Date\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)"#
         let requiredMutator = #"(?m)^[ \t]*func\s+updateStalenessIntervalMonths\s*\(\s*_\s+value\s*:\s*Int\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s+throws\b"#
+        let requiredExportMutator = #"(?m)^[ \t]*func\s+updateLastExportAt\s*\(\s*_\s+value\s*:\s*Date\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)"#
         let exactInitializer = #"(?s)[ \t]*init\s*\(\s*stalenessIntervalMonths\s*:\s*Int\?\s*,\s*lastExportAt\s*:\s*Date\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s*\{\s*AppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)\s*precondition\s*\(\s*stalenessIntervalMonths\s*\.\s*map\s*\{\s*\$0\s*>\s*0\s*\}\s*\?\?\s*true\s*,\s*"The staleness interval must be positive when configured\."\s*\)\s*self\s*\.\s*singletonKey\s*=\s*"app"\s*self\s*\.\s*stalenessIntervalMonths\s*=\s*stalenessIntervalMonths\s*self\s*\.\s*lastExportAt\s*=\s*lastExportAt\s*\}"#
         let exactMutator = #"(?s)[ \t]*func\s+updateStalenessIntervalMonths\s*\(\s*_\s+value\s*:\s*Int\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s+throws\s*\{\s*AppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)\s*try\s+AppConfigService\s*\.\s*validate\s*\(\s*stalenessIntervalMonths\s*:\s*value\s*\)\s*stalenessIntervalMonths\s*=\s*value\s*\}"#
+        let exactExportMutator = #"(?s)[ \t]*func\s+updateLastExportAt\s*\(\s*_\s+value\s*:\s*Date\?\s*,\s*authority\s*:\s*AppConfigService\s*\.\s*Authority\s*\)\s*\{\s*AppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)\s*lastExportAt\s*=\s*value\s*\}"#
         let initializerSpan = try callableSpan(matching: requiredInitializer)
         let mutatorSpan = try callableSpan(matching: requiredMutator)
+        let exportMutatorSpan = try callableSpan(matching: requiredExportMutator)
         let callableBodiesAreExact: Bool
-        if let initializerSpan, let mutatorSpan {
+        if let initializerSpan, let mutatorSpan, let exportMutatorSpan {
             let initializerIsExact = try matchesEntire(
                 exactInitializer,
                 in: initializerSpan.literal
@@ -1229,10 +1240,19 @@ private func appConfigOwnershipFindings(
                 exactMutator,
                 in: mutatorSpan.literal
             )
+            let exportMutatorIsExact = try matchesEntire(
+                exactExportMutator,
+                in: exportMutatorSpan.literal
+            )
             callableBodiesAreExact = initializerIsExact
                 && mutatorIsExact
+                && exportMutatorIsExact
                 && immediateChildOpeningOffsets
-                    == [initializerSpan.openingOffset, mutatorSpan.openingOffset].sorted()
+                    == [
+                        initializerSpan.openingOffset,
+                        mutatorSpan.openingOffset,
+                        exportMutatorSpan.openingOffset,
+                    ].sorted()
         } else {
             callableBodiesAreExact = false
         }
@@ -1242,15 +1262,17 @@ private func appConfigOwnershipFindings(
         let propertySurfaceIsExact = try count(#"\b(?:var|let)\b"#, in: topLevelBody) == 3
             && hasRequiredProperties
         let callableSurfaceIsExact = try count(#"\binit\s*\("#, in: topLevelBody) == 1
-            && count(#"\bfunc\b"#, in: topLevelBody) == 1
+            && count(#"\bfunc\b"#, in: topLevelBody) == 2
             && count(#"\bsubscript\b"#, in: topLevelBody) == 0
             && count(#"\b(?:static|class)\s+(?:func|var|let|subscript)\b"#, in: topLevelBody) == 0
             && hasExactlyOnce(requiredInitializer, in: topLevelBody)
             && hasExactlyOnce(requiredMutator, in: topLevelBody)
+            && hasExactlyOnce(requiredExportMutator, in: topLevelBody)
             && callableBodiesAreExact
         let authorityTypeCount = try count(#"\bAuthority\b"#, in: body)
         let authorityValueCount = try count(#"\bauthority\b"#, in: body)
         let mutatorCount = try count(#"\bupdateStalenessIntervalMonths\b"#, in: body)
+        let exportMutatorCount = try count(#"\bupdateLastExportAt\b"#, in: body)
         let authorityCheckCount = try count(
             #"\bAppConfigService\s*\.\s*requireAuthority\s*\(\s*authority\s*\)"#,
             in: body
@@ -1261,7 +1283,7 @@ private func appConfigOwnershipFindings(
             in: body
         )
         let lastExportAssignmentCount = try count(
-            #"self\s*\.\s*lastExportAt\s*="#,
+            #"(?:self\s*\.\s*)?lastExportAt\s*="#,
             in: body
         )
         let singletonKeyAssignmentCount = try count(
@@ -1271,13 +1293,14 @@ private func appConfigOwnershipFindings(
         let extensionCount = try count(appConfigExtension)
         let modelBodyIsExact = propertySurfaceIsExact
             && callableSurfaceIsExact
-            && authorityTypeCount == 2
-            && authorityValueCount == 4
+            && authorityTypeCount == 3
+            && authorityValueCount == 6
             && mutatorCount == 1
-            && authorityCheckCount == 2
+            && exportMutatorCount == 1
+            && authorityCheckCount == 3
             && validationCount == 1
             && stalenessAssignmentCount == 2
-            && lastExportAssignmentCount == 1
+            && lastExportAssignmentCount == 2
             && singletonKeyAssignmentCount == 1
             && extensionCount == 0
         if modelBodyIsExact == false {
@@ -1300,17 +1323,19 @@ private func appConfigOwnershipFindings(
             #"nonisolated\s+static\s+func\s+requireAuthority\s*\(\s*_\s+candidate\s*:\s*Authority\s*\)\s*\{\s*precondition\s*\(\s*candidate\s*===\s*Authority\s*\.\s*canonical\s*,\s*\)\s*\}"#,
             #"AppConfig\s*\(\s*stalenessIntervalMonths\s*:\s*nil\s*,\s*lastExportAt\s*:\s*nil\s*,\s*authority\s*:\s*authority\s*\)"#,
             #"AppConfig\s*\(\s*stalenessIntervalMonths\s*:\s*stalenessIntervalMonths\s*,\s*lastExportAt\s*:\s*lastExportAt\s*,\s*authority\s*:\s*authority\s*\)"#,
-            #"configuration\s*\.\s*updateStalenessIntervalMonths\s*\(\s*stalenessIntervalMonths\s*,\s*authority\s*:\s*authority\s*\)"#
+            #"configuration\s*\.\s*updateStalenessIntervalMonths\s*\(\s*stalenessIntervalMonths\s*,\s*authority\s*:\s*authority\s*\)"#,
+            #"configuration\s*\.\s*updateLastExportAt\s*\(\s*lastExportAt\s*,\s*authority\s*:\s*authority\s*\)"#
         ]
         let hasRequiredServicePatterns = try requiredPatterns.allSatisfy {
             try hasExactlyOnce($0)
         }
         let serviceIsExact = try count(serviceDeclaration) == 1
             && count(#"\bAuthority\b"#) == 5
-            && count(#"\bauthority\b"#) == 7
+            && count(#"\bauthority\b"#) == 9
             && count(#"\brequireAuthority\b"#) == 1
             && count(#"\bAppConfig\s*(?:\.\s*init\s*)?\("#) == 2
             && count(#"\bupdateStalenessIntervalMonths\b"#) == 1
+            && count(#"\bupdateLastExportAt\b"#) == 1
             && count(#"\bcontext\s*\.\s*insert\s*\(\s*configuration\s*\)"#) == 2
             && hasRequiredServicePatterns
         if serviceIsExact == false {
@@ -1350,6 +1375,15 @@ private func appConfigOwnershipFindings(
                 path: path,
                 line: 1,
                 message: "AppConfig staleness mutation is owned exclusively by AppConfigService"
+            )
+        )
+    }
+    if try count(#"\bupdateLastExportAt\b"#) > 0 {
+        results.append(
+            Finding(
+                path: path,
+                line: 1,
+                message: "AppConfig export-timestamp mutation is owned exclusively by AppConfigService"
             )
         )
     }
@@ -3654,6 +3688,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Backup/BackupDocument.swift",
     "$(SRCROOT)/Hippocrates/Backup/BackupService.swift",
     "$(SRCROOT)/Hippocrates/Export",
+    "$(SRCROOT)/Hippocrates/Export/DIPortfolio.swift",
     "$(SRCROOT)/Hippocrates/Export/InterventionCSV.swift",
     "$(SRCROOT)/Hippocrates/Export/SummaryEngine.swift",
     "$(SRCROOT)/Hippocrates/Features",
@@ -3668,6 +3703,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Features/Onboarding",
     "$(SRCROOT)/Hippocrates/Features/Onboarding/FirstRunView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings",
+    "$(SRCROOT)/Hippocrates/Features/Settings/BackupSettingsView.swift",
     "$(SRCROOT)/Hippocrates/Features/Settings/TaxonomySettingsView.swift",
     "$(SRCROOT)/Hippocrates/Features/Summary",
     "$(SRCROOT)/Hippocrates/Features/Summary/SummaryView.swift",
@@ -3683,6 +3719,8 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Safety",
     "$(SRCROOT)/Hippocrates/Safety/DeidentificationScanner.swift",
     "$(SRCROOT)/Hippocrates/Services",
+    "$(SRCROOT)/Hippocrates/Services/BackupExportService.swift",
+    "$(SRCROOT)/Hippocrates/Services/BackupReminderPolicy.swift",
     "$(SRCROOT)/Hippocrates/Services/BootstrapPolicy.swift",
     "$(SRCROOT)/Hippocrates/Services/DIQuestionService.swift",
     "$(SRCROOT)/Hippocrates/Services/FrecencyRanking.swift",
@@ -3693,6 +3731,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/Hippocrates/Services/SummarySnapshotService.swift",
     "$(SRCROOT)/Hippocrates/Services/TaxonomyService.swift",
     "$(SRCROOT)/HippocratesTests",
+    "$(SRCROOT)/HippocratesTests/BackupAndPortfolioTests.swift",
     "$(SRCROOT)/HippocratesTests/BackupRoundTripTests.swift",
     "$(SRCROOT)/HippocratesTests/CaptureAndLedgerTests.swift",
     "$(SRCROOT)/HippocratesTests/CompoundingLinkTests.swift",
@@ -5253,6 +5292,14 @@ private func runSelfTests() throws {
             try AppConfigService.validate(stalenessIntervalMonths: value)
             stalenessIntervalMonths = value
         }
+
+        func updateLastExportAt(
+            _ value: Date?,
+            authority: AppConfigService.Authority
+        ) {
+            AppConfigService.requireAuthority(authority)
+            lastExportAt = value
+        }
     }
     """
     try check(
@@ -5352,6 +5399,11 @@ private func runSelfTests() throws {
             "mutator assignment",
             "        stalenessIntervalMonths = value",
             "        stalenessIntervalMonths = nil"
+        ),
+        (
+            "export mutator assignment",
+            "        lastExportAt = value",
+            "        lastExportAt = nil"
         ),
         (
             "initializer validation predicate",
@@ -5482,6 +5534,16 @@ private func runSelfTests() throws {
         ) throws {
             try configuration.updateStalenessIntervalMonths(
                 stalenessIntervalMonths,
+                authority: authority
+            )
+        }
+
+        static func stamp(
+            _ lastExportAt: Date?,
+            on configuration: AppConfig
+        ) {
+            configuration.updateLastExportAt(
+                lastExportAt,
                 authority: authority
             )
         }

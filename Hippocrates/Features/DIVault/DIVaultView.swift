@@ -1,3 +1,4 @@
+import CoreTransferable
 import SwiftData
 import SwiftUI
 
@@ -101,6 +102,7 @@ struct DIVaultView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var rows: [DIRowItem] = []
+    @State private var portfolioText = ""
     @State private var searchText = ""
     @State private var editingQuestionID: UUID?
     @State private var staleCandidate: DIRowItem?
@@ -137,8 +139,17 @@ struct DIVaultView: View {
         .navigationTitle("DI Vault")
         .searchable(text: $searchText, prompt: "Search questions and answers")
         .toolbar {
-            Button("Add") {
-                isCreatingNew = true
+            ToolbarItemGroup(placement: .primaryAction) {
+                ShareLink(
+                    item: PortfolioTransferable(text: portfolioText),
+                    preview: SharePreview("DI portfolio")
+                ) {
+                    Image(systemName: "square.and.arrow.up")
+                        .accessibilityLabel("Share DI portfolio")
+                }
+                Button("Add") {
+                    isCreatingNew = true
+                }
             }
         }
         .sheet(isPresented: $isCreatingNew, onDismiss: reload) {
@@ -240,8 +251,48 @@ struct DIVaultView: View {
                     verifiedOn: question.verifiedOn
                 )
             }
+            portfolioText = DIPortfolio.document(
+                questions: try DIQuestionService.allQuestions(in: modelContext).map { question in
+                    PortfolioQuestion(
+                        createdAt: question.createdAt,
+                        answeredAt: question.answeredAt,
+                        questionText: question.questionText,
+                        background: question.background,
+                        requestorLabel: DIDisplay.label(question.requestorRole),
+                        classLabel: DIDisplay.label(question.questionClass),
+                        urgencyLabel: DIDisplay.label(question.urgency),
+                        searchStrategy: question.searchStrategy,
+                        answerText: question.answerText,
+                        citations: question.citations
+                            .sorted { $0.accessedDate < $1.accessedDate }
+                            .map { citation in
+                                PortfolioCitation(
+                                    tierLabel: DIDisplay.label(citation.tier),
+                                    title: citation.title,
+                                    locator: citation.locator,
+                                    accessedDate: citation.accessedDate,
+                                    urlText: citation.urlString
+                                )
+                            },
+                        didFollowUp: question.didFollowUp,
+                        verifiedOn: question.verifiedOn,
+                        reviewAfter: question.reviewAfter
+                    )
+                }
+            )
         } catch {
             failureText = "The record list could not be loaded."
+        }
+    }
+}
+
+/// The portfolio leaves the app only as app-owned plain-text bytes.
+private struct PortfolioTransferable: Transferable {
+    let text: String
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .plainText) { transferable in
+            Data(transferable.text.utf8)
         }
     }
 }

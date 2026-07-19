@@ -20,6 +20,11 @@ struct TaxonomySettingsView: View {
                 NavigationLink("Service lines") {
                     ServiceLineEditorView()
                 }
+                Section("Data") {
+                    NavigationLink("Backup") {
+                        BackupSettingsView()
+                    }
+                }
             }
             .navigationTitle("Categories")
         }
