@@ -51,6 +51,9 @@ Hippocrates/Features/RXCalc/
 HippocratesTests/
   RXCalcTests.swift               vectors, unit parity, boundaries, review registry
 
+HippocratesUITests/
+  RXCalcCatalogAccessibilityTests.swift  compact catalog Dynamic Type/text-clipping evidence
+
 docs/clinical-review/rxcalc-r1-v1/
   activation-boundary.json        fail-closed no-activation contract
   bundle-files.txt                exact immutable candidate path set
@@ -144,6 +147,27 @@ Clinical reviewers later generate a timestamp-free manifest from raw Git blobs
 at one full candidate object ID. The packet cannot activate reviewed status;
 P-008 still requires a separately accepted, executable continuing-binding design.
 
+### R1.2 — compact catalog Dynamic Type regression evidence
+
+Add one dedicated, scanner-owned UI-test target without changing formula
+arithmetic, sources, populations, limitations, rounding, claims, persistence, or
+runtime status. The configured hosted flow:
+
+- creates a fresh iPhone SE (3rd generation), iOS 18.5 simulator, sets and reads
+  back Accessibility 5, and completes the real first-run flow;
+- navigates through either the direct RXcalc tab or compact More fallback;
+- asserts reachable search, exact Draft and non-retention warnings, both category
+  headings, and complete semantic title, summary, and Draft status for all three
+  rows;
+- runs Dynamic Type and clipped-text audits and keeps named screenshots; and
+- preserves the exact `.xcresult` for 14 days.
+
+The portable scanner passes 299 checks locally; exact-head hosted Xcode/UI
+execution remains pending. This catalog automation does not inspect search
+results, exercise detail forms, cover VoiceOver/keyboard behavior or physical
+hardware, or provide human visual judgment. It cannot close A8, P-008, or P-009,
+answer P-010, or authorize signing or distribution.
+
 R2-R4 are unstarted backlog hypotheses outside the current v1 commitment. Each
 requires a fresh owner decision and its stated evidence before implementation.
 
@@ -210,7 +234,9 @@ digest in a signed reviewer record does not itself activate review status.
 The broad RXcalc goal is not complete when R1 merely renders. Engineering
 completion requires the bounded catalog, authoritative fixtures, unit-safe pure
 implementations, adjacent limitations, scanner/probe enforcement, and exact-head
-hosted Release build, analyzer, and simulator evidence.
+hosted Release build, analyzer, and simulator evidence. R1.2 engineering
+verification specifically requires exact-head execution of the selected UI test
+and preserved result-bundle evidence; a local scanner pass is insufficient.
 
 Clinical or field eligibility additionally requires accessible one-handed device
 acceptance; immutable, version-specific P-008 clinical approval; P-009

@@ -59,7 +59,8 @@ for institutional policy.
 
 The pre-release foundation now contains:
 
-1. one iOS 18 Xcode project with an app target and test target;
+1. one iOS 18 Xcode project with an app target, unit-test target, and UI-test
+   target;
 2. `SchemaV1`, `HippocratesMigrationPlan`, and explicit local-only
    `ModelContainer` wiring from commit one;
 3. one main-actor `AppConfigService` whose file-private authority owns
@@ -78,10 +79,11 @@ The pre-release foundation now contains:
    including exact re-export, both DI inverses, and canonical configuration
    reconstruction, plus a forced save-boundary failure that clears pending work
    and leaves the reopened store empty;
-7. a fail-closed PBX/configuration/scheme parser plus 297 executable checks and
+7. a fail-closed PBX/configuration/scheme parser plus 299 executable checks and
    negative fixtures for source, resource, import, URL/file-loader, document
    ingress, symlink, physical identity, canonical-path collision, target
-   dependency, local store, model lifecycle, SwiftData backing data/value,
+   dependency, three-target source isolation, distinct test-target dependencies,
+   local store, model lifecycle, SwiftData backing data/value,
    persisted-schema/backup-shape drift, historical-decoder drift, RXcalc
    placement/persisted-state/arithmetic boundaries, calculation/equation and
    dose-selection naming heuristics, and exact privacy-manifest semantics; and
@@ -107,6 +109,16 @@ deterministic unsigned clinical-review packet without changing formula
 arithmetic. That engineering slice passed at exact commit
 [`3bdad14`](https://github.com/Ayyitskevin/Hippocrates/commit/3bdad1477ff830919e1735338d9219ac64246355)
 in [hosted run 29701925114](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29701925114).
+R1.2 adds a scanner-owned compact-catalog Dynamic Type regression without
+changing formulas, sources, claims, or runtime status. The portable boundary
+build-check passes 299 checks locally; exact-head hosted Xcode compilation and
+execution remain pending. The workflow is configured to run the catalog flow on
+an iPhone SE (3rd generation), iOS 18.5 simulator at Accessibility 5, retain
+screenshots in the `.xcresult`, and fail on Dynamic Type or text-clipping audit
+findings. This is supporting engineering evidence only: human visual, VoiceOver,
+detail-screen, and physical-device A8 remain open; P-008/P-009 remain open;
+R2-R4 remain unstarted pending P-010; signing and distribution remain
+unauthorized.
 The packet supports Draft candidate review only; it exposes no production
 status-activation path. Real-device acceptance, P-008 clinical review,
 a regulatory/claims determination, and owner-authorized distribution remain
@@ -136,9 +148,12 @@ privacy-manifest, and configuration violations,
 then proves the sandboxed Xcode phase rejects every declared-input class without
 traversing
 Xcode's generated `project.xcworkspace`, before running the Xcode 16.4 Release
-build, static analysis, and file-backed and in-memory tests on iOS 18.5. Local
-scanner self-tests are useful, but they are not substitutes for an exact-head
-hosted Apple-platform result.
+build, static analysis, and file-backed and in-memory tests on iOS 18.5. The
+normal test step skips UI tests; a dedicated fail-loud step is configured to set
+and read back Accessibility 5, run the exact RXcalc catalog UI method on a fresh
+iPhone SE (3rd generation), and retain its `.xcresult` for 14 days. Local scanner
+self-tests are useful, but they are not substitutes for an exact-head hosted
+Apple-platform result.
 
 ## Privacy manifest and App Store label
 

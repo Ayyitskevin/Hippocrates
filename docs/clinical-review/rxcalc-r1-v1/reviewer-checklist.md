@@ -9,6 +9,8 @@ this public repository.
 - Full lowercase candidate Git object ID: pending
 - Candidate root-manifest SHA-256: pending
 - Exact-head hosted CI run URL and head object ID: pending
+- RXcalc Accessibility 5 result-bundle artifact locator/digest: pending
+- Human screenshot-review record: pending
 - External evidence-manifest SHA-256: pending
 
 Generate the Git-object manifest from a detached checkout of the candidate:
@@ -29,6 +31,14 @@ Two consecutive generations must be byte-identical.
 - Independent computational/release verifier: all formulas, conversions,
   fixtures, display rounding, candidate identity, and evidence manifest.
 - P-009 regulatory/claims reviewer: separate record and decision.
+
+The independent computational/release verifier also inspects the exact-head
+R1.2 `.xcresult`: confirm the selected UI test ran on the iPhone SE (3rd
+generation), iOS 18.5 simulator at pipeline-verified Accessibility 5 and that its
+semantic assertions and Dynamic Type/text-clipping audits passed. Then separately
+inspect every kept screenshot for visual clipping or overlap and record the
+result. This supplemental evidence does not replace detail-screen, VoiceOver,
+keyboard, or physical-device A8.
 
 For every covered formula, inspect the lawful external source artifact and its
 digest, constants, branches, input/output units, population bounds, rounding,

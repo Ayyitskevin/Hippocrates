@@ -2,8 +2,9 @@
 
 ## System shape
 
-Hippocrates is one iOS application target and one unit-test target. Feature
-boundaries are directories inside the app target, not separate packages. This
+Hippocrates is one iOS application target, one unit-test target, and one UI-test
+target. Feature boundaries are directories inside the app target, not separate
+packages. This
 keeps Phase 1 at zero third-party and zero Swift Package dependencies while still
 making ownership clear.
 
@@ -23,6 +24,9 @@ Hippocrates/
     RXCalc/        stateless, source-versioned formulas and transient forms
   Export/          CSV, printable documents, and portfolio formatting
   Resources/       privacy manifest and app-owned assets
+HippocratesTests/  pure, persistence, integration, and architecture tests
+HippocratesUITests/
+  RXCalcCatalogAccessibilityTests.swift  compact catalog Dynamic Type evidence
 ```
 
 Directories are added only when their feature begins. A protocol or abstraction
@@ -407,22 +411,25 @@ receive specific diagnostics outside Xcode's non-recursive input sandbox. The
 sandboxed build phase revalidates every declared project, scheme, source, test,
 and resource control without traversing that generated workspace. The scanner's
 linear OpenStep-property parser rejects duplicate, missing, nested-string-spoofed,
-or malformed required properties. It then binds the exact app/test target
-identities and dependency, phase order, six Debug/Release build configurations
-with allowlisted values, and one exact shared-scheme XML execution tree.
+or malformed required properties. It then binds the exact app/unit-test/UI-test
+identities, distinct dependencies through which both test targets depend directly
+and only on the app, phase order, eight Debug/Release build configurations with
+allowlisted values, and one exact shared-scheme XML execution tree.
 Frameworks, packages, compiler injection, detached configurations, shadow user
 schemes, symbolic links anywhere beneath the Xcode project bundle, and altered
 action settings fail.
 The physical topology is also closed:
 
 - recursive regular Swift files beneath Hippocrates/ equal app-target Sources;
-- recursive regular Swift files beneath HippocratesTests/ equal test Sources;
-- neither target duplicates a build ID, lexical path, symlink-resolved path, or
+- recursive regular Swift files beneath HippocratesTests/ equal unit-test Sources;
+- recursive regular Swift files beneath HippocratesUITests/ equal UI-test Sources;
+- no target pair duplicates a build ID, lexical path, symlink-resolved path, or
   device/inode identity;
 - every source stays lexically and canonically beneath its reviewed root;
 - the project file and scanner script are regular files that resolve inside the
   repository;
-- PrivacyInfo.xcprivacy is the sole app resource while test resources stay empty;
+- PrivacyInfo.xcprivacy is the sole app resource while both test-resource
+  phases stay empty;
   a scanner-owned XML property-list contract permits exactly one declaration
   each for Boolean `false` tracking and an empty collected-data array, with no
   additional keys.
@@ -497,15 +504,22 @@ a HIPAA compliance program. README language must preserve that distinction.
    persisted-state isolation, and calculation/equation and dose-selection naming
    heuristics. Source/project contract tests cover no free text in Intervention,
    no network surface, zero packages, schema/migration registration, and exact
-   app/test source inventory.
+   app/unit/UI source inventory.
 4. Pure RXcalc tests cover authoritative formula vectors, structured units,
    normalized multi-token metadata/evidence search, fail-closed review-registry
    validation, unit equivalence, locale-decimal parsing, population/error bounds,
    numeric overflow, and supported monotonicity properties. The deterministic
    review-bundle script and planted CI probes cover candidate drift, exact parser
-   and directory closure, and the permanent-Draft production seam. There is no
-   RXcalc UI-test target yet.
-5. Manual device acceptance covers one-handed timing, haptics, airplane mode,
+   and directory closure, and the permanent-Draft production seam.
+5. A dedicated RXcalc UI-test target drives fresh onboarding and compact-tab
+   navigation on an iPhone SE (3rd generation) simulator at pipeline-set and
+   read-back Accessibility 5; asserts search reachability, complete Draft
+   warnings, category headings, and complete row semantics; runs Dynamic Type
+   and clipped-text audits; and keeps screenshots in the result bundle. It does
+   not cover search-result behavior, detail screens, VoiceOver order, keyboard
+   dismissal, physical-device interaction, or human visual judgment, so A8
+   remains open.
+6. Manual device acceptance covers one-handed timing, haptics, airplane mode,
    printable artifacts, clean-store restore, locale-aware decimal entry,
    input/result invalidation, unit-change input clearing, relaunch non-retention,
    and adjacent RXcalc review/limitation notices.

@@ -512,6 +512,10 @@ private let testAllowedImports: Set<String> = [
     "XCTest"
 ]
 
+private let uiTestAllowedImports: Set<String> = [
+    "XCTest"
+]
+
 private func lineNumber(in text: String, at utf16Location: Int) -> Int {
     guard let range = Range(NSRange(location: 0, length: utf16Location), in: text) else {
         return 1
@@ -3329,15 +3333,26 @@ private func buildConfigurationFindings(projectText: String, path: String) -> [F
                 && pbxRequiredScalar("productType", in: $0.value)
                     == "com.apple.product-type.bundle.unit-test"
         }
+        let uiTestTargets = try nativeTargets.filter {
+            try pbxRequiredScalar("name", in: $0.value) == "HippocratesUITests"
+                && pbxRequiredScalar("productType", in: $0.value)
+                    == "com.apple.product-type.bundle.ui-testing"
+        }
         guard
             projects.count == 1,
+            nativeTargets.count == 3,
             appTargets.count == 1,
             testTargets.count == 1,
+            uiTestTargets.count == 1,
             let projectObject = projects.first?.value,
             let appObject = appTargets.first?.value,
-            let testObject = testTargets.first?.value
+            let testObject = testTargets.first?.value,
+            let uiTestObject = uiTestTargets.first?.value
         else {
-            throw pbxParserError(60, "Build configurations cannot resolve the reviewed project and targets")
+            throw pbxParserError(
+                60,
+                "Build configurations cannot resolve the reviewed project, app, unit-test, and UI-test targets"
+            )
         }
 
         func keySet(_ text: String) -> Set<String> {
@@ -3495,6 +3510,23 @@ private func buildConfigurationFindings(projectText: String, path: String) -> [F
             TEST_HOST
             """
         )
+        let uiTestKeys = keySet(
+            """
+            CODE_SIGN_STYLE
+            CURRENT_PROJECT_VERSION
+            GENERATE_INFOPLIST_FILE
+            IPHONEOS_DEPLOYMENT_TARGET
+            MARKETING_VERSION
+            PRODUCT_BUNDLE_IDENTIFIER
+            PRODUCT_NAME
+            SUPPORTED_PLATFORMS
+            SWIFT_STRICT_CONCURRENCY
+            SWIFT_TREAT_WARNINGS_AS_ERRORS
+            SWIFT_VERSION
+            TARGETED_DEVICE_FAMILY
+            TEST_TARGET_NAME
+            """
+        )
 
         let projectCommonScalars = [
             "ALWAYS_SEARCH_USER_PATHS": "NO",
@@ -3538,6 +3570,21 @@ private func buildConfigurationFindings(projectText: String, path: String) -> [F
             "SWIFT_VERSION": "6.0",
             "TARGETED_DEVICE_FAMILY": "1",
             "TEST_HOST": "$(BUILT_PRODUCTS_DIR)/Hippocrates.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Hippocrates"
+        ]
+        let uiTestScalars = [
+            "CODE_SIGN_STYLE": "Automatic",
+            "CURRENT_PROJECT_VERSION": "1",
+            "GENERATE_INFOPLIST_FILE": "YES",
+            "IPHONEOS_DEPLOYMENT_TARGET": "18.0",
+            "MARKETING_VERSION": "1.0",
+            "PRODUCT_BUNDLE_IDENTIFIER": "com.ayyitskevin.hippocrates.uitests",
+            "PRODUCT_NAME": "$(TARGET_NAME)",
+            "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
+            "SWIFT_STRICT_CONCURRENCY": "complete",
+            "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES",
+            "SWIFT_VERSION": "6.0",
+            "TARGETED_DEVICE_FAMILY": "1",
+            "TEST_TARGET_NAME": "Hippocrates"
         ]
 
         let contracts = [
@@ -3589,6 +3636,17 @@ private func buildConfigurationFindings(projectText: String, path: String) -> [F
                 releaseScalarValues: [:],
                 debugListValues: [:],
                 releaseListValues: [:]
+            ),
+            BuildConfigurationContract(
+                label: "UI-test target",
+                ownerObject: uiTestObject,
+                debugKeys: uiTestKeys,
+                releaseKeys: uiTestKeys,
+                commonScalarValues: uiTestScalars,
+                debugScalarValues: [:],
+                releaseScalarValues: [:],
+                debugListValues: [:],
+                releaseListValues: [:]
             )
         ]
 
@@ -3609,9 +3667,12 @@ private func buildConfigurationFindings(projectText: String, path: String) -> [F
         guard
             configurationListIDs.count == Set(configurationListIDs).count,
             Set(configurationListIDs) == allConfigurationListIDs,
-            configurationListIDs.count == 3
+            configurationListIDs.count == 4
         else {
-            throw pbxParserError(62, "Project, app, and tests must own exactly three distinct configuration lists")
+            throw pbxParserError(
+                62,
+                "Project, app, unit tests, and UI tests must own exactly four distinct configuration lists"
+            )
         }
 
         var referencedConfigurationIDs: [String] = []
@@ -3706,11 +3767,11 @@ private func buildConfigurationFindings(projectText: String, path: String) -> [F
             objects.filter { isaByID[$0.key] == "XCBuildConfiguration" }.map(\.key)
         )
         guard
-            referencedConfigurationIDs.count == 6,
+            referencedConfigurationIDs.count == 8,
             referencedConfigurationIDs.count == Set(referencedConfigurationIDs).count,
             Set(referencedConfigurationIDs) == allBuildConfigurationIDs
         else {
-            throw pbxParserError(74, "Exactly six bound Debug/Release build configurations are required")
+            throw pbxParserError(74, "Exactly eight bound Debug/Release build configurations are required")
         }
         return []
     } catch {
@@ -3975,6 +4036,8 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
     "$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
     "$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
+    "$(SRCROOT)/HippocratesUITests",
+    "$(SRCROOT)/HippocratesUITests/RXCalcCatalogAccessibilityTests.swift",
     "$(SRCROOT)/Hippocrates.xcodeproj",
     "$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
     "$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata",
@@ -4017,17 +4080,23 @@ private func appTargetSourceFindings(
     let unitTestTargets = try nativeTargets.filter {
         try pbxRequiredScalar("productType", in: $0.value) == "com.apple.product-type.bundle.unit-test"
     }
+    let uiTestTargets = try nativeTargets.filter {
+        try pbxRequiredScalar("productType", in: $0.value) == "com.apple.product-type.bundle.ui-testing"
+    }
     guard
-        nativeTargets.count == 2,
+        nativeTargets.count == 3,
         unitTestTargets.count == 1,
+        uiTestTargets.count == 1,
         let testTargetEntry = unitTestTargets.first,
-        try pbxRequiredScalar("name", in: testTargetEntry.value) == "HippocratesTests"
+        let uiTestTargetEntry = uiTestTargets.first,
+        try pbxRequiredScalar("name", in: testTargetEntry.value) == "HippocratesTests",
+        try pbxRequiredScalar("name", in: uiTestTargetEntry.value) == "HippocratesUITests"
     else {
         return [
             Finding(
                 path: projectPath,
                 line: 1,
-                message: "The project is limited to one application target and one unit-test target"
+                message: "The project is limited to one application, one unit-test, and one UI-test target"
             )
         ]
     }
@@ -4036,6 +4105,8 @@ private func appTargetSourceFindings(
     let appTarget = appTargetEntry.value
     let testTargetID = testTargetEntry.key
     let testTarget = testTargetEntry.value
+    let uiTestTargetID = uiTestTargetEntry.key
+    let uiTestTarget = uiTestTargetEntry.value
     guard try pbxRequiredScalar("name", in: appTarget) == "Hippocrates" else {
         return [Finding(path: projectPath, line: 1, message: "The application target must be Hippocrates")]
     }
@@ -4060,14 +4131,14 @@ private func appTargetSourceFindings(
     }
     let projectTargetIDs = try pbxIDs(inList: "targets", in: projectEntry.value)
     guard
-        projectTargetIDs.count == 2,
-        Set(projectTargetIDs) == Set([appTargetID, testTargetID])
+        projectTargetIDs.count == 3,
+        Set(projectTargetIDs) == Set([appTargetID, testTargetID, uiTestTargetID])
     else {
         return [
             Finding(
                 path: projectPath,
                 line: 1,
-                message: "PBXProject target membership must be exactly Hippocrates and HippocratesTests"
+                message: "PBXProject target membership must be exactly Hippocrates, HippocratesTests, and HippocratesUITests"
             )
         ]
     }
@@ -4177,38 +4248,94 @@ private func appTargetSourceFindings(
         ]
     }
 
+    let uiTestPhaseIDs = try pbxIDs(inList: "buildPhases", in: uiTestTarget)
+    let uiTestSourcePhaseIDs = phaseIDs(ofType: "PBXSourcesBuildPhase", in: uiTestPhaseIDs)
+    let uiTestFrameworkPhaseIDs = phaseIDs(ofType: "PBXFrameworksBuildPhase", in: uiTestPhaseIDs)
+    let uiTestResourcePhaseIDs = phaseIDs(ofType: "PBXResourcesBuildPhase", in: uiTestPhaseIDs)
+    guard
+        uiTestPhaseIDs.count == Set(uiTestPhaseIDs).count,
+        uiTestPhaseIDs.count == 3,
+        uiTestSourcePhaseIDs.count == 1,
+        uiTestFrameworkPhaseIDs.count == 1,
+        uiTestResourcePhaseIDs.count == 1,
+        uiTestPhaseIDs == [
+            uiTestSourcePhaseIDs[0],
+            uiTestFrameworkPhaseIDs[0],
+            uiTestResourcePhaseIDs[0]
+        ],
+        let uiTestSourcePhase = objects[uiTestSourcePhaseIDs[0]],
+        let uiTestFrameworkPhase = objects[uiTestFrameworkPhaseIDs[0]],
+        let uiTestResourcePhase = objects[uiTestResourcePhaseIDs[0]],
+        try pbxIDs(inList: "files", in: uiTestFrameworkPhase).isEmpty,
+        try pbxIDs(inList: "files", in: uiTestResourcePhase).isEmpty,
+        try pbxIDs(inList: "buildRules", in: uiTestTarget).isEmpty
+    else {
+        return [
+            Finding(
+                path: projectPath,
+                line: 1,
+                message: "The UI-test target build topology changed outside review"
+            )
+        ]
+    }
+
     func phaseRunsInNormalBuild(_ phase: String) throws -> Bool {
         let actionMask = try pbxRequiredScalar("buildActionMask", in: phase)
         let postprocessingOnly = try pbxRequiredScalar("runOnlyForDeploymentPostprocessing", in: phase)
         return actionMask == "2147483647" && postprocessingOnly == "0"
     }
-    let canonicalPhases = [appSourcePhase, appFrameworkPhase, appResourcePhase, testSourcePhase, testFrameworkPhase, testResourcePhase]
+    let canonicalPhases = [
+        appSourcePhase,
+        appFrameworkPhase,
+        appResourcePhase,
+        testSourcePhase,
+        testFrameworkPhase,
+        testResourcePhase,
+        uiTestSourcePhase,
+        uiTestFrameworkPhase,
+        uiTestResourcePhase
+    ]
     let canonicalPhasesAreEnabled = try canonicalPhases.allSatisfy { try phaseRunsInNormalBuild($0) }
     guard canonicalPhasesAreEnabled else {
         return [Finding(path: projectPath, line: 1, message: "A canonical source, framework, or resource phase was altered or disabled")]
     }
 
 
-    let testDependencyIDs = try pbxIDs(inList: "dependencies", in: testTarget)
+    func validatedAppDependency(
+        for target: String
+    ) throws -> (dependencyID: String, proxyID: String)? {
+        let dependencyIDs = try pbxIDs(inList: "dependencies", in: target)
+        guard
+            dependencyIDs.count == 1,
+            let dependency = objects[dependencyIDs[0]],
+            isaByID[dependencyIDs[0]] == "PBXTargetDependency",
+            try pbxRequiredScalar("target", in: dependency)
+                .split(separator: " ").first.map(String.init) == appTargetID,
+            let targetProxyID = try pbxRequiredScalar("targetProxy", in: dependency)
+                .split(separator: " ").first.map(String.init),
+            let targetProxy = objects[targetProxyID],
+            isaByID[targetProxyID] == "PBXContainerItemProxy",
+            try pbxRequiredScalar("containerPortal", in: targetProxy)
+                .split(separator: " ").first.map(String.init) == projectEntry.key,
+            try pbxRequiredScalar("proxyType", in: targetProxy) == "1",
+            try pbxRequiredScalar("remoteGlobalIDString", in: targetProxy) == appTargetID
+        else {
+            return nil
+        }
+        return (dependencyIDs[0], targetProxyID)
+    }
+
     guard
-        testDependencyIDs.count == 1,
-        let dependency = objects[testDependencyIDs[0]],
-        isaByID[testDependencyIDs[0]] == "PBXTargetDependency",
-        try pbxRequiredScalar("target", in: dependency).split(separator: " ").first.map(String.init) == appTargetID,
-        let targetProxyID = try pbxRequiredScalar("targetProxy", in: dependency)
-            .split(separator: " ").first.map(String.init),
-        let targetProxy = objects[targetProxyID],
-        isaByID[targetProxyID] == "PBXContainerItemProxy",
-        try pbxRequiredScalar("containerPortal", in: targetProxy)
-            .split(separator: " ").first.map(String.init) == projectEntry.key,
-        try pbxRequiredScalar("proxyType", in: targetProxy) == "1",
-        try pbxRequiredScalar("remoteGlobalIDString", in: targetProxy) == appTargetID
+        let unitDependency = try validatedAppDependency(for: testTarget),
+        let uiDependency = try validatedAppDependency(for: uiTestTarget),
+        unitDependency.dependencyID != uiDependency.dependencyID,
+        unitDependency.proxyID != uiDependency.proxyID
     else {
         return [
             Finding(
                 path: projectPath,
                 line: 1,
-                message: "HippocratesTests must depend directly and only on the Hippocrates app target"
+                message: "HippocratesTests and HippocratesUITests must each depend directly and only on the Hippocrates app target"
             )
         ]
     }
@@ -4299,8 +4426,9 @@ private func appTargetSourceFindings(
     let standardizedRepositoryPath = repositoryRoot.standardizedFileURL.path
     let resolvedRepositoryPath = repositoryRoot.resolvingSymlinksInPath().standardizedFileURL.path
     let testSourceRoot = repositoryRoot.appendingPathComponent("HippocratesTests", isDirectory: true)
+    let uiTestSourceRoot = repositoryRoot.appendingPathComponent("HippocratesUITests", isDirectory: true)
     let resourceRoot = sourceRoot.appendingPathComponent("Resources", isDirectory: true)
-    for requiredRoot in [sourceRoot, testSourceRoot, resourceRoot] {
+    for requiredRoot in [sourceRoot, testSourceRoot, uiTestSourceRoot, resourceRoot] {
         let lexicalPath = requiredRoot.standardizedFileURL.path
         let resolvedPath = requiredRoot.resolvingSymlinksInPath().standardizedFileURL.path
         guard
@@ -4551,8 +4679,19 @@ private func appTargetSourceFindings(
 
     let appBuildFileIDs = try pbxIDs(inList: "files", in: appSourcePhase)
     let testBuildFileIDs = try pbxIDs(inList: "files", in: testSourcePhase)
-    guard appBuildFileIDs.isEmpty == false, testBuildFileIDs.isEmpty == false else {
-        return [Finding(path: projectPath, line: 1, message: "App and test targets must each compile source")]
+    let uiTestBuildFileIDs = try pbxIDs(inList: "files", in: uiTestSourcePhase)
+    guard
+        appBuildFileIDs.isEmpty == false,
+        testBuildFileIDs.isEmpty == false,
+        uiTestBuildFileIDs.isEmpty == false
+    else {
+        return [
+            Finding(
+                path: projectPath,
+                line: 1,
+                message: "App, unit-test, and UI-test targets must each compile source"
+            )
+        ]
     }
 
     let appInventory = try targetSourceInventory(
@@ -4565,27 +4704,43 @@ private func appTargetSourceFindings(
         allowedRoot: testSourceRoot,
         targetLabel: "Unit-test target"
     )
-    var findings = appInventory.findings + testInventory.findings
-    for overlappingPath in Set(appInventory.resolvedPaths)
-        .intersection(Set(testInventory.resolvedPaths)).sorted() {
-        findings.append(
-            Finding(
-                path: overlappingPath,
-                line: 1,
-                message: "App and unit-test targets may not compile the same canonical Swift source"
+    let uiTestInventory = try targetSourceInventory(
+        buildFileIDs: uiTestBuildFileIDs,
+        allowedRoot: uiTestSourceRoot,
+        targetLabel: "UI-test target"
+    )
+    var findings = appInventory.findings + testInventory.findings + uiTestInventory.findings
+
+    func appendOverlapFindings(
+        _ first: TargetSourceInventory,
+        _ second: TargetSourceInventory,
+        pairLabel: String
+    ) {
+        for overlappingPath in Set(first.resolvedPaths)
+            .intersection(Set(second.resolvedPaths)).sorted() {
+            findings.append(
+                Finding(
+                    path: overlappingPath,
+                    line: 1,
+                    message: "\(pairLabel) may not compile the same canonical Swift source"
+                )
             )
-        )
-    }
-    for overlappingIdentity in Set(appInventory.physicalIdentities)
-        .intersection(Set(testInventory.physicalIdentities)).sorted() {
-        findings.append(
-            Finding(
-                path: projectPath,
-                line: 1,
-                message: "App and unit-test targets may not compile one physical source (\(overlappingIdentity))"
+        }
+        for overlappingIdentity in Set(first.physicalIdentities)
+            .intersection(Set(second.physicalIdentities)).sorted() {
+            findings.append(
+                Finding(
+                    path: projectPath,
+                    line: 1,
+                    message: "\(pairLabel) may not compile one physical source (\(overlappingIdentity))"
+                )
             )
-        )
+        }
     }
+
+    appendOverlapFindings(appInventory, testInventory, pairLabel: "App and unit-test targets")
+    appendOverlapFindings(appInventory, uiTestInventory, pairLabel: "App and UI-test targets")
+    appendOverlapFindings(testInventory, uiTestInventory, pairLabel: "Unit-test and UI-test targets")
 
     let resourceBuildFileIDs = try pbxIDs(inList: "files", in: appResourcePhase)
     if resourceBuildFileIDs.count != 1 || Set(resourceBuildFileIDs).count != 1 {
@@ -4818,19 +4973,29 @@ private func schemePolicyFindings(
         try pbxRequiredScalar("productType", in: $0.value) == "com.apple.product-type.application"
     }
     let unitTestTargets = try nativeTargets.filter {
-        try pbxRequiredScalar("productType", in: $0.value) == "com.apple.product-type.bundle.unit-test"
+        try pbxRequiredScalar("name", in: $0.value) == "HippocratesTests"
+            && pbxRequiredScalar("productType", in: $0.value)
+                == "com.apple.product-type.bundle.unit-test"
+    }
+    let uiTestTargets = try nativeTargets.filter {
+        try pbxRequiredScalar("name", in: $0.value) == "HippocratesUITests"
+            && pbxRequiredScalar("productType", in: $0.value)
+                == "com.apple.product-type.bundle.ui-testing"
     }
     guard
+        nativeTargets.count == 3,
         applicationTargets.count == 1,
         unitTestTargets.count == 1,
+        uiTestTargets.count == 1,
         let appTargetID = applicationTargets.first?.key,
-        let testTargetID = unitTestTargets.first?.key
+        let testTargetID = unitTestTargets.first?.key,
+        let uiTestTargetID = uiTestTargets.first?.key
     else {
         return [
             Finding(
                 path: path,
                 line: 1,
-                message: "The shared scheme cannot resolve the reviewed app and test targets"
+                message: "The shared scheme cannot resolve the reviewed app, unit-test, and UI-test targets"
             )
         ]
     }
@@ -4904,6 +5069,26 @@ private func schemePolicyFindings(
             blueprintName: "HippocratesTests"
         )
     )
+    expectedEvents.append(.end("BuildActionEntry"))
+    expectedEvents.append(
+        .start(
+            "BuildActionEntry",
+            [
+                "buildForTesting": "YES",
+                "buildForRunning": "NO",
+                "buildForProfiling": "NO",
+                "buildForArchiving": "NO",
+                "buildForAnalyzing": "YES"
+            ]
+        )
+    )
+    expectedEvents.append(
+        contentsOf: referenceEvents(
+            identifier: uiTestTargetID,
+            buildableName: "HippocratesUITests.xctest",
+            blueprintName: "HippocratesUITests"
+        )
+    )
     expectedEvents.append(contentsOf: [
         .end("BuildActionEntry"),
         .end("BuildActionEntries"),
@@ -4926,6 +5111,17 @@ private func schemePolicyFindings(
             identifier: testTargetID,
             buildableName: "HippocratesTests.xctest",
             blueprintName: "HippocratesTests"
+        )
+    )
+    expectedEvents.append(.end("TestableReference"))
+    expectedEvents.append(
+        .start("TestableReference", ["skipped": "NO", "parallelizable": "NO"])
+    )
+    expectedEvents.append(
+        contentsOf: referenceEvents(
+            identifier: uiTestTargetID,
+            buildableName: "HippocratesUITests.xctest",
+            blueprintName: "HippocratesUITests"
         )
     )
     expectedEvents.append(contentsOf: [
@@ -5066,26 +5262,33 @@ private func repositoryFindings(
 
     }
 
-    // Tests may use local filesystem URL values and one inert citation fixture at
-    // example.invalid. Network-capable loaders, streams, APIs, UI, imports, and all
-    // other external address literals remain forbidden.
-    let testRoot = repositoryRoot.appendingPathComponent("HippocratesTests", isDirectory: true)
-    for file in try swiftFiles(under: testRoot) {
-        let source = try String(contentsOf: file, encoding: .utf8)
-        let identity = reviewedSourceIdentity(for: file, repositoryRoot: repositoryRoot)
-        results.append(contentsOf: try testFindings(in: source, path: file.path, identity: identity))
-        results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
-        results.append(contentsOf: try testPersistenceBoundaryFindings(in: source, path: file.path, identity: identity))
-        results.append(contentsOf: try appConfigOwnershipFindings(in: source, path: file.path, identity: identity))
-        results.append(contentsOf: try persistentModelBackingFindings(in: source, path: file.path))
-        results.append(
-            contentsOf: try importFindings(
-                in: source,
-                path: file.path,
-                allowedModules: testAllowedImports
+    // Unit tests may use local filesystem URL values and one inert citation
+    // fixture at example.invalid. UI tests are limited to XCTest. Network-capable
+    // loaders, streams, APIs, imports, and all other external address literals
+    // remain forbidden in both targets.
+    func inspectTestSources(under testRoot: URL, allowedModules: Set<String>) throws {
+        for file in try swiftFiles(under: testRoot) {
+            let source = try String(contentsOf: file, encoding: .utf8)
+            let identity = reviewedSourceIdentity(for: file, repositoryRoot: repositoryRoot)
+            results.append(contentsOf: try testFindings(in: source, path: file.path, identity: identity))
+            results.append(contentsOf: try interpolationArchitectureFindings(in: source, path: file.path, identity: identity))
+            results.append(contentsOf: try testPersistenceBoundaryFindings(in: source, path: file.path, identity: identity))
+            results.append(contentsOf: try appConfigOwnershipFindings(in: source, path: file.path, identity: identity))
+            results.append(contentsOf: try persistentModelBackingFindings(in: source, path: file.path))
+            results.append(
+                contentsOf: try importFindings(
+                    in: source,
+                    path: file.path,
+                    allowedModules: allowedModules
+                )
             )
-        )
+        }
     }
+
+    let testRoot = repositoryRoot.appendingPathComponent("HippocratesTests", isDirectory: true)
+    try inspectTestSources(under: testRoot, allowedModules: testAllowedImports)
+    let uiTestRoot = repositoryRoot.appendingPathComponent("HippocratesUITests", isDirectory: true)
+    try inspectTestSources(under: uiTestRoot, allowedModules: uiTestAllowedImports)
 
     let schemaContractFile = testRoot.appendingPathComponent("SchemaContractTests.swift")
     if FileManager.default.fileExists(atPath: schemaContractFile.path) == false {
@@ -7496,14 +7699,18 @@ private func runSelfTests() throws {
         .appendingPathComponent("Hippocrates", isDirectory: true)
         .appendingPathComponent("Resources", isDirectory: true)
     let testDirectory = fixtureRoot.appendingPathComponent("HippocratesTests", isDirectory: true)
+    let uiTestDirectory = fixtureRoot.appendingPathComponent("HippocratesUITests", isDirectory: true)
     try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: resourceDirectory, withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: testDirectory, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: uiTestDirectory, withIntermediateDirectories: true)
     let appSourceURL = appDirectory.appendingPathComponent("App.swift")
     let testSourceURL = testDirectory.appendingPathComponent("AppTests.swift")
+    let uiTestSourceURL = uiTestDirectory.appendingPathComponent("RXCalcCatalogAccessibilityTests.swift")
     let manifestURL = resourceDirectory.appendingPathComponent("PrivacyInfo.xcprivacy")
     try Data("struct FixtureApp {}\n".utf8).write(to: appSourceURL)
     try Data("struct FixtureTests {}\n".utf8).write(to: testSourceURL)
+    try Data("struct FixtureUITests {}\n".utf8).write(to: uiTestSourceURL)
     try Data(compliantPrivacyManifest.utf8).write(to: manifestURL)
     try check(
         try isRegularNonSymlinkFile(appSourceURL, beneath: fixtureRoot),
@@ -7583,14 +7790,17 @@ private func runSelfTests() throws {
         AAAAAAAAAAAAAAAAAAAAAAAA = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
         BBBBBBBBBBBBBBBBBBBBBBBB = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTests.swift; sourceTree = "<group>"; };
         CCCCCCCCCCCCCCCCCCCCCCCC = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+        202020202020202020202020 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcCatalogAccessibilityTests.swift; sourceTree = "<group>"; };
         DDDDDDDDDDDDDDDDDDDDDDDD = {isa = PBXBuildFile; fileRef = AAAAAAAAAAAAAAAAAAAAAAAA; };
         EEEEEEEEEEEEEEEEEEEEEEEE = {isa = PBXBuildFile; fileRef = BBBBBBBBBBBBBBBBBBBBBBBB; };
         FFFFFFFFFFFFFFFFFFFFFFFF = {isa = PBXBuildFile; fileRef = CCCCCCCCCCCCCCCCCCCCCCCC; };
-        111111111111111111111111 = {isa = PBXGroup; children = (222222222222222222222222, 555555555555555555555555,); sourceTree = "<group>"; };
+        212121212121212121212121 = {isa = PBXBuildFile; fileRef = 202020202020202020202020; };
+        111111111111111111111111 = {isa = PBXGroup; children = (222222222222222222222222, 555555555555555555555555, 232323232323232323232323,); sourceTree = "<group>"; };
         222222222222222222222222 = {isa = PBXGroup; children = (333333333333333333333333, 444444444444444444444444,); path = Hippocrates; sourceTree = "<group>"; };
         333333333333333333333333 = {isa = PBXGroup; children = (AAAAAAAAAAAAAAAAAAAAAAAA,); path = App; sourceTree = "<group>"; };
         444444444444444444444444 = {isa = PBXGroup; children = (CCCCCCCCCCCCCCCCCCCCCCCC,); path = Resources; sourceTree = "<group>"; };
         555555555555555555555555 = {isa = PBXGroup; children = (BBBBBBBBBBBBBBBBBBBBBBBB,); path = HippocratesTests; sourceTree = "<group>"; };
+        232323232323232323232323 = {isa = PBXGroup; children = (202020202020202020202020,); path = HippocratesUITests; sourceTree = "<group>"; };
         666666666666666666666666 = {isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; files = (); inputFileListPaths = (); inputPaths = (\#(fixtureBoundaryInputs)); name = "Enforce Offline Boundary"; outputFileListPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "exec /usr/bin/env -i DEVELOPER_DIR=\"$DEVELOPER_DIR\" HOME=/var/empty PATH=/usr/bin:/bin:/usr/sbin:/sbin TMPDIR=\"$TMPDIR\" /usr/bin/xcrun --sdk macosx swift -module-cache-path \"$TMPDIR/HippocratesBoundaryModuleCache\" \"$SRCROOT/Scripts/NetworkBoundaryScanner.swift\" --sandboxed-build-check \"$SRCROOT\"\n"; showEnvVarsInLog = 0; };
         777777777777777777777777 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (DDDDDDDDDDDDDDDDDDDDDDDD,); runOnlyForDeploymentPostprocessing = 0; };
         888888888888888888888888 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
@@ -7598,11 +7808,17 @@ private func runSelfTests() throws {
         121212121212121212121212 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (EEEEEEEEEEEEEEEEEEEEEEEE,); runOnlyForDeploymentPostprocessing = 0; };
         131313131313131313131313 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         141414141414141414141414 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        242424242424242424242424 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (212121212121212121212121,); runOnlyForDeploymentPostprocessing = 0; };
+        252525252525252525252525 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        262626262626262626262626 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         151515151515151515151515 = {isa = PBXNativeTarget; buildPhases = (666666666666666666666666, 777777777777777777777777, 888888888888888888888888, 999999999999999999999999,); buildRules = (); dependencies = (); name = Hippocrates; productType = "com.apple.product-type.application"; };
         161616161616161616161616 = {isa = PBXNativeTarget; buildPhases = (121212121212121212121212, 131313131313131313131313, 141414141414141414141414,); buildRules = (); dependencies = (181818181818181818181818,); name = HippocratesTests; productType = "com.apple.product-type.bundle.unit-test"; };
-        171717171717171717171717 = {isa = PBXProject; mainGroup = 111111111111111111111111; targets = (151515151515151515151515, 161616161616161616161616,); };
+        272727272727272727272727 = {isa = PBXNativeTarget; buildPhases = (242424242424242424242424, 252525252525252525252525, 262626262626262626262626,); buildRules = (); dependencies = (282828282828282828282828,); name = HippocratesUITests; productType = "com.apple.product-type.bundle.ui-testing"; };
+        171717171717171717171717 = {isa = PBXProject; mainGroup = 111111111111111111111111; targets = (151515151515151515151515, 161616161616161616161616, 272727272727272727272727,); };
         181818181818181818181818 = {isa = PBXTargetDependency; target = 151515151515151515151515; targetProxy = 191919191919191919191919; };
         191919191919191919191919 = {isa = PBXContainerItemProxy; containerPortal = 171717171717171717171717; proxyType = 1; remoteGlobalIDString = 151515151515151515151515; };
+        282828282828282828282828 = {isa = PBXTargetDependency; target = 151515151515151515151515; targetProxy = 292929292929292929292929; };
+        292929292929292929292929 = {isa = PBXContainerItemProxy; containerPortal = 171717171717171717171717; proxyType = 1; remoteGlobalIDString = 151515151515151515151515; };
         };
         rootObject = 171717171717171717171717;
     }
@@ -7663,6 +7879,16 @@ private func runSelfTests() throws {
     )
     try FileManager.default.removeItem(at: orphanTestURL)
 
+    let orphanUITestURL = uiTestDirectory.appendingPathComponent("OrphanUITests.swift")
+    try Data("struct OrphanUITests {}\n".utf8).write(to: orphanUITestURL)
+    try check(
+        try topologyFindings().contains(where: {
+            $0.message.contains("UI-test target Swift source exists on disk but is missing")
+        }),
+        "An unlisted UI-test Swift file escaped target membership"
+    )
+    try FileManager.default.removeItem(at: orphanUITestURL)
+
     let repeatedBuildFixture = replacingFirst(
         topologyFixture,
         "files = (DDDDDDDDDDDDDDDDDDDDDDDD,);",
@@ -7713,6 +7939,18 @@ private func runSelfTests() throws {
             $0.message.contains("depend directly and only")
         }),
         "A unit-test dependency on the wrong target escaped validation"
+    )
+
+    let wrongUIDependencyFixture = replacingFirst(
+        topologyFixture,
+        "282828282828282828282828 = {isa = PBXTargetDependency; target = 151515151515151515151515;",
+        "282828282828282828282828 = {isa = PBXTargetDependency; target = 161616161616161616161616;"
+    )
+    try check(
+        try topologyFindings(wrongUIDependencyFixture).contains(where: {
+            $0.message.contains("depend directly and only")
+        }),
+        "A UI-test dependency on the wrong target escaped validation"
     )
 
     let externalSourceFixture = replacingFirst(
@@ -7774,13 +8012,13 @@ private func runSelfTests() throws {
         "A duplicate shellScript property did not fail closed"
     )
 
-    guard completedChecks == 297 else {
+    guard completedChecks == 299 else {
         throw NSError(
             domain: "NetworkBoundaryScannerTests",
             code: 12,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Scanner check inventory changed: expected 297, completed \(completedChecks)"
+                    "Scanner check inventory changed: expected 299, completed \(completedChecks)"
             ]
         )
     }

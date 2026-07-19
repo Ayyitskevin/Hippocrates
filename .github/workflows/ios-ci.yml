@@ -17,7 +17,7 @@ jobs:
   test:
     name: Xcode 16.4 / iOS 18.5
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
 
@@ -414,5 +414,54 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -resultBundlePath "$RUNNER_TEMP/HippocratesTests.xcresult" \
+            -skip-testing:HippocratesUITests \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Audit RXcalc catalog at Accessibility 5
+        run: |
+          set -euo pipefail
+
+          simulator_id="$(xcrun simctl create \
+            Hippocrates-RXcalc-A11y5 \
+            com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation \
+            com.apple.CoreSimulator.SimRuntime.iOS-18-5)"
+
+          cleanup_simulator() {
+            xcrun simctl shutdown "$simulator_id" >/dev/null 2>&1 || true
+            xcrun simctl delete "$simulator_id" >/dev/null 2>&1 || true
+          }
+          trap cleanup_simulator EXIT
+
+          xcrun simctl boot "$simulator_id"
+          xcrun simctl bootstatus "$simulator_id" -b
+          xcrun simctl ui \
+            "$simulator_id" \
+            content_size \
+            accessibility-extra-extra-extra-large
+
+          actual_content_size="$(xcrun simctl ui "$simulator_id" content_size)"
+          if [ "$actual_content_size" != "accessibility-extra-extra-extra-large" ]; then
+            echo "error: simulator content size is $actual_content_size, expected Accessibility 5"
+            exit 1
+          fi
+
+          xcodebuild test \
+            -project Hippocrates.xcodeproj \
+            -scheme Hippocrates \
+            -destination "platform=iOS Simulator,id=$simulator_id" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/HippocratesRXCalcAccessibilityTests.xcresult" \
+            -only-testing:HippocratesUITests/RXCalcCatalogAccessibilityTests/testCatalogAtAccessibility5OnCompactPhone \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Preserve RXcalc accessibility evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: rxcalc-accessibility-${{ github.sha }}
+          path: ${{ runner.temp }}/HippocratesRXCalcAccessibilityTests.xcresult
+          if-no-files-found: error
+          retention-days: 14

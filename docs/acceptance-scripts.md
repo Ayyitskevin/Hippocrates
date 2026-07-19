@@ -87,6 +87,12 @@ connection, no "offline" error, and no feature that requires connectivity.
 
 ## A8 — RXcalc draft safety, accessibility, and non-retention
 
+Automation note: `HippocratesUITests/RXCalcCatalogAccessibilityTests.swift`
+exercises only the catalog portion of step 3 at Accessibility 5 and attaches
+screenshots. Automation does not inspect those screenshots, cover detail screens
+or VoiceOver/keyboard behavior, or run on physical hardware; it is supporting
+evidence and does not pass or close A8.
+
 1. Keep airplane mode on. Complete first run and open RXcalc. Confirm the catalog
    warning and every row show **Draft**, and that tools are grouped beneath
    **Body Size** and **Renal** category headers.

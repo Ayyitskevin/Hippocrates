@@ -9,6 +9,7 @@ immutable	Hippocrates/Features/RXCalc/RXCalculations.swift
 immutable	Hippocrates/Features/RXCalc/RXCalculatorCatalog.swift
 immutable	Hippocrates/Features/RXCalc/RXClinicalReviewRegistry.swift
 immutable	HippocratesTests/RXCalcTests.swift
+immutable	HippocratesUITests/RXCalcCatalogAccessibilityTests.swift
 immutable	README.md
 immutable	Scripts/NetworkBoundaryScanner.swift
 immutable	Scripts/rxcalc-review-packet.sh

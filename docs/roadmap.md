@@ -35,6 +35,7 @@ clinical formula still requires its own source, version, tests, and approval.
 | R0 — RXcalc product/boundary pivot | Verified | Product and architecture contracts, exact source identities, 288 scanner checks, direct/sandboxed probes, Release build, analyzer, and simulator tests passed at `1381c6e` in [hosted run 29694386275](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29694386275) |
 | R1 — stateless RXcalc MVP | Engineering verified as Draft; external gates pending | Cockcroft–Gault, 2021 CKD-EPI, adult BMI, and Mosteller BSA vectors, unit parity, bounds, and visible Draft limitations passed at `1381c6e` in [hosted run 29694386275](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29694386275); P-008/P-009, physical-device A8, and distribution remain open |
 | R1.1 — discovery and review readiness | Engineering verified as Draft; external gates pending | Structured units, normalized evidence-aware search, category grouping, input-first detail flow, keyboard dismissal, accessibility identifiers, fail-closed permanent-Draft registry, and deterministic unsigned P-008 candidate packet passed at [`3bdad14`](https://github.com/Ayyitskevin/Hippocrates/commit/3bdad1477ff830919e1735338d9219ac64246355) in [hosted run 29701925114](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29701925114); P-008/P-009, physical-device A8, and distribution remain open |
+| R1.2 — catalog Dynamic Type regression evidence | Locally implemented as Draft; exact-head hosted evidence pending | Scanner-owned UI-test topology and a compact iPhone SE (3rd generation)/iOS 18.5 Accessibility 5 catalog flow are implemented; 299 portable checks pass locally, while exact-head Xcode/UI execution and its retained result bundle remain pending. Human visual/VoiceOver/physical-device A8, P-008/P-009, P-010, signing, and distribution remain open |
 | D0 — product decisions | Closed | P-001 through P-006 accepted 2026-07-18 as user-owned choices via the owner pivot recorded in the [decision register](decision-register.md); I-005 is the remaining unrelated implementation decision |
 | M1 — configuration and taxonomy ownership | Verified | Taxonomy service, starter set, first-run gate, and editors passed the hosted Release build, analyzer, boundary probes, and simulator tests on the merged head in [run 29646317092](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646317092) |
 | M2 — five-second capture and resolution ledger | Implemented | Capture, frecency ranking, and the I-013 ledger passed the hosted pipeline on the merged head in [run 29646789732](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29646789732); the real-device one-handed five-second acceptance run remains an open owner gate |
@@ -632,12 +633,20 @@ The canonical slice plan is [`rxcalc-plan.md`](rxcalc-plan.md).
   Sources are independently identified, unit systems are equivalent, changing a
   unit clears the affected numeric entry, locale decimal separators are accepted,
   and age/overflow failures are explicit.
+- R1.1 hardens discovery, input ergonomics, permanent-Draft review governance,
+  and the immutable candidate packet.
+- R1.2 adds catalog-only automated Dynamic Type evidence on a fresh compact
+  simulator. It preserves screenshots for human review but does not cover search
+  results, detail screens, VoiceOver, keyboard behavior, physical hardware, or
+  human visual judgment.
 - R2-R4 are unstarted hypotheses outside the current v1 commitment. Drug-specific
   clinical content is outside the product, not an approved later slice.
 
 R1 engineering exit requires 288 portable scanner checks, planted direct and
 sandboxed RXcalc violations, an exact-head Xcode Release build and analyzer, and
-all simulator tests including official NKF vectors. Real-device acceptance,
+all simulator tests including official NKF vectors. R1.2 raises current portable
+coverage to 299 checks, but remains unverified until exact-head hosted UI
+execution and retained result-bundle evidence succeed. Real-device acceptance,
 immutable P-008 clinical approval plus an accepted continuing-binding design,
 P-009 regulatory/claims review, and explicit owner distribution authorization
 are separate gates. Until they close, every R1 descriptor and result remains

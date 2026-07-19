@@ -16,7 +16,8 @@ The packet covers only:
 
 It binds the formula implementations, catalog metadata, canonical units,
 rounding, limitations, and non-runtime candidate reviewed-state wording in
-`claims-and-policy-matrix.md`, plus UI adjacency, unit tests, architecture
+`claims-and-policy-matrix.md`, plus UI adjacency, unit and dedicated catalog
+Dynamic Type UI tests, architecture
 scanner, CI controls, integration notices, release copy, and governance
 documents enumerated by `bundle-files.txt`.
 
@@ -60,7 +61,9 @@ status.
 - Explicit no-activation boundary: `activation-boundary.json`
 
 External evidence should include lawful source snapshots/digests, exact-head CI
-evidence, and the dated device A8 record. Device A8 is a separate release gate
+evidence, the Accessibility 5 `.xcresult` or its durable external locator and
+digest, a human review record for its kept screenshots, and the dated device A8
+record. Simulator evidence is supplemental: device A8 is a separate release gate
 and may remain pending during formula review, but it cannot be omitted before
 field eligibility or distribution.
 
@@ -71,7 +74,8 @@ trusted external checks in `reviewer-checklist.md` are mandatory.
 
 ## Current blockers
 
-The source-provenance artifact digests, reviewer qualifications, dispositions,
+The source-provenance artifact digests, exact-head Accessibility 5 result
+evidence, human screenshot review, reviewer qualifications, dispositions,
 signatures, accepted keys and verification procedure, cadence, next-review date,
 P-009 determination, physical-device A8, and owner distribution authorization
 are all pending. A trusted, executable reviewed-candidate-to-production and

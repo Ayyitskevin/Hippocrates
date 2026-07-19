@@ -61,6 +61,7 @@ reviews an explicit answer.
 | I-010 | One exact-body-pinned `BackupImportAdapter` owns local-file ingress; it requires `isFileURL`, acquires security-scoped access, immediately captures `Data`, releases access, and exposes no remote/open/share path |
 | I-014 | RXcalc is a post-first-run tab beside the ledger; its catalog, inputs, and results remain transient, and scanner exceptions are limited to exact source identities and reviewed formula-division seams |
 | I-015 | RXcalc candidate review is fail-closed: the registry has no production activation path, every packet path is immutable, and CI proves bundled drift plus hidden dangling RXcalc sources fail before any human P-008 record exists |
+| I-016 | RXcalc catalog Dynamic Type regression evidence lives in one scanner-owned UI-test target and one exact compact-simulator Accessibility 5 flow; it may assert catalog semantics and reachability and attach screenshots, but it cannot substitute for human visual review, VoiceOver, detail-screen, or physical-device A8, close P-008/P-009, answer P-010, or authorize signing or distribution |
 
 ## Pending product decisions — required before affected features
 

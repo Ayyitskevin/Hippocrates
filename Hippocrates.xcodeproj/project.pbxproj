@@ -63,10 +63,18 @@
 		100000000000000000000036 /* RXCalcView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000039 /* RXCalcView.swift */; };
 		100000000000000000000037 /* RXCalcTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000003A /* RXCalcTests.swift */; };
 		100000000000000000000038 /* RXClinicalReviewRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000003B /* RXClinicalReviewRegistry.swift */; };
+		100000000000000000000039 /* RXCalcCatalogAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000003C /* RXCalcCatalogAccessibilityTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		900000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 600000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 500000000000000000000001;
+			remoteInfo = Hippocrates;
+		};
+		900000000000000000000003 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 600000000000000000000001 /* Project object */;
 			proxyType = 1;
@@ -135,6 +143,8 @@
 		200000000000000000000039 /* RXCalcView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcView.swift; sourceTree = "<group>"; };
 		20000000000000000000003A /* RXCalcTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcTests.swift; sourceTree = "<group>"; };
 		20000000000000000000003B /* RXClinicalReviewRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXClinicalReviewRegistry.swift; sourceTree = "<group>"; };
+		20000000000000000000003C /* RXCalcCatalogAccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RXCalcCatalogAccessibilityTests.swift; sourceTree = "<group>"; };
+		20000000000000000000003D /* HippocratesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HippocratesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,6 +162,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		400000000000000000000009 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -160,6 +177,7 @@
 			children = (
 				300000000000000000000002 /* Hippocrates */,
 				300000000000000000000008 /* HippocratesTests */,
+				300000000000000000000015 /* HippocratesUITests */,
 				300000000000000000000009 /* Scripts */,
 				30000000000000000000000A /* Products */,
 			);
@@ -355,6 +373,14 @@
 			path = HippocratesTests;
 			sourceTree = "<group>";
 		};
+		300000000000000000000015 /* HippocratesUITests */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000003C /* RXCalcCatalogAccessibilityTests.swift */,
+			);
+			path = HippocratesUITests;
+			sourceTree = "<group>";
+		};
 		300000000000000000000009 /* Scripts */ = {
 			isa = PBXGroup;
 			children = (
@@ -368,6 +394,7 @@
 			children = (
 				200000000000000000000010 /* Hippocrates.app */,
 				200000000000000000000011 /* HippocratesTests.xctest */,
+				20000000000000000000003D /* HippocratesUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -411,6 +438,24 @@
 			productReference = 200000000000000000000011 /* HippocratesTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		500000000000000000000003 /* HippocratesUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800000000000000000000004 /* Build configuration list for PBXNativeTarget "HippocratesUITests" */;
+			buildPhases = (
+				400000000000000000000008 /* Sources */,
+				400000000000000000000009 /* Frameworks */,
+				40000000000000000000000A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				900000000000000000000004 /* PBXTargetDependency */,
+			);
+			name = HippocratesUITests;
+			productName = HippocratesUITests;
+			productReference = 20000000000000000000003D /* HippocratesUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -425,6 +470,10 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					500000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 500000000000000000000001;
+					};
+					500000000000000000000003 = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = 500000000000000000000001;
 					};
@@ -445,6 +494,7 @@
 			targets = (
 				500000000000000000000001 /* Hippocrates */,
 				500000000000000000000002 /* HippocratesTests */,
+				500000000000000000000003 /* HippocratesUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -459,6 +509,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		400000000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		40000000000000000000000A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -551,6 +608,8 @@
 				"$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
 				"$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
 				"$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
+				"$(SRCROOT)/HippocratesUITests",
+				"$(SRCROOT)/HippocratesUITests/RXCalcCatalogAccessibilityTests.swift",
 				"$(SRCROOT)/Hippocrates.xcodeproj",
 				"$(SRCROOT)/Hippocrates.xcodeproj/project.pbxproj",
 				"$(SRCROOT)/Hippocrates.xcodeproj/xcshareddata",
@@ -641,6 +700,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		400000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000039 /* RXCalcCatalogAccessibilityTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -648,6 +715,11 @@
 			isa = PBXTargetDependency;
 			target = 500000000000000000000001 /* Hippocrates */;
 			targetProxy = 900000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		900000000000000000000004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 500000000000000000000001 /* Hippocrates */;
+			targetProxy = 900000000000000000000003 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -865,6 +937,44 @@
 			};
 			name = Release;
 		};
+		700000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ayyitskevin.hippocrates.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Hippocrates;
+			};
+			name = Debug;
+		};
+		700000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ayyitskevin.hippocrates.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Hippocrates;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -891,6 +1001,15 @@
 			buildConfigurations = (
 				700000000000000000000005 /* Debug */,
 				700000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		800000000000000000000004 /* Build configuration list for PBXNativeTarget "HippocratesUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				700000000000000000000007 /* Debug */,
+				700000000000000000000008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
