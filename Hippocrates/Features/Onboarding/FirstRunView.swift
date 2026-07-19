@@ -162,17 +162,6 @@ struct FirstRunView: View {
         }
     }
 
-    private var failureAlertBinding: Binding<Bool> {
-        Binding(
-            get: { failureText != nil },
-            set: { isPresented in
-                if isPresented == false {
-                    failureText = nil
-                }
-            }
-        )
-    }
-
     private func toggleBinding(
         for label: String,
         in selection: Binding<Set<String>>
