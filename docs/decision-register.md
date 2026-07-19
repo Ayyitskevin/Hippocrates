@@ -68,6 +68,7 @@ reviews an explicit answer.
 |---|---|---|---|
 | P-008 | Independent qualified clinical reviewers | Are the exact four R1 formula versions, sources, units, rounding rules, limitations, test evidence, and displayed claims approved for the reviewed build and a stated review cadence? | Every descriptor remains `.draft`; no clinical/field use, TestFlight, App Store, or other distribution |
 | P-009 | Owner with qualified regulatory/claims review | What regulatory posture and exact user-facing claims are appropriate for a release that includes the approved RXcalc formulas? | Store copy is provisional and no distribution submission occurs |
+| P-010 | Owner (product) | Which, if any, post-R1 hypothesis may enter planning next: R2 manual multi-formula QTc, R3 clinician-supplied dimensional dose arithmetic, R4 favorites/recent tools, or hold after R1? | R2-R4 remain unstarted; R1 stays the only authorized RXcalc product slice, no retention or schema change occurs, and drug/protocol content remains prohibited |
 
 P-008 currently supports candidate review, not status activation:
 
