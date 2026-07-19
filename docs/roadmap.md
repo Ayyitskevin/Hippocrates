@@ -34,6 +34,9 @@ cross a decision or evidence gate.
 | M3 — summary and CSV export | Implemented | Summary engine, I-007 rate, deterministic CSV, Charts, and the reviewed ShareLink seam passed the hosted pipeline on the merged head in [run 29647799507](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29647799507); manager acceptance of the artifact remains an open owner gate |
 | M4 — DI capture and de-identification gate | Verified | The scanner and fixtures passed in [run 29656090942](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29656090942); the vault, service-enforced gate, and full suite passed post-hotfix in [run 29657016108](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29657016108) after one test-only container-lifetime crash was fixed forward |
 | M5 — freshness and retrieval | Verified | Freshness policy boundaries, one-tap re-verification, the staleness interstitial, and DI search passed on the exact merged head in [run 29657142388](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29657142388) |
+| M6 — the compounding link | Verified | The intervention-to-DI link, year-aware aggregate, and the multi-year backup fixture passed the hosted pipeline on the merged head in [run 29659879056](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29659879056) |
+| M7 — portfolio, restore, and reminders | Implemented | Backup export with the I-011 timestamp, the DI portfolio, the 90-day reminder, and the I-010 reviewed restore adapter with its exact-body pin and import gate passed the hosted pipeline across [run 29667549115](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29667549115) (7a) and the 7b merge; the clean-install export/restore acceptance run remains an open owner gate |
+| Phase 8 — store readiness | In progress | Store-listing, acceptance-script, and app-icon docs written; app icon art, on-device acceptance, and App Store submission remain owner gates |
 
 ## Milestone 0 — foundation evidence (complete)
 
@@ -631,6 +634,27 @@ that motivated it in [`pharmacist-review.md`](pharmacist-review.md).
 Milestones 1–7 above remain the feature specification; the plan maps its
 Phases 1–7 onto them, adds the I-013 pending-resolution ledger to Milestone 2,
 and adds Phase 8 distribution readiness, which no earlier milestone covered.
+
+### v1 feature completion (2026-07-19)
+
+All product feature phases are implemented and merged to `main` with hosted
+CI evidence recorded above: first-run and taxonomy ownership, five-second
+capture and the resolution ledger, the summary and CSV export, the DI vault
+with the service-enforced de-identification gate, freshness decay with the
+staleness interstitial and search, the intervention-to-DI compounding link,
+and backup export/portfolio/restore with the one reviewed local-file ingress
+adapter. There is no remaining feature code.
+
+The open v1 gates are all human or external, not code:
+
+- app icon artwork and its reviewed asset-catalog PR
+  ([`app-icon.md`](app-icon.md));
+- the on-device acceptance run ([`acceptance-scripts.md`](acceptance-scripts.md)):
+  one-handed five-second capture, real airplane-mode integrity, the file
+  importer, and a clean-install restore;
+- institutional permission for shift use (each user's responsibility, P-001);
+- App Store Connect submission and the **Data Not Collected** privacy label
+  ([`store-listing.md`](store-listing.md)).
 
 ## Permanent stop conditions
 
