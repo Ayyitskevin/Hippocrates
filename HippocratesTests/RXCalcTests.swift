@@ -861,6 +861,130 @@ final class RXCalcTests: XCTestCase {
 
     // MARK: - Helpers
 
+
+    // MARK: - Result lifecycle (stale / copy-export gate)
+
+    func testResultSessionPublishInvalidateAndAbandon() {
+        var session = RXResultSession<Int>()
+        XCTAssertEqual(session.currency, .none)
+        XCTAssertFalse(session.mayCopyOrExportAsCurrent)
+
+        session.publish(42)
+        XCTAssertTrue(session.isCurrent)
+        XCTAssertEqual(session.value, 42)
+        XCTAssertTrue(session.mayCopyOrExportAsCurrent)
+
+        session.invalidate(reason: RXResultSession<Int>.defaultInvalidationReason)
+        XCTAssertTrue(session.isStale)
+        XCTAssertEqual(session.value, 42)
+        XCTAssertFalse(session.mayCopyOrExportAsCurrent)
+        XCTAssertEqual(session.staleReason, RXResultSession<Int>.defaultInvalidationReason)
+
+        session.abandonSurface()
+        XCTAssertEqual(session.currency, .none)
+        XCTAssertNil(session.value)
+        XCTAssertFalse(session.mayCopyOrExportAsCurrent)
+    }
+
+    func testResultSessionInvalidateWithoutValueStaysEmpty() {
+        var session = RXResultSession<String>()
+        session.invalidate()
+        XCTAssertEqual(session.currency, .none)
+        XCTAssertNil(session.value)
+        XCTAssertFalse(session.mayCopyOrExportAsCurrent)
+    }
+
+    func testExportGateBlocksStaleAndAllowsCurrentOnly() {
+        XCTAssertFalse(
+            RXResultExportGate.allowsCopyOrExportAsCurrent(currency: .none, hasValue: false)
+        )
+        XCTAssertFalse(
+            RXResultExportGate.allowsCopyOrExportAsCurrent(currency: .stale, hasValue: true)
+        )
+        XCTAssertFalse(
+            RXResultExportGate.allowsCopyOrExportAsCurrent(currency: .current, hasValue: false)
+        )
+        XCTAssertTrue(
+            RXResultExportGate.allowsCopyOrExportAsCurrent(currency: .current, hasValue: true)
+        )
+    }
+
+    func testCurrentEngineeringSummaryNilWhenStale() {
+        let summary = RXResultExportGate.currentEngineeringSummary(
+            currency: .stale,
+            formulaIdentifiers: ["cockcroft_gault_1976@1.0.0"],
+            outputDescription: "87.5 mL/min",
+            reviewStatusTitle: RXCalculationProvenance.draftReviewStatusTitle,
+            calculatedAtDescription: "test-time"
+        )
+        XCTAssertNil(summary)
+    }
+
+    func testCurrentEngineeringSummaryContainsDraftAndFormulaWhenCurrent() {
+        let summary = try XCTUnwrap(
+            RXResultExportGate.currentEngineeringSummary(
+                currency: .current,
+                formulaIdentifiers: ["cockcroft_gault_1976@1.0.0"],
+                outputDescription: "87.5 mL/min",
+                reviewStatusTitle: RXCalculationProvenance.draftReviewStatusTitle,
+                calculatedAtDescription: "test-time"
+            )
+        )
+        XCTAssertTrue(summary.contains("Draft"))
+        XCTAssertTrue(summary.contains("cockcroft_gault_1976@1.0.0"))
+        XCTAssertTrue(summary.contains("not clinically validated") || summary.contains("Draft"))
+        XCTAssertTrue(summary.contains("Do not use as autonomous clinical advice"))
+    }
+
+    func testCalculatorResultLifecycleThroughShippedCalculatePath() throws {
+        var session = RXResultSession<CreatinineClearanceResult>()
+        let fixed = Date(timeIntervalSince1970: 1_784_563_200)
+        let published = try CreatinineClearanceCalculator.calculate(
+            CreatinineClearanceInput(
+                ageYears: 50,
+                equationSex: .male,
+                calculationWeight: 70,
+                weightUnit: .kilograms,
+                serumCreatinine: 1,
+                creatinineUnit: .milligramsPerDeciliter
+            ),
+            calculatedAt: fixed
+        )
+        session.publish(published)
+        XCTAssertTrue(session.mayCopyOrExportAsCurrent)
+        XCTAssertTrue(session.value?.provenance.humanReviewRequired == true)
+        XCTAssertFalse(session.value?.provenance.isAutonomousClinicalRecommendation == true)
+
+        // Input change path: invalidate then gate blocks summary-as-current.
+        session.invalidate()
+        XCTAssertFalse(session.mayCopyOrExportAsCurrent)
+        let blocked = RXResultExportGate.currentEngineeringSummary(
+            currency: session.currency,
+            formulaIdentifiers: published.provenance.formulaIdentifiers,
+            outputDescription: "blocked",
+            reviewStatusTitle: published.provenance.sourceReviewStatusTitle,
+            calculatedAtDescription: "blocked"
+        )
+        XCTAssertNil(blocked)
+
+        // Recalculate publishes a new current result.
+        let next = try CreatinineClearanceCalculator.calculate(
+            CreatinineClearanceInput(
+                ageYears: 50,
+                equationSex: .female,
+                calculationWeight: 70,
+                weightUnit: .kilograms,
+                serumCreatinine: 1,
+                creatinineUnit: .milligramsPerDeciliter
+            ),
+            calculatedAt: fixed
+        )
+        session.publish(next)
+        XCTAssertTrue(session.isCurrent)
+        XCTAssertTrue(session.mayCopyOrExportAsCurrent)
+        XCTAssertEqual(session.value?.millilitersPerMinute, 74.375, accuracy: 0.000_000_1)
+    }
+
     private func assertProvenanceComplete(
         _ provenance: RXCalculationProvenance,
         expectedFormulaIDs: [String],

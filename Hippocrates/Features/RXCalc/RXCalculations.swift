@@ -703,3 +703,133 @@ struct BodySizeCalculator {
         )
     }
 }
+
+// MARK: - Result lifecycle (current vs stale; copy/export gate)
+//
+// RXcalc results are never durable. This session model makes it impossible to
+// treat a superseded calculation as the current output after inputs, units, or
+// surface context change. It does not store PHI and does not authorize clinical use.
+
+/// Currency of a calculator result on the working surface.
+enum RXResultCurrency: String, Equatable, Sendable {
+    /// No calculation has been published on this surface.
+    case none
+    /// Latest successful calculation for the current inputs.
+    case current
+    /// A prior calculation remains visible only as historical/stale context.
+    case stale
+}
+
+/// Pure, Foundation-only lifecycle for one calculator surface.
+/// Copy/export-as-current is allowed only while `currency == .current`.
+struct RXResultSession<Value: Equatable & Sendable>: Equatable, Sendable {
+    private(set) var currency: RXResultCurrency = .none
+    private(set) var value: Value?
+    /// Human-readable reason the last result is no longer current (stale only).
+    private(set) var staleReason: String?
+
+    var isCurrent: Bool {
+        currency == .current && value != nil
+    }
+
+    var isStale: Bool {
+        currency == .stale && value != nil
+    }
+
+    /// Gate for any copy/share/export path that would present numbers as the
+    /// active calculation. Stale and empty sessions always return false.
+    var mayCopyOrExportAsCurrent: Bool {
+        isCurrent
+    }
+
+    /// Fixed labels for UI / VoiceOver (no dynamic string interpolation required).
+    static var staleBannerTitle: String {
+        "Stale result — not current"
+    }
+
+    static var staleCopyBlockedMessage: String {
+        "Copy and export as a current result are blocked until you recalculate."
+    }
+
+    static var defaultInvalidationReason: String {
+        "An input, unit, or working context changed after this calculation."
+    }
+
+    static var surfaceAbandonedReason: String {
+        "Left the calculator surface or the app left the active state."
+    }
+
+    static var dynamicTypeChangedReason: String {
+        "Dynamic Type size changed after this calculation."
+    }
+
+    mutating func publish(_ newValue: Value) {
+        value = newValue
+        currency = .current
+        staleReason = nil
+    }
+
+    /// Marks any published value stale so it cannot be treated as current.
+    /// No-op when nothing has been published.
+    mutating func invalidate(reason: String = Self.defaultInvalidationReason) {
+        guard value != nil else {
+            currency = .none
+            staleReason = nil
+            return
+        }
+        currency = .stale
+        staleReason = reason
+    }
+
+    /// Drops all visible result state (used on clear, hard reset, abandon).
+    mutating func clear() {
+        value = nil
+        currency = .none
+        staleReason = nil
+    }
+
+    /// Leaving the calculator, backgrounding, or relaunching must not leave a
+    /// prior result looking current. Clears rather than soft-stales.
+    mutating func abandonSurface() {
+        clear()
+    }
+}
+
+/// Central gate used by any copy/export seam. Pure function so tests drive the
+/// shipped decision without re-implementing UI policy.
+enum RXResultExportGate {
+    /// Returns whether a payload may be presented as the *current* calculation.
+    /// Draft clinical status does not by itself block copy of engineering
+    /// numbers, but stale/none always do.
+    static func allowsCopyOrExportAsCurrent(
+        currency: RXResultCurrency,
+        hasValue: Bool
+    ) -> Bool {
+        currency == .current && hasValue
+    }
+
+    /// Builds a non-PHI engineering summary only when the gate allows it.
+    /// Returns nil when the session is not current (callers must not invent text).
+    static func currentEngineeringSummary(
+        currency: RXResultCurrency,
+        formulaIdentifiers: [String],
+        outputDescription: String,
+        reviewStatusTitle: String,
+        calculatedAtDescription: String
+    ) -> String? {
+        guard allowsCopyOrExportAsCurrent(currency: currency, hasValue: true) else {
+            return nil
+        }
+        var lines: [String] = [
+            "RXcalc Draft engineering output — not clinically validated",
+            reviewStatusTitle,
+            "Calculated at: " + calculatedAtDescription,
+            "Output: " + outputDescription,
+        ]
+        for identifier in formulaIdentifiers {
+            lines.append("Formula: " + identifier)
+        }
+        lines.append("Do not use as autonomous clinical advice or a dose.")
+        return lines.joined(separator: "\n")
+    }
+}
