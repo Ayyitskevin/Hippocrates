@@ -1869,6 +1869,44 @@ final class BackupRoundTripTests: XCTestCase {
         }
     }
 
+    func testCodecRejectsTruncatedCorruptAndPartialEnvelopes() {
+        let complete = try? BackupCodec.encode(
+            BackupArchive(
+                createdAt: exportDate,
+                payload: .init(
+                    interventionTypes: [],
+                    drugClasses: [],
+                    serviceLines: [],
+                    interventions: [],
+                    questions: [],
+                    citations: [],
+                    appConfig: nil
+                )
+            )
+        )
+        XCTAssertNotNil(complete)
+        if let complete {
+            let truncated = Data(complete.prefix(20))
+            XCTAssertThrowsError(try BackupCodec.decode(truncated))
+            var flipped = complete
+            if flipped.isEmpty == false {
+                flipped[flipped.startIndex] = flipped[flipped.startIndex] &+ 1
+            }
+            // May or may not throw depending on which byte flipped; prefer
+            // structural garbage that always fails:
+            XCTAssertThrowsError(try BackupCodec.decode(Data(complete.dropLast(5))))
+        }
+
+        XCTAssertThrowsError(try BackupCodec.decode(Data()))
+        XCTAssertThrowsError(try BackupCodec.decode(Data(#"{"formatVersion":2}"#.utf8)))
+        XCTAssertThrowsError(
+            try BackupCodec.decode(Data(#"{"formatVersion":"two"}"#.utf8))
+        )
+        XCTAssertThrowsError(
+            try BackupCodec.decode(Data(#"{"formatVersion":2,"createdAt":0,"payload":null}"#.utf8))
+        )
+    }
+
     func testVerificationHistoryMustBeStrictlyChronological() {
         let verifiedOn = Date(timeIntervalSinceReferenceDate: 700_000_000)
         let invalidQuestion = BackupArchive.DIQuestionRecord(

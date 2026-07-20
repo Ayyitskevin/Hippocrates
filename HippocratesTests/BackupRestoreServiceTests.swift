@@ -96,6 +96,85 @@ final class BackupRestoreServiceTests: XCTestCase {
         XCTAssertFalse(context.hasChanges)
     }
 
+    func testRestoreRejectsTruncatedAndCorruptedPayloadsWithoutMutation() throws {
+        let valid = try populatedArchiveData(withIdentifierInBackground: nil)
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        let context = destination.mainContext
+
+        // Truncated mid-JSON
+        let truncated = valid.prefix(max(32, valid.count / 3))
+        XCTAssertThrowsError(
+            try BackupRestoreService.restore(from: Data(truncated), into: context)
+        ) { error in
+            XCTAssertEqual(error as? BackupRestoreError, .malformedFile)
+        }
+        XCTAssertFalse(context.hasChanges)
+
+        // Empty
+        XCTAssertThrowsError(
+            try BackupRestoreService.restore(from: Data(), into: context)
+        ) { error in
+            XCTAssertEqual(error as? BackupRestoreError, .malformedFile)
+        }
+        XCTAssertFalse(context.hasChanges)
+
+        // Unsupported format version envelope
+        let unsupported = Data(#"{"formatVersion":999,"createdAt":0,"payload":{}}"#.utf8)
+        XCTAssertThrowsError(
+            try BackupRestoreService.restore(from: unsupported, into: context)
+        ) { error in
+            // Codec throws unsupported version → restore maps to malformedFile
+            // or invalidArchive depending on decode path.
+            let restoreError = error as? BackupRestoreError
+            XCTAssertTrue(
+                restoreError == .malformedFile || restoreError == .invalidArchive,
+                "Unexpected error: \(String(describing: error))"
+            )
+        }
+        XCTAssertFalse(context.hasChanges)
+
+        // Partial object missing required payload shape
+        let partial = Data(#"{"formatVersion":2,"createdAt":0}"#.utf8)
+        XCTAssertThrowsError(
+            try BackupRestoreService.restore(from: partial, into: context)
+        ) { error in
+            XCTAssertEqual(error as? BackupRestoreError, .malformedFile)
+        }
+        XCTAssertFalse(context.hasChanges)
+
+        // Bit-flip corruption of a valid archive
+        var corrupted = valid
+        if corrupted.isEmpty == false {
+            let index = corrupted.count / 2
+            corrupted[index] ^= 0xFF
+        }
+        XCTAssertThrowsError(
+            try BackupRestoreService.restore(from: corrupted, into: context)
+        )
+        XCTAssertFalse(context.hasChanges)
+    }
+
+    func testSuccessfulRestoreThenRejectsSecondPartialAttempt() throws {
+        let data = try populatedArchiveData(withIdentifierInBackground: nil)
+        let destination = try HippocratesStore.makeContainer(inMemory: true)
+        let context = destination.mainContext
+
+        try BackupRestoreService.restore(from: data, into: context)
+        XCTAssertFalse(context.hasChanges)
+
+        // Destination is now non-empty; a second restore (even with valid data)
+        // must refuse without discarding existing rows.
+        let beforeTypes = try TaxonomyService.allInterventionTypes(in: context).count
+        XCTAssertGreaterThan(beforeTypes, 0)
+        XCTAssertThrowsError(
+            try BackupRestoreService.restore(from: data, into: context)
+        ) { error in
+            XCTAssertEqual(error as? BackupRestoreError, .destinationNotEmpty)
+        }
+        let afterTypes = try TaxonomyService.allInterventionTypes(in: context).count
+        XCTAssertEqual(beforeTypes, afterTypes)
+    }
+
     // MARK: Non-empty destination
 
     func testRestoreRefusesPopulatedDestination() throws {
