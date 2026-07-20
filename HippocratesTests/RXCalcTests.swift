@@ -920,7 +920,7 @@ final class RXCalcTests: XCTestCase {
         XCTAssertNil(summary)
     }
 
-    func testCurrentEngineeringSummaryContainsDraftAndFormulaWhenCurrent() {
+    func testCurrentEngineeringSummaryContainsDraftAndFormulaWhenCurrent() throws {
         let summary = try XCTUnwrap(
             RXResultExportGate.currentEngineeringSummary(
                 currency: .current,
@@ -982,7 +982,8 @@ final class RXCalcTests: XCTestCase {
         session.publish(next)
         XCTAssertTrue(session.isCurrent)
         XCTAssertTrue(session.mayCopyOrExportAsCurrent)
-        XCTAssertEqual(session.value?.millilitersPerMinute, 74.375, accuracy: 0.000_000_1)
+        let clearance = try XCTUnwrap(session.value?.millilitersPerMinute)
+        XCTAssertEqual(clearance, 74.375, accuracy: 0.000_000_1)
     }
 
     private func assertProvenanceComplete(
