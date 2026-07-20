@@ -308,6 +308,8 @@ private struct CreatinineClearanceView: View {
                         fractionDigits: 3
                     )
                 }
+
+                RXResultProvenanceSection(provenance: result.provenance)
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -485,6 +487,8 @@ private struct CKDEPI2021CreatinineView: View {
                         fractionDigits: 3
                     )
                 }
+
+                RXResultProvenanceSection(provenance: result.provenance)
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -668,6 +672,8 @@ private struct BodySizeView: View {
                         fractionDigits: 2
                     )
                 }
+
+                RXResultProvenanceSection(provenance: result.provenance)
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -769,6 +775,65 @@ private struct RXResultReviewNotice: View {
     }
 }
 
+/// Surfaces calculation provenance for independent verification. Values use
+/// Dynamic Type–friendly body/callout styles; safety labels stay readable.
+private struct RXResultProvenanceSection: View {
+    let provenance: RXCalculationProvenance
+
+    var body: some View {
+        Section("Calculation provenance") {
+            Label(
+                "Human review required — not an autonomous clinical recommendation",
+                systemImage: "person.fill.checkmark"
+            )
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.orange)
+            .accessibilityIdentifier("rxcalc.result.humanReviewRequired")
+
+            ForEach(provenance.formulaIdentifiers, id: \.self) { identifier in
+                LabeledContent("Formula version", value: identifier)
+                    .font(.body)
+                    .accessibilityIdentifier("rxcalc.result.formulaVersion")
+            }
+
+            LabeledContent("Rounding policy", value: provenance.roundingPolicyIdentity)
+                .font(.callout)
+                .accessibilityIdentifier("rxcalc.result.roundingPolicy")
+
+            LabeledContent("Source review status", value: provenance.sourceReviewStatusTitle)
+                .font(.body)
+                .accessibilityIdentifier("rxcalc.result.sourceReviewStatus")
+
+            LabeledContent(
+                "Calculated at",
+                value: provenance.calculatedAt.formatted(date: .abbreviated, time: .standard)
+            )
+            .font(.callout)
+            .accessibilityIdentifier("rxcalc.result.calculatedAt")
+
+            ForEach(provenance.inputTraces, id: \.name) { trace in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(trace.name)
+                        .font(.subheadline.weight(.semibold))
+                    Text(
+                        "Entered \(trace.originalValueDescription) \(trace.originalUnitSymbol) → \(trace.normalizedValue) \(trace.normalizedUnitSymbol)"
+                    )
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                }
+                .accessibilityElement(children: .combine)
+            }
+
+            Text(
+                "Full precision is retained through calculation. Display rounding does not change the stored result value. Independently verify equation, inputs, units, and result before any clinical use."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
 private struct RXResultValue: View {
     let label: String
     let value: Double
@@ -782,10 +847,14 @@ private struct RXResultValue: View {
                     value,
                     format: .number.precision(.fractionLength(fractionDigits))
                 )
-                .fontWeight(.semibold)
+                .font(.body.weight(.semibold))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
                 Text(unit)
+                    .font(.body)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
         }
     }
 }
