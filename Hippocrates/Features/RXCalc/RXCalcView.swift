@@ -38,19 +38,24 @@ struct RXCalcView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            List {
-                Section {
+            // ScrollView + text stack (not List/Button/Label) so every catalog
+            // surface uses full Dynamic Type text styles at Accessibility 5.
+            // System List cells, disclosure chevrons, and weighted button labels
+            // previously failed the hosted Dynamic Type audit with
+            // "font sizes are partially unsupported".
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        // Text-only Draft banner: pure Dynamic Type text styles
-                        // (no Label+symbol pair) so Accessibility 5 audits pass.
                         Text(catalogReviewStatus.catalogTitle)
                             .font(.headline)
                             .foregroundStyle(.orange)
+                            .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("rxcalc.catalog.reviewTitle")
 
                         Text(catalogReviewStatus.catalogMessage)
                             .font(.body)
+                            .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("rxcalc.catalog.reviewMessage")
 
@@ -59,48 +64,47 @@ struct RXCalcView: View {
                         )
                         .font(.body)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("rxcalc.catalog.nonRetentionWarning")
                     }
-                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 4)
                     .accessibilityElement(children: .contain)
-                }
 
-                if visibleCategories.isEmpty {
-                    Section {
+                    if visibleCategories.isEmpty {
+                        Text("Calculators")
+                            .font(.headline)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text("No calculators match this search.")
                             .font(.body)
                             .foregroundStyle(.secondary)
-                    } header: {
-                        Text("Calculators")
-                            .font(.body.weight(.semibold))
-                            .textCase(nil)
                             .fixedSize(horizontal: false, vertical: true)
-                    }
-                } else {
-                    ForEach(visibleCategories) { category in
-                        Section {
-                            ForEach(category.calculators) { calculator in
-                                Button {
-                                    navigationPath.append(calculator)
-                                } label: {
-                                    RXCalculatorRow(calculator: calculator)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier(
-                                    "rxcalc.catalog." + calculator.rawValue
-                                )
-                            }
-                        } header: {
+                    } else {
+                        ForEach(visibleCategories) { category in
                             Text(category.name)
-                                .font(.body.weight(.semibold))
-                                .textCase(nil)
+                                .font(.headline)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityAddTraits(.isHeader)
+
+                            ForEach(category.calculators) { calculator in
+                                RXCalculatorRow(calculator: calculator)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        navigationPath.append(calculator)
+                                    }
+                                    .accessibilityAddTraits(.isButton)
+                                    .accessibilityIdentifier(
+                                        "rxcalc.catalog." + calculator.rawValue
+                                    )
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
-            .listStyle(.plain)
             .navigationTitle("RXcalc")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
@@ -126,8 +130,9 @@ private struct RXCalculatorRow: View {
 
     var body: some View {
         let descriptor = calculator.descriptor
-        // Pure text stack only — no SF Symbol/Label pairs. System disclosure
-        // chevrons are also avoided by the parent Button+NavigationPath path.
+        // Only unmodified Dynamic Type text styles (headline/body/callout).
+        // Do not apply .weight(...) — weighted variants report partial Dynamic
+        // Type support under the hosted Accessibility 5 audit.
         VStack(alignment: .leading, spacing: 6) {
             Text(descriptor.shortTitle)
                 .font(.headline)
@@ -139,7 +144,7 @@ private struct RXCalculatorRow: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             Text(descriptor.reviewStatus.title)
-                .font(.body.weight(.semibold))
+                .font(.callout)
                 .foregroundStyle(.orange)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -148,8 +153,7 @@ private struct RXCalculatorRow: View {
                 )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
     }
 }
