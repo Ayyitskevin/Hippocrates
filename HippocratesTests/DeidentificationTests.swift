@@ -225,8 +225,13 @@ final class DeidentificationTests: XCTestCase {
             let found = categories(in: text)
             XCTAssertTrue(
                 found.contains(expected),
-                "Expected \(expected.rawValue) in synthetic fixture: \(text); got \(found)"
+                "Expected category missing from synthetic adversarial fixture"
             )
+            // Keep the fixture text out of the assertion message path so a
+            // failure still prints via XCTContext if needed.
+            if found.contains(expected) == false {
+                XCTFail(text)
+            }
         }
     }
 
@@ -276,10 +281,14 @@ final class DeidentificationTests: XCTestCase {
             "Linezolid and sertraline interaction: monitor for serotonin toxicity.",
         ]
         for text in cleanSamples {
+            let found = categories(in: text)
             XCTAssertTrue(
-                categories(in: text).isEmpty,
-                "Unexpected finding in clean clinical text: \(text) -> \(categories(in: text))"
+                found.isEmpty,
+                "Unexpected finding in clean clinical text"
             )
+            if found.isEmpty == false {
+                XCTFail(text)
+            }
         }
     }
 }

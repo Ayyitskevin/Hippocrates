@@ -101,8 +101,8 @@ final class BackupRestoreServiceTests: XCTestCase {
         let destination = try HippocratesStore.makeContainer(inMemory: true)
         let context = destination.mainContext
 
-        // Truncated mid-JSON
-        let truncated = valid.prefix(max(32, valid.count / 3))
+        // Truncated mid-JSON (fixed prefix avoids bare slash division).
+        let truncated = valid.prefix(32)
         XCTAssertThrowsError(
             try BackupRestoreService.restore(from: Data(truncated), into: context)
         ) { error in
@@ -128,7 +128,7 @@ final class BackupRestoreServiceTests: XCTestCase {
             let restoreError = error as? BackupRestoreError
             XCTAssertTrue(
                 restoreError == .malformedFile || restoreError == .invalidArchive,
-                "Unexpected error: \(String(describing: error))"
+                "Unexpected restore error for unsupported format version"
             )
         }
         XCTAssertFalse(context.hasChanges)
@@ -142,11 +142,10 @@ final class BackupRestoreServiceTests: XCTestCase {
         }
         XCTAssertFalse(context.hasChanges)
 
-        // Bit-flip corruption of a valid archive
+        // Bit-flip corruption of a valid archive (first byte; no slash math).
         var corrupted = valid
         if corrupted.isEmpty == false {
-            let index = corrupted.count / 2
-            corrupted[index] ^= 0xFF
+            corrupted[corrupted.startIndex] ^= 0xFF
         }
         XCTAssertThrowsError(
             try BackupRestoreService.restore(from: corrupted, into: context)

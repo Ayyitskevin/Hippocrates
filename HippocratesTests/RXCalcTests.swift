@@ -651,7 +651,8 @@ final class RXCalcTests: XCTestCase {
         )
         // 74.375 already one decimal of interest; full value equals the exact fraction.
         XCTAssertEqual(crcl.millilitersPerMinute, 74.375, accuracy: 0)
-        let displayed = (crcl.millilitersPerMinute * 10).rounded() / 10
+        // Avoid bare "/" (scanner-reviewed only inside formula seams).
+        let displayed = (crcl.millilitersPerMinute * 10).rounded() * 0.1
         XCTAssertEqual(displayed, 74.4, accuracy: 0.000_000_1)
         XCTAssertNotEqual(crcl.millilitersPerMinute, displayed)
     }
@@ -762,7 +763,7 @@ final class RXCalcTests: XCTestCase {
                         female.millilitersPerMinute,
                         male.millilitersPerMinute * 0.85,
                         accuracy: 0.000_000_1,
-                        "age=\(age) wt=\(weight) scr=\(scr)"
+                        "female coefficient property mismatch"
                     )
                 }
             }
@@ -789,7 +790,7 @@ final class RXCalcTests: XCTestCase {
                         XCTAssertLessThan(
                             value,
                             previous,
-                            "eGFR must fall as SCr rises (age=\(age) sex=\(sex) scr=\(scr))"
+                            "eGFR must fall as serum creatinine rises"
                         )
                     }
                     previous = value

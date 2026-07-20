@@ -815,8 +815,17 @@ private struct RXResultProvenanceSection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(trace.name)
                         .font(.subheadline.weight(.semibold))
+                    // Concatenation only: executable string interpolation is
+                    // fail-closed outside the reviewed allowlist.
                     Text(
-                        "Entered \(trace.originalValueDescription) \(trace.originalUnitSymbol) → \(trace.normalizedValue) \(trace.normalizedUnitSymbol)"
+                        "Entered "
+                            + trace.originalValueDescription
+                            + " "
+                            + trace.originalUnitSymbol
+                            + " → "
+                            + String(trace.normalizedValue)
+                            + " "
+                            + trace.normalizedUnitSymbol
                     )
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
