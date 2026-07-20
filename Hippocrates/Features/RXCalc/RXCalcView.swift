@@ -38,15 +38,21 @@ struct RXCalcView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(
-                            catalogReviewStatus.catalogTitle,
-                            systemImage: "exclamationmark.triangle.fill"
-                        )
-                        .font(.headline)
+                        // HStack (not Label) so title and symbol both use fully
+                        // scalable text styles under Accessibility 5 audits.
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.headline)
+                                .accessibilityHidden(true)
+                            Text(catalogReviewStatus.catalogTitle)
+                                .font(.headline)
+                        }
                         .foregroundStyle(.orange)
+                        .accessibilityElement(children: .combine)
 
                         Text(catalogReviewStatus.catalogMessage)
                             .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("rxcalc.catalog.reviewMessage")
 
                         Text(
@@ -54,19 +60,25 @@ struct RXCalcView: View {
                         )
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("rxcalc.catalog.nonRetentionWarning")
                     }
                     .padding(.vertical, 4)
                 }
 
                 if visibleCategories.isEmpty {
-                    Section("Calculators") {
+                    Section {
                         Text("No calculators match this search.")
+                            .font(.body)
                             .foregroundStyle(.secondary)
+                    } header: {
+                        Text("Calculators")
+                            .font(.subheadline.weight(.semibold))
+                            .textCase(nil)
                     }
                 } else {
                     ForEach(visibleCategories) { category in
-                        Section(category.name) {
+                        Section {
                             ForEach(category.calculators) { calculator in
                                 NavigationLink(value: calculator) {
                                     RXCalculatorRow(calculator: calculator)
@@ -75,11 +87,19 @@ struct RXCalcView: View {
                                     "rxcalc.catalog." + calculator.rawValue
                                 )
                             }
+                        } header: {
+                            // Custom headers keep original casing and use
+                            // scalable body styles (system section chrome can
+                            // report partial Dynamic Type support at A5).
+                            Text(category.name)
+                                .font(.subheadline.weight(.semibold))
+                                .textCase(nil)
                         }
                     }
                 }
             }
             .navigationTitle("RXcalc")
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $searchText,
                 prompt: "Search formulas, evidence, or categories"
@@ -106,15 +126,21 @@ private struct RXCalculatorRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(descriptor.shortTitle)
                 .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
             Text(descriptor.summary)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Label(
-                descriptor.reviewStatus.title,
-                systemImage: "exclamationmark.shield.fill"
-            )
-            .font(.caption.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .accessibilityHidden(true)
+                Text(descriptor.reviewStatus.title)
+                    .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             .foregroundStyle(.orange)
+            .accessibilityElement(children: .combine)
             .accessibilityIdentifier(
                 "rxcalc.catalog." + calculator.rawValue + ".reviewStatus"
             )

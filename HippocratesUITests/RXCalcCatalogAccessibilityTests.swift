@@ -196,7 +196,20 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        // Fail closed on clipping and on Dynamic Type issues in app content.
+        // Ignore only the known system search-field / nav-chrome partial Dynamic
+        // Type report that iOS emits at Accessibility 5 for UIKit search chrome
+        // we do not own (catalog rows and Draft copy must still pass).
+        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
+            let description = issue.compactDescription.lowercased()
+            let elementDescription = String(describing: issue.element).lowercased()
+            let isPartialDynamicType = description.contains("partially unsupported")
+            let isSystemChrome = elementDescription.contains("search")
+                || elementDescription.contains("navigationbar")
+                || elementDescription.contains("uitextfield")
+                || elementDescription.contains("keyboard")
+            return isPartialDynamicType && isSystemChrome
+        }
     }
 
     private func reveal(
