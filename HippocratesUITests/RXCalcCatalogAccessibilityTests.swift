@@ -36,12 +36,17 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         )
 
         assertReachableText("Draft clinical content", in: app)
-        assertReachableText(
-            "This development build has not passed independent clinical review. Do not use RXcalc for patient care. It performs source-identified arithmetic only.",
+        // Long Draft copy exceeds XCUITest's 128-character identifier query
+        // limit and NSPredicate is scanner-forbidden, so assert via stable
+        // accessibility identifiers plus full label equality.
+        assertReachableLabeledElement(
+            identifier: "rxcalc.catalog.reviewMessage",
+            expectedLabel: "This development build has not passed independent clinical review. Do not use RXcalc for patient care. It performs source-identified arithmetic only.",
             in: app
         )
-        assertReachableText(
-            "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers.",
+        assertReachableLabeledElement(
+            identifier: "rxcalc.catalog.nonRetentionWarning",
+            expectedLabel: "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers.",
             in: app
         )
         try auditVisibleCatalog(in: app, attachmentName: "RXcalc catalog warning")
@@ -128,20 +133,31 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
     }
 
     private func assertReachableText(_ text: String, in app: XCUIApplication) {
-        // XCUIElementQuery subscript treats the string as an identifier and
-        // rejects values longer than 128 characters. Match on label instead so
-        // the full Draft catalog warning remains assertable.
-        let element: XCUIElement
-        if text.count > 128 {
-            element = app.staticTexts.matching(
-                NSPredicate(format: "label == %@", text)
-            ).firstMatch
-        } else {
-            element = app.staticTexts[text].firstMatch
-        }
+        let element = app.staticTexts[text].firstMatch
         XCTAssertTrue(
             reveal(element, in: app, maximumSwipes: 20),
             "Expected complete catalog text was not reachable"
+        )
+        XCTAssertTrue(
+            app.windows.firstMatch.frame.intersects(element.frame),
+            "Expected catalog text was outside the visible compact viewport"
+        )
+    }
+
+    private func assertReachableLabeledElement(
+        identifier: String,
+        expectedLabel: String,
+        in app: XCUIApplication
+    ) {
+        let element = app.descendants(matching: .any)[identifier].firstMatch
+        XCTAssertTrue(
+            reveal(element, in: app, maximumSwipes: 20),
+            "Expected catalog element was not reachable"
+        )
+        XCTAssertEqual(
+            element.label,
+            expectedLabel,
+            "Expected complete catalog label text"
         )
         XCTAssertTrue(
             app.windows.firstMatch.frame.intersects(element.frame),

@@ -47,12 +47,14 @@ struct RXCalcView: View {
 
                         Text(catalogReviewStatus.catalogMessage)
                             .font(.subheadline)
+                            .accessibilityIdentifier("rxcalc.catalog.reviewMessage")
 
                         Text(
                             "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers."
                         )
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("rxcalc.catalog.nonRetentionWarning")
                     }
                     .padding(.vertical, 4)
                 }
