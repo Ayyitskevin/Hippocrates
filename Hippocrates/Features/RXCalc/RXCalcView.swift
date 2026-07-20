@@ -3,6 +3,9 @@ import SwiftUI
 
 struct RXCalcView: View {
     @State private var searchText = ""
+    /// Explicit path navigation avoids List `NavigationLink` disclosure
+    /// chevrons, which report partial Dynamic Type support at Accessibility 5.
+    @State private var navigationPath = NavigationPath()
 
     private var visibleCalculators: [RXCalculatorKind] {
         RXCalculatorKind.allCases.filter { calculator in
@@ -34,36 +37,33 @@ struct RXCalcView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        // HStack (not Label) so title and symbol both use fully
-                        // scalable text styles under Accessibility 5 audits.
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.headline)
-                                .accessibilityHidden(true)
-                            Text(catalogReviewStatus.catalogTitle)
-                                .font(.headline)
-                        }
-                        .foregroundStyle(.orange)
-                        .accessibilityElement(children: .combine)
+                        // Text-only Draft banner: pure Dynamic Type text styles
+                        // (no Label+symbol pair) so Accessibility 5 audits pass.
+                        Text(catalogReviewStatus.catalogTitle)
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("rxcalc.catalog.reviewTitle")
 
                         Text(catalogReviewStatus.catalogMessage)
-                            .font(.subheadline)
+                            .font(.body)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("rxcalc.catalog.reviewMessage")
 
                         Text(
                             "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers."
                         )
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("rxcalc.catalog.nonRetentionWarning")
                     }
                     .padding(.vertical, 4)
+                    .accessibilityElement(children: .contain)
                 }
 
                 if visibleCategories.isEmpty {
@@ -73,31 +73,34 @@ struct RXCalcView: View {
                             .foregroundStyle(.secondary)
                     } header: {
                         Text("Calculators")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.body.weight(.semibold))
                             .textCase(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 } else {
                     ForEach(visibleCategories) { category in
                         Section {
                             ForEach(category.calculators) { calculator in
-                                NavigationLink(value: calculator) {
+                                Button {
+                                    navigationPath.append(calculator)
+                                } label: {
                                     RXCalculatorRow(calculator: calculator)
                                 }
+                                .buttonStyle(.plain)
                                 .accessibilityIdentifier(
                                     "rxcalc.catalog." + calculator.rawValue
                                 )
                             }
                         } header: {
-                            // Custom headers keep original casing and use
-                            // scalable body styles (system section chrome can
-                            // report partial Dynamic Type support at A5).
                             Text(category.name)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.body.weight(.semibold))
                                 .textCase(nil)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
             }
+            .listStyle(.plain)
             .navigationTitle("RXcalc")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
@@ -123,29 +126,31 @@ private struct RXCalculatorRow: View {
 
     var body: some View {
         let descriptor = calculator.descriptor
-        VStack(alignment: .leading, spacing: 4) {
+        // Pure text stack only — no SF Symbol/Label pairs. System disclosure
+        // chevrons are also avoided by the parent Button+NavigationPath path.
+        VStack(alignment: .leading, spacing: 6) {
             Text(descriptor.shortTitle)
                 .font(.headline)
+                .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             Text(descriptor.summary)
-                .font(.subheadline)
+                .font(.body)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "exclamationmark.shield.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .accessibilityHidden(true)
-                Text(descriptor.reviewStatus.title)
-                    .font(.subheadline.weight(.semibold))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .foregroundStyle(.orange)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier(
-                "rxcalc.catalog." + calculator.rawValue + ".reviewStatus"
-            )
+            Text(descriptor.reviewStatus.title)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.orange)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(
+                    "rxcalc.catalog." + calculator.rawValue + ".reviewStatus"
+                )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -40,6 +40,11 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         // limit and NSPredicate is scanner-forbidden, so assert via stable
         // accessibility identifiers plus full label equality.
         assertReachableLabeledElement(
+            identifier: "rxcalc.catalog.reviewTitle",
+            expectedLabel: "Draft clinical content",
+            in: app
+        )
+        assertReachableLabeledElement(
             identifier: "rxcalc.catalog.reviewMessage",
             expectedLabel: "This development build has not passed independent clinical review. Do not use RXcalc for patient care. It performs source-identified arithmetic only.",
             in: app
@@ -196,20 +201,9 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Fail closed on clipping and on Dynamic Type issues in app content.
-        // Ignore only the known system search-field / nav-chrome partial Dynamic
-        // Type report that iOS emits at Accessibility 5 for UIKit search chrome
-        // we do not own (catalog rows and Draft copy must still pass).
-        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
-            let description = issue.compactDescription.lowercased()
-            let elementDescription = String(describing: issue.element).lowercased()
-            let isPartialDynamicType = description.contains("partially unsupported")
-            let isSystemChrome = elementDescription.contains("search")
-                || elementDescription.contains("navigationbar")
-                || elementDescription.contains("uitextfield")
-                || elementDescription.contains("keyboard")
-            return isPartialDynamicType && isSystemChrome
-        }
+        // Fail closed: no ignored Dynamic Type or clipping findings. Catalog
+        // layout must fully support Accessibility 5 without filter loopholes.
+        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
     }
 
     private func reveal(
