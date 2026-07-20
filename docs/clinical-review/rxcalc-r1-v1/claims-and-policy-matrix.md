@@ -30,3 +30,21 @@ representation or binding mechanism requires a separately owner-approved design.
 
 P-008 does not answer P-009. No P-008 disposition may authorize TestFlight,
 App Store submission, field use, or public distribution by itself.
+
+## Result provenance and human-review boundary (engineering)
+
+Successful calculator results expose a structured provenance object used for
+reproducibility and UI labeling. Engineering fields (not clinical claims):
+
+| Field | Contract |
+|---|---|
+| `formulaIdentifiers` | Exact catalog formula version string(s) for the path taken |
+| `roundingPolicyIdentity` | Stable display-only policy id; arithmetic retains full precision |
+| `sourceReviewStatusTitle` | Always Draft wording until a future activation design exists |
+| `humanReviewRequired` | Always `true` for shipped R1 |
+| `isAutonomousClinicalRecommendation` | Always `false` — arithmetic only; no dosing advice |
+| `calculatedAt` | Timestamp of the successful calculation |
+| `inputTraces` | Original entered values/units and normalized canonical values/units |
+
+These fields support independent verification. They are not a clinical approval
+and must not be read as autonomous recommendations.

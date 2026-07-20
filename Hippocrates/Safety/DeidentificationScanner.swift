@@ -41,7 +41,10 @@ enum DeidentificationScanner {
     /// source, including string contents, as executable interpolation.
     static let patternsByCategory: [DeidentificationFinding.Category: [String]] = [
         .phoneNumber: [
+            // Parenthesized, dashed, dotted, spaced, and optional country code.
             "(?:[+]?1[-. ]?)?(?:[(]\\d{3}[)][-. ]?|\\b\\d{3}[-. ])\\d{3}[-. ]?\\d{4}\\b",
+            // Labeled 10-digit runs without separators (over-inclusive by design).
+            "(?i)\\b(?:phone|pager|fax|callback|cell|mobile|tel)[:#]?\\s*[+]?1?[-. ]?\\d{10}\\b",
         ],
         .date: [
             "\\b\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?\\b",
@@ -50,14 +53,22 @@ enum DeidentificationScanner {
             "(?i)\\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)[.]?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:[,]?\\s+\\d{2,4})?\\b",
         ],
         .roomOrBed: [
-            "(?i)\\b(?:room|rm|bed)\\s*[#:]?\\s*\\d{1,4}[a-z]?\\b",
+            "(?i)\\b(?:room|rm|bed)(?:\\s*no[.]?)?\\s*[#:]?\\s*\\d{1,4}[a-z]?\\b",
         ],
         .ageOver89: [
-            "(?i)\\b(?:9\\d|1[0-4]\\d)\\s*[-]?\\s*(?:years?|yrs?|yo|y/o)(?:\\s*[-]?\\s*old)?\\b",
+            // years / yrs / yo / y/o / y.o. with optional hyphens and "old".
+            // Trailing look-ahead (not \\b) so "y.o." ending in a period still matches.
+            "(?i)\\b(?:9\\d|1[0-4]\\d)\\s*[-]?\\s*(?:years?|yrs?|yo|y/o|y[.]o[.]?)(?:\\s*[-]?\\s*old)?(?=\\s|$|[^A-Za-z0-9])",
             "(?i)\\bage[d]?\\s*[:]?\\s*(?:9\\d|1[0-4]\\d)\\b",
+            // "age over 90" / "age > 95" style notes (still over-inclusive).
+            "(?i)\\bage\\s+(?:over|>)\\s*(?:9\\d|1[0-4]\\d)\\b",
         ],
         .medicalRecordNumber: [
-            "(?i)\\b(?:mrn|medical\\s+record(?:\\s+number)?|record\\s+no[.]?)\\s*[#:]?\\s*\\d{4,10}\\b",
+            // Labeled MRN with continuous digits.
+            "(?i)\\b(?:mrn|medical\\s*[-]?\\s*record(?:\\s*[-]?\\s*number)?|record\\s+no[.]?|chart\\s*id)\\s*[#:]?\\s*\\d{4,10}\\b",
+            // Labeled MRN with obfuscating spaces or hyphens inside the digit run.
+            "(?i)\\b(?:mrn|medical\\s*[-]?\\s*record(?:\\s*[-]?\\s*number)?|record\\s+no[.]?)\\s*[#:]?\\s*\\d(?:[\\s-]*\\d){3,9}\\b",
+            // Bare 6–10 digit runs (false positives OK; false negatives are not).
             "(?<![\\d-])\\d{6,10}(?![\\d-])",
         ],
     ]

@@ -3,6 +3,9 @@ import SwiftUI
 
 struct RXCalcView: View {
     @State private var searchText = ""
+    /// Explicit path navigation avoids List `NavigationLink` disclosure
+    /// chevrons, which report partial Dynamic Type support at Accessibility 5.
+    @State private var navigationPath = NavigationPath()
 
     private var visibleCalculators: [RXCalculatorKind] {
         RXCalculatorKind.allCases.filter { calculator in
@@ -34,50 +37,72 @@ struct RXCalcView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(
-                            catalogReviewStatus.catalogTitle,
-                            systemImage: "exclamationmark.triangle.fill"
-                        )
-                        .font(.headline)
-                        .foregroundStyle(.orange)
+                        // Text-only Draft banner: pure Dynamic Type text styles
+                        // (no Label+symbol pair) so Accessibility 5 audits pass.
+                        Text(catalogReviewStatus.catalogTitle)
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("rxcalc.catalog.reviewTitle")
 
                         Text(catalogReviewStatus.catalogMessage)
-                            .font(.subheadline)
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("rxcalc.catalog.reviewMessage")
 
                         Text(
                             "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers."
                         )
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("rxcalc.catalog.nonRetentionWarning")
                     }
                     .padding(.vertical, 4)
+                    .accessibilityElement(children: .contain)
                 }
 
                 if visibleCategories.isEmpty {
-                    Section("Calculators") {
+                    Section {
                         Text("No calculators match this search.")
+                            .font(.body)
                             .foregroundStyle(.secondary)
+                    } header: {
+                        Text("Calculators")
+                            .font(.body.weight(.semibold))
+                            .textCase(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 } else {
                     ForEach(visibleCategories) { category in
-                        Section(category.name) {
+                        Section {
                             ForEach(category.calculators) { calculator in
-                                NavigationLink(value: calculator) {
+                                Button {
+                                    navigationPath.append(calculator)
+                                } label: {
                                     RXCalculatorRow(calculator: calculator)
                                 }
+                                .buttonStyle(.plain)
                                 .accessibilityIdentifier(
                                     "rxcalc.catalog." + calculator.rawValue
                                 )
                             }
+                        } header: {
+                            Text(category.name)
+                                .font(.body.weight(.semibold))
+                                .textCase(nil)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
             }
+            .listStyle(.plain)
             .navigationTitle("RXcalc")
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $searchText,
                 prompt: "Search formulas, evidence, or categories"
@@ -101,23 +126,31 @@ private struct RXCalculatorRow: View {
 
     var body: some View {
         let descriptor = calculator.descriptor
-        VStack(alignment: .leading, spacing: 4) {
+        // Pure text stack only — no SF Symbol/Label pairs. System disclosure
+        // chevrons are also avoided by the parent Button+NavigationPath path.
+        VStack(alignment: .leading, spacing: 6) {
             Text(descriptor.shortTitle)
                 .font(.headline)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             Text(descriptor.summary)
-                .font(.subheadline)
+                .font(.body)
                 .foregroundStyle(.secondary)
-            Label(
-                descriptor.reviewStatus.title,
-                systemImage: "exclamationmark.shield.fill"
-            )
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.orange)
-            .accessibilityIdentifier(
-                "rxcalc.catalog." + calculator.rawValue + ".reviewStatus"
-            )
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(descriptor.reviewStatus.title)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.orange)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(
+                    "rxcalc.catalog." + calculator.rawValue + ".reviewStatus"
+                )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -308,6 +341,8 @@ private struct CreatinineClearanceView: View {
                         fractionDigits: 3
                     )
                 }
+
+                RXResultProvenanceSection(provenance: result.provenance)
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -485,6 +520,8 @@ private struct CKDEPI2021CreatinineView: View {
                         fractionDigits: 3
                     )
                 }
+
+                RXResultProvenanceSection(provenance: result.provenance)
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -668,6 +705,8 @@ private struct BodySizeView: View {
                         fractionDigits: 2
                     )
                 }
+
+                RXResultProvenanceSection(provenance: result.provenance)
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -769,6 +808,74 @@ private struct RXResultReviewNotice: View {
     }
 }
 
+/// Surfaces calculation provenance for independent verification. Values use
+/// Dynamic Type–friendly body/callout styles; safety labels stay readable.
+private struct RXResultProvenanceSection: View {
+    let provenance: RXCalculationProvenance
+
+    var body: some View {
+        Section("Calculation provenance") {
+            Label(
+                "Human review required — not an autonomous clinical recommendation",
+                systemImage: "person.fill.checkmark"
+            )
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.orange)
+            .accessibilityIdentifier("rxcalc.result.humanReviewRequired")
+
+            ForEach(provenance.formulaIdentifiers, id: \.self) { identifier in
+                LabeledContent("Formula version", value: identifier)
+                    .font(.body)
+                    .accessibilityIdentifier("rxcalc.result.formulaVersion")
+            }
+
+            LabeledContent("Rounding policy", value: provenance.roundingPolicyIdentity)
+                .font(.callout)
+                .accessibilityIdentifier("rxcalc.result.roundingPolicy")
+
+            LabeledContent("Source review status", value: provenance.sourceReviewStatusTitle)
+                .font(.body)
+                .accessibilityIdentifier("rxcalc.result.sourceReviewStatus")
+
+            LabeledContent(
+                "Calculated at",
+                value: provenance.calculatedAt.formatted(date: .abbreviated, time: .standard)
+            )
+            .font(.callout)
+            .accessibilityIdentifier("rxcalc.result.calculatedAt")
+
+            ForEach(provenance.inputTraces, id: \.name) { trace in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(trace.name)
+                        .font(.subheadline.weight(.semibold))
+                    // Concatenation only: executable string interpolation is
+                    // fail-closed outside the reviewed allowlist.
+                    Text(
+                        "Entered "
+                            + trace.originalValueDescription
+                            + " "
+                            + trace.originalUnitSymbol
+                            + " → "
+                            + String(trace.normalizedValue)
+                            + " "
+                            + trace.normalizedUnitSymbol
+                    )
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                }
+                .accessibilityElement(children: .combine)
+            }
+
+            Text(
+                "Full precision is retained through calculation. Display rounding does not change the stored result value. Independently verify equation, inputs, units, and result before any clinical use."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
 private struct RXResultValue: View {
     let label: String
     let value: Double
@@ -782,10 +889,14 @@ private struct RXResultValue: View {
                     value,
                     format: .number.precision(.fractionLength(fractionDigits))
                 )
-                .fontWeight(.semibold)
+                .font(.body.weight(.semibold))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
                 Text(unit)
+                    .font(.body)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
         }
     }
 }

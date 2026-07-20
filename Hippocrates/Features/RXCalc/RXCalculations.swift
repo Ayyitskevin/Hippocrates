@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - Equation sex
+
 enum RXEquationSex: String, CaseIterable, Identifiable, Sendable {
     case female
     case male
@@ -16,9 +18,58 @@ enum RXEquationSex: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum RXMassUnit: String, CaseIterable, Identifiable, Sendable {
+// MARK: - Dimensional kinds and typed quantities
+//
+// Unit kinds are separated at the type level so a mass quantity cannot be
+// passed where length or creatinine concentration is required. Conversion to a
+// single canonical representation happens only inside the matching kind.
+
+enum RXUnitKind: String, Sendable, Equatable, CaseIterable {
+    case mass
+    case length
+    case creatinineConcentration
+}
+
+/// Units that convert a raw numeric entry into one canonical SI-ish value for
+/// a single physical kind. Different kinds never share a concrete unit type.
+protocol RXUnitConverting: Equatable, Hashable, Sendable {
+    static var kind: RXUnitKind { get }
+    var symbol: String { get }
+    /// Convert `value` in this unit to the kind's canonical representation.
+    func canonicalValue(from value: Double) -> Double
+}
+
+/// A numeric measurement tagged with its unit. Incompatible kinds cannot be
+/// mixed without an explicit, reviewed conversion path (none exists across kinds).
+struct RXQuantity<Unit: RXUnitConverting>: Equatable, Sendable {
+    let value: Double
+    let unit: Unit
+
+    init(_ value: Double, unit: Unit) {
+        self.value = value
+        self.unit = unit
+    }
+
+    var kind: RXUnitKind { Unit.kind }
+
+    /// Canonical value for this quantity's kind, or a validation error.
+    func canonical() throws -> Double {
+        guard value.isFinite else {
+            throw RXCalculationError.finiteValuesRequired
+        }
+        let converted = unit.canonicalValue(from: value)
+        guard converted.isFinite else {
+            throw RXCalculationError.calculationOutsideNumericRange
+        }
+        return converted
+    }
+}
+
+enum RXMassUnit: String, CaseIterable, Identifiable, Sendable, RXUnitConverting {
     case kilograms
     case pounds
+
+    static var kind: RXUnitKind { .mass }
 
     var id: String { rawValue }
 
@@ -31,6 +82,11 @@ enum RXMassUnit: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// NIST SP 811 Appendix B.8: 1 lb = 0.45359237 kg (exact).
+    func canonicalValue(from value: Double) -> Double {
+        kilograms(from: value)
+    }
+
     func kilograms(from value: Double) -> Double {
         switch self {
         case .kilograms:
@@ -41,9 +97,11 @@ enum RXMassUnit: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum RXLengthUnit: String, CaseIterable, Identifiable, Sendable {
+enum RXLengthUnit: String, CaseIterable, Identifiable, Sendable, RXUnitConverting {
     case centimeters
     case inches
+
+    static var kind: RXUnitKind { .length }
 
     var id: String { rawValue }
 
@@ -56,6 +114,11 @@ enum RXLengthUnit: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// NIST SP 811 Appendix B.8: 1 in = 2.54 cm (exact).
+    func canonicalValue(from value: Double) -> Double {
+        centimeters(from: value)
+    }
+
     func centimeters(from value: Double) -> Double {
         switch self {
         case .centimeters:
@@ -66,9 +129,11 @@ enum RXLengthUnit: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum RXCreatinineUnit: String, CaseIterable, Identifiable, Sendable {
+enum RXCreatinineUnit: String, CaseIterable, Identifiable, Sendable, RXUnitConverting {
     case milligramsPerDeciliter
     case micromolesPerLiter
+
+    static var kind: RXUnitKind { .creatinineConcentration }
 
     var id: String { rawValue }
 
@@ -81,6 +146,11 @@ enum RXCreatinineUnit: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Conventional factor used by NKF/NIDDK CKD-EPI guidance: mg/dL = µmol/L / 88.4.
+    func canonicalValue(from value: Double) -> Double {
+        milligramsPerDeciliter(from: value)
+    }
+
     func milligramsPerDeciliter(from value: Double) -> Double {
         switch self {
         case .milligramsPerDeciliter:
@@ -90,6 +160,34 @@ enum RXCreatinineUnit: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
+
+/// Runtime dimensional guard for homogeneous quantity collections. Cross-kind
+/// combinations are a compile-time error when using `RXQuantity`; this helper
+/// documents and tests the kind identity for same-kind arrays and conversions.
+enum RXDimensionalAnalysis {
+    static func kind<Unit: RXUnitConverting>(of quantity: RXQuantity<Unit>) -> RXUnitKind {
+        quantity.kind
+    }
+
+    /// Returns true only when every quantity shares the same unit kind (always
+    /// true for a homogeneous `RXQuantity` array; useful in generic helpers).
+    static func areCompatible<Unit: RXUnitConverting>(_ quantities: [RXQuantity<Unit>]) -> Bool {
+        guard let first = quantities.first else { return true }
+        return quantities.allSatisfy { $0.kind == first.kind }
+    }
+
+    /// Rejects using a quantity whose declared kind does not match `expected`.
+    static func requireKind<Unit: RXUnitConverting>(
+        _ quantity: RXQuantity<Unit>,
+        expected: RXUnitKind
+    ) throws {
+        guard quantity.kind == expected else {
+            throw RXCalculationError.finiteValuesRequired
+        }
+    }
+}
+
+// MARK: - Decimal input parsing
 
 enum RXDecimalInputParser {
     static func parse(_ text: String, decimalSeparator: String?) -> Double? {
@@ -110,6 +208,8 @@ enum RXDecimalInputParser {
         return Double(normalized)
     }
 }
+
+// MARK: - Errors
 
 enum RXCalculationError: Error, Equatable, LocalizedError, Sendable {
     case finiteValuesRequired
@@ -143,6 +243,62 @@ enum RXCalculationError: Error, Equatable, LocalizedError, Sendable {
     }
 }
 
+// MARK: - Provenance (reproducibility + human-review boundary)
+
+/// One entered quantity after unit normalization, for result reproducibility.
+struct RXInputTrace: Equatable, Sendable {
+    let name: String
+    let originalValueDescription: String
+    let originalUnitSymbol: String
+    let normalizedValue: Double
+    let normalizedUnitSymbol: String
+}
+
+/// Stable identities for display-only rounding policies. Calculation results
+/// always retain full Double precision; these strings never alter arithmetic.
+enum RXRoundingPolicyIdentity: String, Sendable, Equatable {
+    case cockcroftGaultDisplayOneDecimal = "retain_full_precision;display_1_decimal_place"
+    case ckdEPI2021DisplayWholeNumber = "retain_full_precision;display_whole_number_nkf"
+    case bodySizeDisplayTwoDecimals = "retain_full_precision;display_2_decimal_places"
+}
+
+/// Enough information to reproduce a successful calculation without re-entering
+/// the form. Results are always Draft / human-review-required and never an
+/// autonomous clinical recommendation or dosing instruction.
+struct RXCalculationProvenance: Equatable, Sendable {
+    let formulaIdentifiers: [String]
+    let roundingPolicyIdentity: String
+    let sourceReviewStatusTitle: String
+    /// Always true for shipped R1 formulas (P-008 activation is not implemented).
+    let humanReviewRequired: Bool
+    /// Always false: RXcalc performs source-identified arithmetic only.
+    let isAutonomousClinicalRecommendation: Bool
+    let calculatedAt: Date
+    let inputTraces: [RXInputTrace]
+
+    /// Must stay aligned with `RXClinicalReviewStatus.draft.title` (fail-closed Draft).
+    static let draftReviewStatusTitle = "Draft — independent clinical review required"
+
+    static func draft(
+        formulaIdentifiers: [String],
+        roundingPolicyIdentity: RXRoundingPolicyIdentity,
+        calculatedAt: Date,
+        inputTraces: [RXInputTrace]
+    ) -> RXCalculationProvenance {
+        RXCalculationProvenance(
+            formulaIdentifiers: formulaIdentifiers,
+            roundingPolicyIdentity: roundingPolicyIdentity.rawValue,
+            sourceReviewStatusTitle: draftReviewStatusTitle,
+            humanReviewRequired: true,
+            isAutonomousClinicalRecommendation: false,
+            calculatedAt: calculatedAt,
+            inputTraces: inputTraces
+        )
+    }
+}
+
+// MARK: - Cockcroft–Gault
+
 struct CreatinineClearanceInput: Equatable, Sendable {
     let ageYears: Int
     let equationSex: RXEquationSex
@@ -150,6 +306,45 @@ struct CreatinineClearanceInput: Equatable, Sendable {
     let weightUnit: RXMassUnit
     let serumCreatinine: Double
     let creatinineUnit: RXCreatinineUnit
+
+    /// Typed-quantity convenience: mass and creatinine kinds are distinct types.
+    init(
+        ageYears: Int,
+        equationSex: RXEquationSex,
+        calculationWeight: RXQuantity<RXMassUnit>,
+        serumCreatinine: RXQuantity<RXCreatinineUnit>
+    ) {
+        self.ageYears = ageYears
+        self.equationSex = equationSex
+        self.calculationWeight = calculationWeight.value
+        self.weightUnit = calculationWeight.unit
+        self.serumCreatinine = serumCreatinine.value
+        self.creatinineUnit = serumCreatinine.unit
+    }
+
+    init(
+        ageYears: Int,
+        equationSex: RXEquationSex,
+        calculationWeight: Double,
+        weightUnit: RXMassUnit,
+        serumCreatinine: Double,
+        creatinineUnit: RXCreatinineUnit
+    ) {
+        self.ageYears = ageYears
+        self.equationSex = equationSex
+        self.calculationWeight = calculationWeight
+        self.weightUnit = weightUnit
+        self.serumCreatinine = serumCreatinine
+        self.creatinineUnit = creatinineUnit
+    }
+
+    var weightQuantity: RXQuantity<RXMassUnit> {
+        RXQuantity(calculationWeight, unit: weightUnit)
+    }
+
+    var creatinineQuantity: RXQuantity<RXCreatinineUnit> {
+        RXQuantity(serumCreatinine, unit: creatinineUnit)
+    }
 }
 
 struct CreatinineClearanceResult: Equatable, Sendable {
@@ -158,10 +353,16 @@ struct CreatinineClearanceResult: Equatable, Sendable {
     let equationSex: RXEquationSex
     let calculationWeightKilograms: Double
     let serumCreatinineMilligramsPerDeciliter: Double
+    let provenance: RXCalculationProvenance
 }
 
 struct CreatinineClearanceCalculator {
-    static func calculate(_ input: CreatinineClearanceInput) throws -> CreatinineClearanceResult {
+    static let formulaIdentifier = "cockcroft_gault_1976@1.0.0"
+
+    static func calculate(
+        _ input: CreatinineClearanceInput,
+        calculatedAt: Date = .now
+    ) throws -> CreatinineClearanceResult {
         guard input.ageYears >= 18 else {
             throw RXCalculationError.adultAgeRequired
         }
@@ -172,13 +373,11 @@ struct CreatinineClearanceCalculator {
             throw RXCalculationError.finiteValuesRequired
         }
 
-        let weightKilograms = input.weightUnit.kilograms(from: input.calculationWeight)
-        let creatinine = input.creatinineUnit.milligramsPerDeciliter(
-            from: input.serumCreatinine
-        )
-        guard weightKilograms.isFinite, creatinine.isFinite else {
-            throw RXCalculationError.calculationOutsideNumericRange
-        }
+        try RXDimensionalAnalysis.requireKind(input.weightQuantity, expected: .mass)
+        try RXDimensionalAnalysis.requireKind(input.creatinineQuantity, expected: .creatinineConcentration)
+
+        let weightKilograms = try input.weightQuantity.canonical()
+        let creatinine = try input.creatinineQuantity.canonical()
         guard weightKilograms > 0 else {
             throw RXCalculationError.positiveWeightRequired
         }
@@ -196,21 +395,87 @@ struct CreatinineClearanceCalculator {
             throw RXCalculationError.calculationOutsideNumericRange
         }
 
+        let provenance = RXCalculationProvenance.draft(
+            formulaIdentifiers: [formulaIdentifier],
+            roundingPolicyIdentity: .cockcroftGaultDisplayOneDecimal,
+            calculatedAt: calculatedAt,
+            inputTraces: [
+                RXInputTrace(
+                    name: "ageYears",
+                    originalValueDescription: String(input.ageYears),
+                    originalUnitSymbol: "years",
+                    normalizedValue: Double(input.ageYears),
+                    normalizedUnitSymbol: "years"
+                ),
+                RXInputTrace(
+                    name: "equationSex",
+                    originalValueDescription: input.equationSex.rawValue,
+                    originalUnitSymbol: "equation_sex",
+                    normalizedValue: input.equationSex == .female ? 0.85 : 1.0,
+                    normalizedUnitSymbol: "sex_coefficient"
+                ),
+                RXInputTrace(
+                    name: "calculationWeight",
+                    originalValueDescription: String(input.calculationWeight),
+                    originalUnitSymbol: input.weightUnit.symbol,
+                    normalizedValue: weightKilograms,
+                    normalizedUnitSymbol: "kg"
+                ),
+                RXInputTrace(
+                    name: "serumCreatinine",
+                    originalValueDescription: String(input.serumCreatinine),
+                    originalUnitSymbol: input.creatinineUnit.symbol,
+                    normalizedValue: creatinine,
+                    normalizedUnitSymbol: "mg/dL"
+                ),
+            ]
+        )
+
         return CreatinineClearanceResult(
             millilitersPerMinute: clearance,
             ageYears: input.ageYears,
             equationSex: input.equationSex,
             calculationWeightKilograms: weightKilograms,
-            serumCreatinineMilligramsPerDeciliter: creatinine
+            serumCreatinineMilligramsPerDeciliter: creatinine,
+            provenance: provenance
         )
     }
 }
+
+// MARK: - 2021 CKD-EPI creatinine
 
 struct CKDEPI2021CreatinineInput: Equatable, Sendable {
     let ageYears: Int
     let equationSex: RXEquationSex
     let serumCreatinine: Double
     let creatinineUnit: RXCreatinineUnit
+
+    init(
+        ageYears: Int,
+        equationSex: RXEquationSex,
+        serumCreatinine: RXQuantity<RXCreatinineUnit>
+    ) {
+        self.ageYears = ageYears
+        self.equationSex = equationSex
+        self.serumCreatinine = serumCreatinine.value
+        self.creatinineUnit = serumCreatinine.unit
+    }
+
+    init(
+        ageYears: Int,
+        equationSex: RXEquationSex,
+        serumCreatinine: Double,
+        creatinineUnit: RXCreatinineUnit
+    ) {
+        self.ageYears = ageYears
+        self.equationSex = equationSex
+        self.serumCreatinine = serumCreatinine
+        self.creatinineUnit = creatinineUnit
+    }
+
+    var creatinineQuantity: RXQuantity<RXCreatinineUnit> {
+        RXQuantity(serumCreatinine, unit: creatinineUnit)
+    }
 }
 
 struct CKDEPI2021CreatinineResult: Equatable, Sendable {
@@ -218,11 +483,15 @@ struct CKDEPI2021CreatinineResult: Equatable, Sendable {
     let ageYears: Int
     let equationSex: RXEquationSex
     let serumCreatinineMilligramsPerDeciliter: Double
+    let provenance: RXCalculationProvenance
 }
 
 struct CKDEPI2021CreatinineCalculator {
+    static let formulaIdentifier = "ckd_epi_creatinine_2021@1.0.0"
+
     static func calculate(
-        _ input: CKDEPI2021CreatinineInput
+        _ input: CKDEPI2021CreatinineInput,
+        calculatedAt: Date = .now
     ) throws -> CKDEPI2021CreatinineResult {
         guard input.ageYears >= 18 else {
             throw RXCalculationError.adultAgeRequired
@@ -234,12 +503,12 @@ struct CKDEPI2021CreatinineCalculator {
             throw RXCalculationError.finiteValuesRequired
         }
 
-        let creatinine = input.creatinineUnit.milligramsPerDeciliter(
-            from: input.serumCreatinine
+        try RXDimensionalAnalysis.requireKind(
+            input.creatinineQuantity,
+            expected: .creatinineConcentration
         )
-        guard creatinine.isFinite else {
-            throw RXCalculationError.calculationOutsideNumericRange
-        }
+
+        let creatinine = try input.creatinineQuantity.canonical()
         guard creatinine > 0 else {
             throw RXCalculationError.positiveCreatinineRequired
         }
@@ -262,14 +531,46 @@ struct CKDEPI2021CreatinineCalculator {
             throw RXCalculationError.calculationOutsideNumericRange
         }
 
+        let provenance = RXCalculationProvenance.draft(
+            formulaIdentifiers: [formulaIdentifier],
+            roundingPolicyIdentity: .ckdEPI2021DisplayWholeNumber,
+            calculatedAt: calculatedAt,
+            inputTraces: [
+                RXInputTrace(
+                    name: "ageYears",
+                    originalValueDescription: String(input.ageYears),
+                    originalUnitSymbol: "years",
+                    normalizedValue: Double(input.ageYears),
+                    normalizedUnitSymbol: "years"
+                ),
+                RXInputTrace(
+                    name: "equationSex",
+                    originalValueDescription: input.equationSex.rawValue,
+                    originalUnitSymbol: "equation_sex",
+                    normalizedValue: sexCoefficient,
+                    normalizedUnitSymbol: "sex_coefficient"
+                ),
+                RXInputTrace(
+                    name: "serumCreatinine",
+                    originalValueDescription: String(input.serumCreatinine),
+                    originalUnitSymbol: input.creatinineUnit.symbol,
+                    normalizedValue: creatinine,
+                    normalizedUnitSymbol: "mg/dL"
+                ),
+            ]
+        )
+
         return CKDEPI2021CreatinineResult(
             indexedMillilitersPerMinutePer1_73SquareMeters: estimate,
             ageYears: input.ageYears,
             equationSex: input.equationSex,
-            serumCreatinineMilligramsPerDeciliter: creatinine
+            serumCreatinineMilligramsPerDeciliter: creatinine,
+            provenance: provenance
         )
     }
 }
+
+// MARK: - Body size (BMI + Mosteller BSA)
 
 struct BodySizeInput: Equatable, Sendable {
     let ageYears: Int
@@ -277,6 +578,40 @@ struct BodySizeInput: Equatable, Sendable {
     let heightUnit: RXLengthUnit
     let weight: Double
     let weightUnit: RXMassUnit
+
+    init(
+        ageYears: Int,
+        height: RXQuantity<RXLengthUnit>,
+        weight: RXQuantity<RXMassUnit>
+    ) {
+        self.ageYears = ageYears
+        self.height = height.value
+        self.heightUnit = height.unit
+        self.weight = weight.value
+        self.weightUnit = weight.unit
+    }
+
+    init(
+        ageYears: Int,
+        height: Double,
+        heightUnit: RXLengthUnit,
+        weight: Double,
+        weightUnit: RXMassUnit
+    ) {
+        self.ageYears = ageYears
+        self.height = height
+        self.heightUnit = heightUnit
+        self.weight = weight
+        self.weightUnit = weightUnit
+    }
+
+    var heightQuantity: RXQuantity<RXLengthUnit> {
+        RXQuantity(height, unit: heightUnit)
+    }
+
+    var weightQuantity: RXQuantity<RXMassUnit> {
+        RXQuantity(weight, unit: weightUnit)
+    }
 }
 
 struct BodySizeResult: Equatable, Sendable {
@@ -285,10 +620,17 @@ struct BodySizeResult: Equatable, Sendable {
     let ageYears: Int
     let heightCentimeters: Double
     let weightKilograms: Double
+    let provenance: RXCalculationProvenance
 }
 
 struct BodySizeCalculator {
-    static func calculate(_ input: BodySizeInput) throws -> BodySizeResult {
+    static let bmiFormulaIdentifier = "body_mass_index_cdc_metric@1.0.0"
+    static let mostellerFormulaIdentifier = "body_size_mosteller_1987@1.0.0"
+
+    static func calculate(
+        _ input: BodySizeInput,
+        calculatedAt: Date = .now
+    ) throws -> BodySizeResult {
         guard input.ageYears >= 20 else {
             throw RXCalculationError.adultBMIageRequired
         }
@@ -299,11 +641,11 @@ struct BodySizeCalculator {
             throw RXCalculationError.finiteValuesRequired
         }
 
-        let heightCentimeters = input.heightUnit.centimeters(from: input.height)
-        let weightKilograms = input.weightUnit.kilograms(from: input.weight)
-        guard heightCentimeters.isFinite, weightKilograms.isFinite else {
-            throw RXCalculationError.calculationOutsideNumericRange
-        }
+        try RXDimensionalAnalysis.requireKind(input.heightQuantity, expected: .length)
+        try RXDimensionalAnalysis.requireKind(input.weightQuantity, expected: .mass)
+
+        let heightCentimeters = try input.heightQuantity.canonical()
+        let weightKilograms = try input.weightQuantity.canonical()
         guard heightCentimeters > 0 else {
             throw RXCalculationError.positiveHeightRequired
         }
@@ -322,12 +664,42 @@ struct BodySizeCalculator {
             throw RXCalculationError.calculationOutsideNumericRange
         }
 
+        let provenance = RXCalculationProvenance.draft(
+            formulaIdentifiers: [bmiFormulaIdentifier, mostellerFormulaIdentifier],
+            roundingPolicyIdentity: .bodySizeDisplayTwoDecimals,
+            calculatedAt: calculatedAt,
+            inputTraces: [
+                RXInputTrace(
+                    name: "ageYears",
+                    originalValueDescription: String(input.ageYears),
+                    originalUnitSymbol: "years",
+                    normalizedValue: Double(input.ageYears),
+                    normalizedUnitSymbol: "years"
+                ),
+                RXInputTrace(
+                    name: "height",
+                    originalValueDescription: String(input.height),
+                    originalUnitSymbol: input.heightUnit.symbol,
+                    normalizedValue: heightCentimeters,
+                    normalizedUnitSymbol: "cm"
+                ),
+                RXInputTrace(
+                    name: "weight",
+                    originalValueDescription: String(input.weight),
+                    originalUnitSymbol: input.weightUnit.symbol,
+                    normalizedValue: weightKilograms,
+                    normalizedUnitSymbol: "kg"
+                ),
+            ]
+        )
+
         return BodySizeResult(
             bodyMassIndex: bodyMassIndex,
             mostellerBodySurfaceAreaSquareMeters: bodySurfaceArea,
             ageYears: input.ageYears,
             heightCentimeters: heightCentimeters,
-            weightKilograms: weightKilograms
+            weightKilograms: weightKilograms,
+            provenance: provenance
         )
     }
 }

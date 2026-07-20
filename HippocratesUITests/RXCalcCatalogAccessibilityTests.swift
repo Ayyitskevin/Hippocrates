@@ -36,12 +36,22 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         )
 
         assertReachableText("Draft clinical content", in: app)
-        assertReachableText(
-            "This development build has not passed independent clinical review. Do not use RXcalc for patient care. It performs source-identified arithmetic only.",
+        // Long Draft copy exceeds XCUITest's 128-character identifier query
+        // limit and NSPredicate is scanner-forbidden, so assert via stable
+        // accessibility identifiers plus full label equality.
+        assertReachableLabeledElement(
+            identifier: "rxcalc.catalog.reviewTitle",
+            expectedLabel: "Draft clinical content",
             in: app
         )
-        assertReachableText(
-            "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers.",
+        assertReachableLabeledElement(
+            identifier: "rxcalc.catalog.reviewMessage",
+            expectedLabel: "This development build has not passed independent clinical review. Do not use RXcalc for patient care. It performs source-identified arithmetic only.",
+            in: app
+        )
+        assertReachableLabeledElement(
+            identifier: "rxcalc.catalog.nonRetentionWarning",
+            expectedLabel: "Inputs and results stay on this screen and are never saved. Do not enter patient identifiers.",
             in: app
         )
         try auditVisibleCatalog(in: app, attachmentName: "RXcalc catalog warning")
@@ -139,6 +149,27 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         )
     }
 
+    private func assertReachableLabeledElement(
+        identifier: String,
+        expectedLabel: String,
+        in app: XCUIApplication
+    ) {
+        let element = app.descendants(matching: .any)[identifier].firstMatch
+        XCTAssertTrue(
+            reveal(element, in: app, maximumSwipes: 20),
+            "Expected catalog element was not reachable"
+        )
+        XCTAssertEqual(
+            element.label,
+            expectedLabel,
+            "Expected complete catalog label text"
+        )
+        XCTAssertTrue(
+            app.windows.firstMatch.frame.intersects(element.frame),
+            "Expected catalog text was outside the visible compact viewport"
+        )
+    }
+
     private func assertCatalogRow(
         identifier: String,
         title: String,
@@ -170,6 +201,8 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
+        // Fail closed: no ignored Dynamic Type or clipping findings. Catalog
+        // layout must fully support Accessibility 5 without filter loopholes.
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
     }
 
