@@ -149,4 +149,137 @@ final class DeidentificationTests: XCTestCase {
     func testEmptyTextHasNoFindings() {
         XCTAssertTrue(DeidentificationScanner.findings(fieldName: "answerText", text: "").isEmpty)
     }
+
+    // MARK: Acknowledgment gate (pure)
+
+    func testUnacknowledgedFindingsBlockUntilExactMatch() {
+        let findings = DeidentificationScanner.findings(
+            fieldName: "background",
+            text: "MRN: 12345678 and Room 12"
+        )
+        XCTAssertFalse(findings.isEmpty)
+
+        let stillBlocking = DeidentificationScanner.unacknowledgedFindings(
+            findings,
+            acknowledging: []
+        )
+        XCTAssertEqual(stillBlocking.count, findings.count)
+
+        let partial = DeidentificationScanner.unacknowledgedFindings(
+            findings,
+            acknowledging: [
+                DeidentificationAcknowledgment(
+                    fieldName: "background",
+                    matchedText: findings[0].matchedText
+                )
+            ]
+        )
+        XCTAssertEqual(partial.count, findings.count - 1)
+
+        let wrongField = DeidentificationScanner.unacknowledgedFindings(
+            findings,
+            acknowledging: findings.map {
+                DeidentificationAcknowledgment(fieldName: "answerText", matchedText: $0.matchedText)
+            }
+        )
+        XCTAssertEqual(wrongField.count, findings.count)
+
+        let full = DeidentificationScanner.unacknowledgedFindings(
+            findings,
+            acknowledging: findings.map {
+                DeidentificationAcknowledgment(fieldName: $0.fieldName, matchedText: $0.matchedText)
+            }
+        )
+        XCTAssertTrue(full.isEmpty)
+    }
+
+    // MARK: Adversarial synthetic fixtures (no real patient data)
+
+    func testAdversarialSyntheticFixturesFlagTruePositives() {
+        // All strings are fabricated. None identify a real person.
+        let fixtures: [(String, DeidentificationFinding.Category)] = [
+            ("note MRN 12 345 678 filed", .medicalRecordNumber),
+            ("mrn#99887766 reviewed", .medicalRecordNumber),
+            ("medical-record-number 44556677 on chart", .medicalRecordNumber),
+            ("chart id: 11223344", .medicalRecordNumber),
+            ("  MRN:\t55667788  ", .medicalRecordNumber),
+            ("embedded see MRN12345678 tomorrow", .medicalRecordNumber),
+            ("phone 5551234567 for callback", .phoneNumber),
+            ("pager 555-123-4567 overnight", .phoneNumber),
+            ("fax 555.123.4567 today", .phoneNumber),
+            ("DOB March 14th 1940 recorded", .date),
+            ("seen 03/14/26 in clinic", .date),
+            ("surgery on 2026-03-14", .date),
+            ("room no 12 isolation", .roomOrBed),
+            ("Bed#3A contact", .roomOrBed),
+            ("rm412 transfer", .roomOrBed),
+            ("Room 9 step-down", .roomOrBed),
+            ("95yo female with sepsis", .ageOver89),
+            ("pt 102 y.o. admitted", .ageOver89),
+            ("age over 90 per note", .ageOver89),
+            ("a 94 y/o resident", .ageOver89),
+            ("age: 95 documented", .ageOver89),
+        ]
+
+        for (text, expected) in fixtures {
+            let found = categories(in: text)
+            XCTAssertTrue(
+                found.contains(expected),
+                "Expected \(expected.rawValue) in synthetic fixture: \(text); got \(found)"
+            )
+        }
+    }
+
+    func testAdversarialMultiFieldEmbeddingStillFlagsEachField() {
+        let findings = DeidentificationScanner.findings(in: [
+            (
+                fieldName: "questionText",
+                text: "Dose for 92-year-old with CrCl concern?"
+            ),
+            (
+                fieldName: "background",
+                text: "Synthetic fixture only. MRN 12 34 5678; callback (555) 123-4567; room no 4B."
+            ),
+            (
+                fieldName: "answerText",
+                text: "Use renally adjusted regimen per current label; no identifier in answer."
+            ),
+            (
+                fieldName: "searchStrategy",
+                text: "Checked tertiary DI references and primary literature 2024-2026."
+            ),
+        ])
+
+        let byField = Dictionary(grouping: findings, by: \.fieldName)
+        XCTAssertTrue((byField["questionText"] ?? []).contains { $0.category == .ageOver89 })
+        let background = byField["background"] ?? []
+        XCTAssertTrue(background.contains { $0.category == .medicalRecordNumber })
+        XCTAssertTrue(background.contains { $0.category == .phoneNumber })
+        XCTAssertTrue(background.contains { $0.category == .roomOrBed })
+        XCTAssertTrue((byField["answerText"] ?? []).isEmpty)
+        // Year ranges like 2024-2026 may or may not match date patterns; if they
+        // do, doctrine prefers false positives. Assert only that strategy has no MRN/phone.
+        let strategyCategories = Set((byField["searchStrategy"] ?? []).map(\.category))
+        XCTAssertFalse(strategyCategories.contains(.medicalRecordNumber))
+        XCTAssertFalse(strategyCategories.contains(.phoneNumber))
+    }
+
+    func testCleanClinicalTextStillAvoidsOverFlaggingDoses() {
+        let cleanSamples = [
+            "Vancomycin 1250 mg IV q12h; trough 12 mcg/mL.",
+            "Metoprolol tartrate 25 mg PO BID.",
+            "eGFR approximately 58 mL/min/1.73 m2; potassium 4.2.",
+            "NDC 00093-0058-01 inventory check.",
+            "Half of one tablet with food.",
+            "Store at room temperature; no room assignment recorded.",
+            "An 89-year-old adult with stable creatinine.",
+            "Linezolid and sertraline interaction: monitor for serotonin toxicity.",
+        ]
+        for text in cleanSamples {
+            XCTAssertTrue(
+                categories(in: text).isEmpty,
+                "Unexpected finding in clean clinical text: \(text) -> \(categories(in: text))"
+            )
+        }
+    }
 }
