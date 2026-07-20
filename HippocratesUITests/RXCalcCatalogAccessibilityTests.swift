@@ -128,7 +128,17 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
     }
 
     private func assertReachableText(_ text: String, in app: XCUIApplication) {
-        let element = app.staticTexts[text].firstMatch
+        // XCUIElementQuery subscript treats the string as an identifier and
+        // rejects values longer than 128 characters. Match on label instead so
+        // the full Draft catalog warning remains assertable.
+        let element: XCUIElement
+        if text.count > 128 {
+            element = app.staticTexts.matching(
+                NSPredicate(format: "label == %@", text)
+            ).firstMatch
+        } else {
+            element = app.staticTexts[text].firstMatch
+        }
         XCTAssertTrue(
             reveal(element, in: app, maximumSwipes: 20),
             "Expected complete catalog text was not reachable"
