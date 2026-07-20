@@ -147,6 +147,28 @@ Clinical reviewers later generate a timestamp-free manifest from raw Git blobs
 at one full candidate object ID. The packet cannot activate reviewed status;
 P-008 still requires a separately accepted, executable continuing-binding design.
 
+### R1.3 — safety verification layer (engineering, Draft-only)
+
+Strengthen testability and reproducibility without changing authorized equation
+arithmetic, populations, limitations, claims, or clinical-review activation:
+
+- attach `RXCalculationProvenance` to every successful adult R1 result (inputs,
+  normalized units, formula IDs, rounding-policy identity, Draft review status,
+  human-review-required, non-recommendation flag, timestamp);
+- introduce typed quantities / unit kinds (mass, length, creatinine
+  concentration) so incompatible kinds are difficult to combine accidentally;
+- extend property-style, table-driven, boundary, and malformed-input tests;
+- strengthen de-identification adversarial synthetic fixtures and pure
+  acknowledgment-gate tests;
+- extend backup corrupt/unsupported-version/partial-restore coverage proving no
+  destination mutation on rejection;
+- document remaining pharmacist-validation gaps on the reviewer checklist;
+- provide `Scripts/linux-pure-safety-driver.swift` for Foundation-only checks on
+  non-Xcode hosts.
+
+R1.3 does not activate P-008, does not authorize clinical use, and does not add
+R2/R3 dose arithmetic. All formulas remain Draft.
+
 ### R1.2 — compact catalog Dynamic Type regression evidence
 
 Add one dedicated, scanner-owned UI-test target without changing formula
