@@ -181,14 +181,21 @@ runtime status. The configured hosted flow:
 - asserts reachable search, exact Draft and non-retention warnings, both category
   headings, and complete semantic title, summary, and Draft status for all three
   rows;
-- runs Dynamic Type and clipped-text audits and keeps named screenshots; and
+- runs Dynamic Type, hit-region, text-clipping, and trait audits and keeps named
+  screenshots; and
 - preserves the exact `.xcresult` for 14 days.
 
-The portable scanner passes 299 checks locally; exact-head hosted Xcode/UI
-execution remains pending. This catalog automation does not inspect search
-results, exercise detail forms, cover VoiceOver/keyboard behavior or physical
-hardware, or provide human visual judgment. It cannot close A8, P-008, or P-009,
-answer P-010, or authorize signing or distribution.
+The portable scanner passes 299 checks locally. Exact-head hosted Xcode
+compilation, tests, Accessibility 5 audits, and evidence preservation passed at
+[`4b4f45b`](https://github.com/Ayyitskevin/Hippocrates/commit/4b4f45bd07bc4f16af623393b24aecaffe1852d3)
+in [run 29802306170](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29802306170).
+The retained artifact
+`rxcalc-accessibility-4b4f45bd07bc4f16af623393b24aecaffe1852d3`
+has GitHub digest `sha256:18c2a47a231662d3b698227cf5b74dac5d09926be36c626b91578f76b7f6382b`.
+This catalog automation does not inspect search results, exercise detail forms,
+cover VoiceOver/keyboard behavior or physical hardware, or provide human visual
+judgment. It cannot close A8, P-008, or P-009, answer P-010, or authorize signing
+or distribution.
 
 R2-R4 are unstarted backlog hypotheses outside the current v1 commitment. Each
 requires a fresh owner decision and its stated evidence before implementation.

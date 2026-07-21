@@ -111,14 +111,19 @@ arithmetic. That engineering slice passed at exact commit
 in [hosted run 29701925114](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29701925114).
 R1.2 adds a scanner-owned compact-catalog Dynamic Type regression without
 changing formulas, sources, claims, or runtime status. The portable boundary
-build-check passes 299 checks locally; exact-head hosted Xcode compilation and
-execution remain pending. The workflow is configured to run the catalog flow on
-an iPhone SE (3rd generation), iOS 18.5 simulator at Accessibility 5, retain
-screenshots in the `.xcresult`, and fail on Dynamic Type or text-clipping audit
-findings. This is supporting engineering evidence only: human visual, VoiceOver,
-detail-screen, and physical-device A8 remain open; P-008/P-009 remain open;
-R2-R4 remain unstarted pending P-010; signing and distribution remain
-unauthorized.
+build-check passes 299 checks locally. Exact-head hosted Xcode compilation,
+tests, and the Accessibility 5 catalog flow passed at
+[`4b4f45b`](https://github.com/Ayyitskevin/Hippocrates/commit/4b4f45bd07bc4f16af623393b24aecaffe1852d3)
+in [run 29802306170](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29802306170).
+That run retained artifact
+`rxcalc-accessibility-4b4f45bd07bc4f16af623393b24aecaffe1852d3`
+with GitHub digest `sha256:18c2a47a231662d3b698227cf5b74dac5d09926be36c626b91578f76b7f6382b`.
+The catalog ran on an iPhone SE (3rd generation), iOS 18.5 simulator at
+Accessibility 5 and failed closed on Dynamic Type, hit-region, text-clipping,
+and trait audit findings. This is supporting engineering evidence only: human
+visual, VoiceOver, detail-screen, and physical-device A8 remain open;
+P-008/P-009 remain open; R2-R4 remain unstarted pending P-010; signing and
+distribution remain unauthorized.
 The packet supports Draft candidate review only; it exposes no production
 status-activation path. Real-device acceptance, P-008 clinical review,
 a regulatory/claims determination, and owner-authorized distribution remain

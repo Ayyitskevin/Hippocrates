@@ -514,11 +514,11 @@ a HIPAA compliance program. README language must preserve that distinction.
 5. A dedicated RXcalc UI-test target drives fresh onboarding and compact-tab
    navigation on an iPhone SE (3rd generation) simulator at pipeline-set and
    read-back Accessibility 5; asserts search reachability, complete Draft
-   warnings, category headings, and complete row semantics; runs Dynamic Type
-   and clipped-text audits; and keeps screenshots in the result bundle. It does
-   not cover search-result behavior, detail screens, VoiceOver order, keyboard
-   dismissal, physical-device interaction, or human visual judgment, so A8
-   remains open.
+   warnings, category headings, and complete row semantics; runs Dynamic Type,
+   hit-region, text-clipping, and trait audits; and keeps screenshots in the
+   result bundle. It does not cover search-result behavior, detail screens,
+   VoiceOver order, keyboard dismissal, physical-device interaction, or human
+   visual judgment, so A8 remains open.
 6. Manual device acceptance covers one-handed timing, haptics, airplane mode,
    printable artifacts, clean-store restore, locale-aware decimal entry,
    input/result invalidation, unit-change input clearing, relaunch non-retention,
