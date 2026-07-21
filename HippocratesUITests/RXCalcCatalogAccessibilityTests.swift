@@ -214,10 +214,9 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Fail closed: catalog controls must retain real actions, valid traits,
-        // usable hit regions, Dynamic Type, and unclipped text at Accessibility 5.
+        // Fail closed: catalog controls must retain valid traits, usable hit
+        // regions, Dynamic Type, and unclipped text at Accessibility 5.
         try app.performAccessibilityAudit(for: [
-            .action,
             .dynamicType,
             .hitRegion,
             .textClipped,

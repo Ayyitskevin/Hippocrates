@@ -89,8 +89,8 @@ connection, no "offline" error, and no feature that requires connectivity.
 
 Automation note: `HippocratesUITests/RXCalcCatalogAccessibilityTests.swift`
 exercises only the catalog portion of step 3 at Accessibility 5, verifies one
-semantic catalog button opens its calculator, runs action, Dynamic Type,
-hit-region, clipped-text, and trait audits, and attaches screenshots. Automation
+semantic catalog button opens its calculator, runs Dynamic Type, hit-region,
+clipped-text, and trait audits, and attaches screenshots. Automation
 does not inspect those screenshots, cover complete detail-screen behavior or
 VoiceOver/keyboard behavior, or run on physical hardware; it is supporting
 evidence and does not pass or close A8.
