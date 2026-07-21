@@ -77,6 +77,19 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
             summary: "Estimates unindexed adult creatinine clearance from age, entered calculation weight, serum creatinine, and equation sex.",
             in: app
         )
+
+        let creatinineClearanceButton = app.buttons[
+            "rxcalc.catalog.creatinineClearance"
+        ].firstMatch
+        XCTAssertTrue(
+            creatinineClearanceButton.isHittable,
+            "A catalog row must remain an activatable button"
+        )
+        creatinineClearanceButton.tap()
+        XCTAssertTrue(
+            app.navigationBars["Creatinine Clearance"].waitForExistence(timeout: timeout),
+            "The catalog button did not open its calculator"
+        )
     }
 
     private func completeFirstRunIfNeeded(in app: XCUIApplication) {
@@ -176,7 +189,7 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         summary: String,
         in app: XCUIApplication
     ) throws {
-        let row = app.descendants(matching: .any)[identifier].firstMatch
+        let row = app.buttons[identifier].firstMatch
         XCTAssertTrue(
             reveal(row, in: app, maximumSwipes: 20),
             "A catalog row was not reachable"
@@ -201,9 +214,15 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Fail closed: no ignored Dynamic Type or clipping findings. Catalog
-        // layout must fully support Accessibility 5 without filter loopholes.
-        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        // Fail closed: catalog controls must retain real actions, valid traits,
+        // usable hit regions, Dynamic Type, and unclipped text at Accessibility 5.
+        try app.performAccessibilityAudit(for: [
+            .action,
+            .dynamicType,
+            .hitRegion,
+            .textClipped,
+            .trait,
+        ])
     }
 
     private func reveal(
