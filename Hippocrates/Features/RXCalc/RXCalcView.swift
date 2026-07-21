@@ -38,10 +38,10 @@ struct RXCalcView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            // ScrollView + text stack (not List/Button/Label) so every catalog
-            // surface uses full Dynamic Type text styles at Accessibility 5.
-            // System List cells, disclosure chevrons, and weighted button labels
-            // previously failed the hosted Dynamic Type audit with
+            // ScrollView + text stack (not List/Label) so every catalog surface
+            // uses full Dynamic Type text styles at Accessibility 5. System List
+            // cells, disclosure chevrons, and weighted text styles previously
+            // failed the hosted Dynamic Type audit with
             // "font sizes are partially unsupported".
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
@@ -76,6 +76,7 @@ struct RXCalcView: View {
                         Text("Calculators")
                             .font(.headline)
                             .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
                         Text("No calculators match this search.")
                             .font(.body)
                             .foregroundStyle(.secondary)
@@ -88,16 +89,17 @@ struct RXCalcView: View {
                                 .accessibilityAddTraits(.isHeader)
 
                             ForEach(category.calculators) { calculator in
-                                RXCalculatorRow(calculator: calculator)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        navigationPath.append(calculator)
-                                    }
-                                    .accessibilityAddTraits(.isButton)
-                                    .accessibilityIdentifier(
-                                        "rxcalc.catalog." + calculator.rawValue
-                                    )
+                                Button {
+                                    navigationPath.append(calculator)
+                                } label: {
+                                    RXCalculatorRow(calculator: calculator)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier(
+                                    "rxcalc.catalog." + calculator.rawValue
+                                )
                             }
                         }
                     }

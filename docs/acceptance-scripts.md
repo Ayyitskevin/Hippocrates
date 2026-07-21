@@ -88,9 +88,11 @@ connection, no "offline" error, and no feature that requires connectivity.
 ## A8 — RXcalc draft safety, accessibility, and non-retention
 
 Automation note: `HippocratesUITests/RXCalcCatalogAccessibilityTests.swift`
-exercises only the catalog portion of step 3 at Accessibility 5 and attaches
-screenshots. Automation does not inspect those screenshots, cover detail screens
-or VoiceOver/keyboard behavior, or run on physical hardware; it is supporting
+exercises only the catalog portion of step 3 at Accessibility 5, verifies one
+semantic catalog button opens its calculator, runs action, Dynamic Type,
+hit-region, clipped-text, and trait audits, and attaches screenshots. Automation
+does not inspect those screenshots, cover complete detail-screen behavior or
+VoiceOver/keyboard behavior, or run on physical hardware; it is supporting
 evidence and does not pass or close A8.
 
 1. Keep airplane mode on. Complete first run and open RXcalc. Confirm the catalog
