@@ -75,20 +75,8 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
             identifier: "rxcalc.catalog.creatinineClearance",
             title: "Creatinine Clearance",
             summary: "Estimates unindexed adult creatinine clearance from age, entered calculation weight, serum creatinine, and equation sex.",
+            destinationTitle: "Creatinine Clearance",
             in: app
-        )
-
-        let creatinineClearanceButton = app.buttons[
-            "rxcalc.catalog.creatinineClearance"
-        ].firstMatch
-        XCTAssertTrue(
-            creatinineClearanceButton.isHittable,
-            "A catalog row must remain an activatable button"
-        )
-        creatinineClearanceButton.tap()
-        XCTAssertTrue(
-            app.navigationBars["Creatinine Clearance"].waitForExistence(timeout: timeout),
-            "The catalog button did not open its calculator"
         )
     }
 
@@ -187,6 +175,7 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         identifier: String,
         title: String,
         summary: String,
+        destinationTitle: String? = nil,
         in app: XCUIApplication
     ) throws {
         let row = app.buttons[identifier].firstMatch
@@ -206,6 +195,18 @@ final class RXCalcCatalogAccessibilityTests: XCTestCase {
         )
 
         try auditVisibleCatalog(in: app, attachmentName: identifier)
+
+        if let destinationTitle {
+            XCTAssertTrue(
+                reveal(row, in: app, maximumSwipes: 20),
+                "An audited catalog button was not reachable for activation"
+            )
+            row.tap()
+            XCTAssertTrue(
+                app.navigationBars[destinationTitle].waitForExistence(timeout: timeout),
+                "The catalog button did not open its calculator"
+            )
+        }
     }
 
     private func auditVisibleCatalog(in app: XCUIApplication, attachmentName: String) throws {
