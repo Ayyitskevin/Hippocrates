@@ -226,6 +226,35 @@ private func testBoundaries() throws {
 
 // MARK: - De-identification adversarial fixtures (synthetic only)
 
+private func testResultLifecycleGates() throws {
+    var session = RXResultSession<Double>()
+    session.publish(87.5)
+    try expect(session.mayCopyOrExportAsCurrent, "current may copy")
+    session.invalidate()
+    try expect(session.mayCopyOrExportAsCurrent == false, "stale blocks copy")
+    try expect(
+        RXResultExportGate.currentEngineeringSummary(
+            currency: .stale,
+            formulaIdentifiers: ["cockcroft_gault_1976@1.0.0"],
+            outputDescription: "x",
+            reviewStatusTitle: "Draft",
+            calculatedAtDescription: "t"
+        ) == nil,
+        "stale summary nil"
+    )
+    let current = RXResultExportGate.currentEngineeringSummary(
+        currency: .current,
+        formulaIdentifiers: ["cockcroft_gault_1976@1.0.0"],
+        outputDescription: "87.5 mL per min",
+        reviewStatusTitle: RXCalculationProvenance.draftReviewStatusTitle,
+        calculatedAtDescription: "t"
+    )
+    try expect(current != nil, "current summary present")
+    try expect(current?.contains("Draft") == true, "draft label in summary")
+    session.abandonSurface()
+    try expect(session.currency == .none, "abandon clears")
+}
+
 private func testDeidentificationAdversarial() throws {
     func categories(_ text: String) -> [DeidentificationFinding.Category] {
         DeidentificationScanner.findings(fieldName: "questionText", text: text).map(\.category)
@@ -287,6 +316,7 @@ enum LinuxPureSafetyDriver {
             try testCKDEPIVectorsAndDisplayOnlyRounding()
             try testBodySizeAndUnitKinds()
             try testBoundaries()
+            try testResultLifecycleGates()
             try testDeidentificationAdversarial()
             print("linux-pure-safety-driver: ALL ASSERTIONS PASSED")
         } catch {

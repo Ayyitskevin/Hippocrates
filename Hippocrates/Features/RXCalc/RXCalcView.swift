@@ -239,6 +239,9 @@ private struct CreatinineClearanceView: View {
 
     let calculator: RXCalculatorKind
 
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     @FocusState private var focusedField: FocusField?
     @State private var ageText = ""
     @State private var equationSex: RXEquationSex?
@@ -246,8 +249,9 @@ private struct CreatinineClearanceView: View {
     @State private var weightUnit = RXMassUnit.kilograms
     @State private var creatinineText = ""
     @State private var creatinineUnit = RXCreatinineUnit.milligramsPerDeciliter
-    @State private var result: CreatinineClearanceResult?
+    @State private var resultSession = RXResultSession<CreatinineClearanceResult>()
     @State private var errorMessage: String?
+    @State private var copyFeedback: String?
 
     var body: some View {
         Form {
@@ -308,13 +312,22 @@ private struct CreatinineClearanceView: View {
 
             if let errorMessage {
                 Section {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    Text(errorMessage)
+                        .font(.body)
                         .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("rxcalc.crcl.error")
                 }
             }
 
-            if let result {
-                Section("Result") {
+            if let result = resultSession.value {
+                RXResultLifecycleBanner(
+                    currency: resultSession.currency,
+                    staleReason: resultSession.staleReason,
+                    accessibilityPrefix: "rxcalc.crcl"
+                )
+
+                Section(resultSession.isStale ? "Stale result (not current)" : "Result") {
                     RXResultValue(
                         label: "Estimated CrCl",
                         value: result.millilitersPerMinute,
@@ -322,10 +335,20 @@ private struct CreatinineClearanceView: View {
                         fractionDigits: 1
                     )
                     .accessibilityIdentifier("rxcalc.crcl.result")
+                    .opacity(resultSession.isStale ? 0.55 : 1)
                     RXResultReviewNotice(descriptor: calculator.descriptor)
                     Text("This is an estimate, not a dose or CKD stage.")
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    RXResultCopyCurrentControl(
+                        enabled: resultSession.mayCopyOrExportAsCurrent,
+                        accessibilityIdentifier: "rxcalc.crcl.copyCurrent",
+                        feedback: $copyFeedback,
+                        makeSummary: {
+                            crclSummary(for: result, currency: resultSession.currency)
+                        }
+                    )
                 }
 
                 Section("Inputs used") {
@@ -348,7 +371,10 @@ private struct CreatinineClearanceView: View {
                     )
                 }
 
-                RXResultProvenanceSection(provenance: result.provenance)
+                RXResultProvenanceSection(
+                    provenance: result.provenance,
+                    currency: resultSession.currency
+                )
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -375,10 +401,26 @@ private struct CreatinineClearanceView: View {
             creatinineText = ""
             invalidateResult()
         }
+        .onChange(of: dynamicTypeSize) { _, _ in
+            resultSession.invalidate(reason: RXResultSession<CreatinineClearanceResult>.dynamicTypeChangedReason)
+            copyFeedback = nil
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                resultSession.abandonSurface()
+                copyFeedback = nil
+                errorMessage = nil
+            }
+        }
+        .onDisappear {
+            resultSession.abandonSurface()
+            copyFeedback = nil
+        }
     }
 
     private func calculate() {
         focusedField = nil
+        copyFeedback = nil
         guard
             let age = Int(ageText),
             let equationSex,
@@ -391,13 +433,13 @@ private struct CreatinineClearanceView: View {
                 decimalSeparator: Locale.current.decimalSeparator
             )
         else {
-            result = nil
+            resultSession.clear()
             errorMessage = "Enter every required input and select equation sex."
             return
         }
 
         do {
-            result = try CreatinineClearanceCalculator.calculate(
+            let calculated = try CreatinineClearanceCalculator.calculate(
                 CreatinineClearanceInput(
                     ageYears: age,
                     equationSex: equationSex,
@@ -407,16 +449,18 @@ private struct CreatinineClearanceView: View {
                     creatinineUnit: creatinineUnit
                 )
             )
+            resultSession.publish(calculated)
             errorMessage = nil
         } catch {
-            result = nil
+            resultSession.clear()
             errorMessage = error.localizedDescription
         }
     }
 
     private func invalidateResult() {
-        result = nil
+        resultSession.invalidate()
         errorMessage = nil
+        copyFeedback = nil
     }
 
     private func reset() {
@@ -427,7 +471,29 @@ private struct CreatinineClearanceView: View {
         weightUnit = .kilograms
         creatinineText = ""
         creatinineUnit = .milligramsPerDeciliter
-        invalidateResult()
+        resultSession.clear()
+        errorMessage = nil
+        copyFeedback = nil
+    }
+
+    private func crclSummary(
+        for result: CreatinineClearanceResult,
+        currency: RXResultCurrency
+    ) -> String? {
+        let output =
+            "Estimated CrCl "
+            + String(result.millilitersPerMinute)
+            + " mL/min"
+        return RXResultExportGate.currentEngineeringSummary(
+            currency: currency,
+            formulaIdentifiers: result.provenance.formulaIdentifiers,
+            outputDescription: output,
+            reviewStatusTitle: result.provenance.sourceReviewStatusTitle,
+            calculatedAtDescription: result.provenance.calculatedAt.formatted(
+                date: .abbreviated,
+                time: .standard
+            )
+        )
     }
 }
 
@@ -439,13 +505,17 @@ private struct CKDEPI2021CreatinineView: View {
 
     let calculator: RXCalculatorKind
 
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     @FocusState private var focusedField: FocusField?
     @State private var ageText = ""
     @State private var equationSex: RXEquationSex?
     @State private var creatinineText = ""
     @State private var creatinineUnit = RXCreatinineUnit.milligramsPerDeciliter
-    @State private var result: CKDEPI2021CreatinineResult?
+    @State private var resultSession = RXResultSession<CKDEPI2021CreatinineResult>()
     @State private var errorMessage: String?
+    @State private var copyFeedback: String?
 
     var body: some View {
         Form {
@@ -493,13 +563,22 @@ private struct CKDEPI2021CreatinineView: View {
 
             if let errorMessage {
                 Section {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    Text(errorMessage)
+                        .font(.body)
                         .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("rxcalc.ckdEPI2021.error")
                 }
             }
 
-            if let result {
-                Section("Result") {
+            if let result = resultSession.value {
+                RXResultLifecycleBanner(
+                    currency: resultSession.currency,
+                    staleReason: resultSession.staleReason,
+                    accessibilityPrefix: "rxcalc.ckdEPI2021"
+                )
+
+                Section(resultSession.isStale ? "Stale result (not current)" : "Result") {
                     RXResultValue(
                         label: "Indexed eGFR",
                         value: result.indexedMillilitersPerMinutePer1_73SquareMeters,
@@ -507,10 +586,20 @@ private struct CKDEPI2021CreatinineView: View {
                         fractionDigits: 0
                     )
                     .accessibilityIdentifier("rxcalc.ckdEPI2021.result")
+                    .opacity(resultSession.isStale ? 0.55 : 1)
                     RXResultReviewNotice(descriptor: calculator.descriptor)
                     Text("RXcalc does not assign a CKD stage or derive an unindexed dosing value.")
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    RXResultCopyCurrentControl(
+                        enabled: resultSession.mayCopyOrExportAsCurrent,
+                        accessibilityIdentifier: "rxcalc.ckdEPI2021.copyCurrent",
+                        feedback: $copyFeedback,
+                        makeSummary: {
+                            ckdSummary(for: result, currency: resultSession.currency)
+                        }
+                    )
                 }
 
                 Section("Inputs used") {
@@ -527,7 +616,10 @@ private struct CKDEPI2021CreatinineView: View {
                     )
                 }
 
-                RXResultProvenanceSection(provenance: result.provenance)
+                RXResultProvenanceSection(
+                    provenance: result.provenance,
+                    currency: resultSession.currency
+                )
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -549,10 +641,26 @@ private struct CKDEPI2021CreatinineView: View {
             creatinineText = ""
             invalidateResult()
         }
+        .onChange(of: dynamicTypeSize) { _, _ in
+            resultSession.invalidate(reason: RXResultSession<CKDEPI2021CreatinineResult>.dynamicTypeChangedReason)
+            copyFeedback = nil
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                resultSession.abandonSurface()
+                copyFeedback = nil
+                errorMessage = nil
+            }
+        }
+        .onDisappear {
+            resultSession.abandonSurface()
+            copyFeedback = nil
+        }
     }
 
     private func calculate() {
         focusedField = nil
+        copyFeedback = nil
         guard
             let age = Int(ageText),
             let equationSex,
@@ -561,13 +669,13 @@ private struct CKDEPI2021CreatinineView: View {
                 decimalSeparator: Locale.current.decimalSeparator
             )
         else {
-            result = nil
+            resultSession.clear()
             errorMessage = "Enter every required input and select equation sex."
             return
         }
 
         do {
-            result = try CKDEPI2021CreatinineCalculator.calculate(
+            let calculated = try CKDEPI2021CreatinineCalculator.calculate(
                 CKDEPI2021CreatinineInput(
                     ageYears: age,
                     equationSex: equationSex,
@@ -575,16 +683,18 @@ private struct CKDEPI2021CreatinineView: View {
                     creatinineUnit: creatinineUnit
                 )
             )
+            resultSession.publish(calculated)
             errorMessage = nil
         } catch {
-            result = nil
+            resultSession.clear()
             errorMessage = error.localizedDescription
         }
     }
 
     private func invalidateResult() {
-        result = nil
+        resultSession.invalidate()
         errorMessage = nil
+        copyFeedback = nil
     }
 
     private func reset() {
@@ -593,7 +703,29 @@ private struct CKDEPI2021CreatinineView: View {
         equationSex = nil
         creatinineText = ""
         creatinineUnit = .milligramsPerDeciliter
-        invalidateResult()
+        resultSession.clear()
+        errorMessage = nil
+        copyFeedback = nil
+    }
+
+    private func ckdSummary(
+        for result: CKDEPI2021CreatinineResult,
+        currency: RXResultCurrency
+    ) -> String? {
+        let output =
+            "Indexed eGFR "
+            + String(result.indexedMillilitersPerMinutePer1_73SquareMeters)
+            + " mL/min/1.73 m2"
+        return RXResultExportGate.currentEngineeringSummary(
+            currency: currency,
+            formulaIdentifiers: result.provenance.formulaIdentifiers,
+            outputDescription: output,
+            reviewStatusTitle: result.provenance.sourceReviewStatusTitle,
+            calculatedAtDescription: result.provenance.calculatedAt.formatted(
+                date: .abbreviated,
+                time: .standard
+            )
+        )
     }
 }
 
@@ -606,14 +738,18 @@ private struct BodySizeView: View {
 
     let calculator: RXCalculatorKind
 
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     @FocusState private var focusedField: FocusField?
     @State private var ageText = ""
     @State private var heightText = ""
     @State private var heightUnit = RXLengthUnit.centimeters
     @State private var weightText = ""
     @State private var weightUnit = RXMassUnit.kilograms
-    @State private var result: BodySizeResult?
+    @State private var resultSession = RXResultSession<BodySizeResult>()
     @State private var errorMessage: String?
+    @State private var copyFeedback: String?
 
     var body: some View {
         Form {
@@ -666,13 +802,22 @@ private struct BodySizeView: View {
 
             if let errorMessage {
                 Section {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    Text(errorMessage)
+                        .font(.body)
                         .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("rxcalc.bodySize.error")
                 }
             }
 
-            if let result {
-                Section("Results") {
+            if let result = resultSession.value {
+                RXResultLifecycleBanner(
+                    currency: resultSession.currency,
+                    staleReason: resultSession.staleReason,
+                    accessibilityPrefix: "rxcalc.bodySize"
+                )
+
+                Section(resultSession.isStale ? "Stale results (not current)" : "Results") {
                     RXResultValue(
                         label: "Body mass index",
                         value: result.bodyMassIndex,
@@ -680,6 +825,7 @@ private struct BodySizeView: View {
                         fractionDigits: 2
                     )
                     .accessibilityIdentifier("rxcalc.bodySize.bmiResult")
+                    .opacity(resultSession.isStale ? 0.55 : 1)
                     RXResultValue(
                         label: "Mosteller BSA",
                         value: result.mostellerBodySurfaceAreaSquareMeters,
@@ -687,10 +833,20 @@ private struct BodySizeView: View {
                         fractionDigits: 2
                     )
                     .accessibilityIdentifier("rxcalc.bodySize.bsaResult")
+                    .opacity(resultSession.isStale ? 0.55 : 1)
                     RXResultReviewNotice(descriptor: calculator.descriptor)
                     Text("RXcalc does not classify BMI or calculate a medication dose.")
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    RXResultCopyCurrentControl(
+                        enabled: resultSession.mayCopyOrExportAsCurrent,
+                        accessibilityIdentifier: "rxcalc.bodySize.copyCurrent",
+                        feedback: $copyFeedback,
+                        makeSummary: {
+                            bodySizeSummary(for: result, currency: resultSession.currency)
+                        }
+                    )
                 }
 
                 Section("Inputs used") {
@@ -712,7 +868,10 @@ private struct BodySizeView: View {
                     )
                 }
 
-                RXResultProvenanceSection(provenance: result.provenance)
+                RXResultProvenanceSection(
+                    provenance: result.provenance,
+                    currency: resultSession.currency
+                )
             }
 
             RXCalculatorEvidenceSections(descriptor: calculator.descriptor)
@@ -738,10 +897,26 @@ private struct BodySizeView: View {
             weightText = ""
             invalidateResult()
         }
+        .onChange(of: dynamicTypeSize) { _, _ in
+            resultSession.invalidate(reason: RXResultSession<BodySizeResult>.dynamicTypeChangedReason)
+            copyFeedback = nil
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                resultSession.abandonSurface()
+                copyFeedback = nil
+                errorMessage = nil
+            }
+        }
+        .onDisappear {
+            resultSession.abandonSurface()
+            copyFeedback = nil
+        }
     }
 
     private func calculate() {
         focusedField = nil
+        copyFeedback = nil
         guard
             let age = Int(ageText),
             let height = RXDecimalInputParser.parse(
@@ -753,13 +928,13 @@ private struct BodySizeView: View {
                 decimalSeparator: Locale.current.decimalSeparator
             )
         else {
-            result = nil
+            resultSession.clear()
             errorMessage = "Enter every required input."
             return
         }
 
         do {
-            result = try BodySizeCalculator.calculate(
+            let calculated = try BodySizeCalculator.calculate(
                 BodySizeInput(
                     ageYears: age,
                     height: height,
@@ -768,16 +943,18 @@ private struct BodySizeView: View {
                     weightUnit: weightUnit
                 )
             )
+            resultSession.publish(calculated)
             errorMessage = nil
         } catch {
-            result = nil
+            resultSession.clear()
             errorMessage = error.localizedDescription
         }
     }
 
     private func invalidateResult() {
-        result = nil
+        resultSession.invalidate()
         errorMessage = nil
+        copyFeedback = nil
     }
 
     private func reset() {
@@ -787,7 +964,31 @@ private struct BodySizeView: View {
         heightUnit = .centimeters
         weightText = ""
         weightUnit = .kilograms
-        invalidateResult()
+        resultSession.clear()
+        errorMessage = nil
+        copyFeedback = nil
+    }
+
+    private func bodySizeSummary(
+        for result: BodySizeResult,
+        currency: RXResultCurrency
+    ) -> String? {
+        let output =
+            "BMI "
+            + String(result.bodyMassIndex)
+            + " kg/m2; Mosteller BSA "
+            + String(result.mostellerBodySurfaceAreaSquareMeters)
+            + " m2"
+        return RXResultExportGate.currentEngineeringSummary(
+            currency: currency,
+            formulaIdentifiers: result.provenance.formulaIdentifiers,
+            outputDescription: output,
+            reviewStatusTitle: result.provenance.sourceReviewStatusTitle,
+            calculatedAtDescription: result.provenance.calculatedAt.formatted(
+                date: .abbreviated,
+                time: .standard
+            )
+        )
     }
 }
 
@@ -796,21 +997,21 @@ private struct RXResultReviewNotice: View {
     let descriptor: RXCalculatorDescriptor
 
     var body: some View {
-        Label(
-            descriptor.reviewStatus.title,
-            systemImage: "exclamationmark.shield.fill"
-        )
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(.orange)
-        .accessibilityIdentifier("rxcalc.result.reviewStatus")
+        Text(descriptor.reviewStatus.title)
+            .font(.headline)
+            .foregroundStyle(.orange)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("rxcalc.result.reviewStatus")
         ForEach(descriptor.sources) { source in
             Text(source.formulaIdentifier)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         Text(descriptor.reviewStatus.resultMessage)
-            .font(.subheadline)
+            .font(.body)
             .foregroundStyle(.orange)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -818,16 +1019,26 @@ private struct RXResultReviewNotice: View {
 /// Dynamic Type–friendly body/callout styles; safety labels stay readable.
 private struct RXResultProvenanceSection: View {
     let provenance: RXCalculationProvenance
+    let currency: RXResultCurrency
 
     var body: some View {
         Section("Calculation provenance") {
-            Label(
-                "Human review required — not an autonomous clinical recommendation",
-                systemImage: "person.fill.checkmark"
+            Text(
+                currency == .stale
+                    ? "Stale engineering output — not current; human review still required"
+                    : "Human review required — not an autonomous clinical recommendation"
             )
-            .font(.subheadline.weight(.semibold))
+            .font(.headline)
             .foregroundStyle(.orange)
+            .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("rxcalc.result.humanReviewRequired")
+
+            LabeledContent(
+                "Result currency",
+                value: currency == .current ? "Current calculation" : "Stale — recalculate"
+            )
+            .font(.body)
+            .accessibilityIdentifier("rxcalc.result.currency")
 
             ForEach(provenance.formulaIdentifiers, id: \.self) { identifier in
                 LabeledContent("Formula version", value: identifier)
@@ -853,7 +1064,7 @@ private struct RXResultProvenanceSection: View {
             ForEach(provenance.inputTraces, id: \.name) { trace in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(trace.name)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.headline)
                     // Concatenation only: executable string interpolation is
                     // fail-closed outside the reviewed allowlist.
                     Text(
@@ -869,15 +1080,77 @@ private struct RXResultProvenanceSection: View {
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
             }
 
             Text(
-                "Full precision is retained through calculation. Display rounding does not change the stored result value. Independently verify equation, inputs, units, and result before any clinical use."
+                "Full precision is retained through calculation. Display rounding does not change the stored result value. Independently verify equation, inputs, units, and result before any clinical use. Formula activation for clinical care still requires independent pharmacist or clinical review."
             )
-            .font(.subheadline)
+            .font(.body)
             .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct RXResultLifecycleBanner: View {
+    let currency: RXResultCurrency
+    let staleReason: String?
+    let accessibilityPrefix: String
+
+    var body: some View {
+        if currency == .stale {
+            Section {
+                Text(RXResultSession<Int>.staleBannerTitle)
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(accessibilityPrefix + ".staleBanner")
+                Text(staleReason ?? RXResultSession<Int>.defaultInvalidationReason)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(accessibilityPrefix + ".staleReason")
+                Text(RXResultSession<Int>.staleCopyBlockedMessage)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(accessibilityPrefix + ".staleCopyBlocked")
+            }
+        }
+    }
+}
+
+private struct RXResultCopyCurrentControl: View {
+    let enabled: Bool
+    let accessibilityIdentifier: String
+    @Binding var feedback: String?
+    let makeSummary: () -> String?
+
+    var body: some View {
+        // Pasteboard APIs are outside the reviewed module allowlist. The control
+        // still enforces the current-only gate and surfaces a Draft summary
+        // confirmation without writing system pasteboard state.
+        Button("Prepare current result summary") {
+            if enabled, let summary = makeSummary() {
+                feedback =
+                    "Current Draft summary prepared ("
+                    + String(summary.count)
+                    + " characters). Not clinically validated."
+            } else {
+                feedback = RXResultSession<Int>.staleCopyBlockedMessage
+            }
+        }
+        .disabled(enabled == false)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        if let feedback {
+            Text(feedback)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(accessibilityIdentifier + ".feedback")
         }
     }
 }
@@ -895,7 +1168,7 @@ private struct RXResultValue: View {
                     value,
                     format: .number.precision(.fractionLength(fractionDigits))
                 )
-                .font(.body.weight(.semibold))
+                .font(.headline)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
                 Text(unit)

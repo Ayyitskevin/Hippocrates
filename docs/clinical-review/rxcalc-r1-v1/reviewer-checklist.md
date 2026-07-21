@@ -135,3 +135,12 @@ Out of scope for this candidate (do not invent): R2 QTc, R3 clinician-supplied
 dose arithmetic (mg/µg, volume, concentration, rate, time-unit dosing), R4+
 catalog expansion, drug-specific dosing, pediatric calculators, or any
 autonomous recommendation path.
+
+## Result lifecycle (engineering safety; not clinical activation)
+
+Working results use a current/stale session model: any input, unit, Dynamic Type,
+or surface-abandon change marks a prior result stale (or clears it) so it cannot
+be prepared/exported as a **current** calculation. Provenance (formula IDs,
+Draft status, calculated-at, normalized inputs) remains visible. **Formula
+activation for clinical care still requires independent pharmacist/clinical
+review (P-008) and is not implemented by this lifecycle.**
