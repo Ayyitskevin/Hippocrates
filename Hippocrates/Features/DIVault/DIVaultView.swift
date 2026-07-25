@@ -95,6 +95,23 @@ enum DIDisplay {
     }
 }
 
+/// Production opening decision shared by the vault and regression tests.
+enum DIOpenDestination: Equatable, Sendable {
+    case editor
+    case stalenessInterstitial
+}
+
+enum DIOpenPolicy {
+    static func destination(for freshness: FreshnessState) -> DIOpenDestination {
+        switch freshness {
+        case .amber, .red:
+            return .stalenessInterstitial
+        case .draft, .green:
+            return .editor
+        }
+    }
+}
+
 /// The vault list: searchable, with the same freshness policy driving every
 /// badge. Opening an amber or red record interposes the staleness interstitial
 /// before any answer content, every time; dismissal is view-local only.
@@ -194,10 +211,10 @@ struct DIVaultView: View {
     /// Amber and red records interpose the interstitial before their content,
     /// every presentation. Drafts and green records open directly.
     private func open(_ row: DIRowItem) {
-        switch row.freshness {
-        case .amber, .red:
+        switch DIOpenPolicy.destination(for: row.freshness) {
+        case .stalenessInterstitial:
             staleCandidate = row
-        case .draft, .green:
+        case .editor:
             editingQuestionID = row.id
         }
     }
