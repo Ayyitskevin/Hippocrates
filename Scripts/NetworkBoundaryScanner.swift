@@ -4036,6 +4036,7 @@ private let expectedBoundaryInputPaths = [
     "$(SRCROOT)/HippocratesTests/SchemaContractTests.swift",
     "$(SRCROOT)/HippocratesTests/SummaryAndCSVTests.swift",
     "$(SRCROOT)/HippocratesTests/TaxonomyGovernanceTests.swift",
+    "$(SRCROOT)/HippocratesTests/V1GoldenJourneyTests.swift",
     "$(SRCROOT)/HippocratesUITests",
     "$(SRCROOT)/HippocratesUITests/RXCalcCatalogAccessibilityTests.swift",
     "$(SRCROOT)/Hippocrates.xcodeproj",

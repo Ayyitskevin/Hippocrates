@@ -523,3 +523,14 @@ a HIPAA compliance program. README language must preserve that distinction.
    printable artifacts, clean-store restore, locale-aware decimal entry,
    input/result invalidation, unit-change input clearing, relaunch non-retention,
    and adjacent RXcalc review/limitation notices.
+7. `V1GoldenJourneyTests` composes supported production service seams in two
+   independent in-memory containers: first-run configuration, capture and
+   ledger editing, the DI guard/link/freshness/re-verification/open-routing
+   lifecycle, summary/CSV generation, the stateless RXcalc result lifecycle,
+   current backup encode/decode, guarded pristine restore, and logical
+   archive/output equality. It complements subsystem edge and file-backed
+   durability tests; actual stale-interstitial sheet presentation, process
+   relaunch, share/import sheets, printing, and physical-device evidence remain
+   UI or manual acceptance work. This integration regression is not external
+   clinical-review evidence; the governed RXcalc review packet retains its exact
+   reviewed file set.
