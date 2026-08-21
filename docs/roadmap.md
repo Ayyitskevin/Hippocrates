@@ -673,7 +673,10 @@ for hospital pharmacists. The now-executed ledger/DI Phase 0-8 plan is preserved
 as a dated snapshot in [`opus-execution-plan.md`](opus-execution-plan.md), with
 its motivating review in [`pharmacist-review.md`](pharmacist-review.md).
 Milestones 1-7 above remain the ledger/DI specification. The live RXcalc sequence
-and gates are this roadmap plus [`rxcalc-plan.md`](rxcalc-plan.md).
+and gates are this roadmap plus [`rxcalc-plan.md`](rxcalc-plan.md). The live
+execution plan for continuing sessions — evidence reconciliation, the P-008
+candidate freeze, and owner decision material — is
+[`opus-build-plan.md`](opus-build-plan.md) (2026-08-21).
 
 ### v1 feature completion (2026-07-19)
 
