@@ -196,8 +196,9 @@ determination, and every TestFlight or App Store action are separate
 owner/external gates.
 
 The active sequence and evidence ledger are [`docs/roadmap.md`](docs/roadmap.md)
-and [`docs/rxcalc-plan.md`](docs/rxcalc-plan.md). The dated
-[`docs/opus-execution-plan.md`](docs/opus-execution-plan.md) and
+and [`docs/rxcalc-plan.md`](docs/rxcalc-plan.md); the live execution plan for
+continuing sessions is [`docs/opus-build-plan.md`](docs/opus-build-plan.md).
+The dated [`docs/opus-execution-plan.md`](docs/opus-execution-plan.md) and
 [`docs/pharmacist-review.md`](docs/pharmacist-review.md) are historical ledger/DI
 snapshots, not current RXcalc approval.
 
