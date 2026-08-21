@@ -197,6 +197,30 @@ arithmetic, populations, limitations, claims, or clinical-review activation:
 R1.3 does not activate P-008, does not authorize clinical use, and does not add
 R2/R3 dose arithmetic. All formulas remain Draft.
 
+Delivered evidence: [PR #16 (`d672378`)](https://github.com/Ayyitskevin/Hippocrates/commit/d672378cf5b8c0cd7fb8a79194d234a58c320369)
+merged `RXCalculationProvenance` with original and normalized input traces,
+formula identifiers, rounding-policy identity, the Draft status title,
+human-review-required, the non-recommendation flag, and calculated-at, plus
+`RXQuantity`/`RXUnitKind`/`RXDimensionalAnalysis` typed units (`751c060`),
+adversarial de-identification fixtures (`3584cf0`), truncated/corrupt/partial
+restore rejection without destination mutation (`7049796`), and the
+reviewer-checklist engineering notes (`6dfabac`).
+[PR #17 (`03b5b89`)](https://github.com/Ayyitskevin/Hippocrates/commit/03b5b893663efb4d21f98575b3253668448528cb)
+added the current/stale result lifecycle and pure `RXResultExportGate`
+(`8fac7a7`, Swift 6 test fix `79184b7`): any input, unit, Dynamic Type, or
+surface change stales a displayed result and blocks copy or export as a
+current calculation until an explicit recalculation; nothing is persisted.
+Both merge heads failed only the R1.2 Accessibility 5 audit step
+([run 29769535461](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29769535461),
+[run 29806962729](https://github.com/Ayyitskevin/Hippocrates/actions/runs/29806962729))
+with every other step green; the complete tree, including that audit, passed
+on exact merged head [`b1a35a1`](https://github.com/Ayyitskevin/Hippocrates/commit/b1a35a1261923212b85ef1b6cd2f1875fbe75b92)
+in [run 30175731558](https://github.com/Ayyitskevin/Hippocrates/actions/runs/30175731558)
+with RXcalc and UI-test sources unchanged since the `6c96d19` failure, and
+again at
+[`aeffb43`](https://github.com/Ayyitskevin/Hippocrates/commit/aeffb4397ace59d861777de7040b43b519595b3d)
+in [run 32500765073](https://github.com/Ayyitskevin/Hippocrates/actions/runs/32500765073).
+
 R2-R4 are unstarted backlog hypotheses outside the current v1 commitment. Each
 requires a fresh owner decision and its stated evidence before implementation.
 

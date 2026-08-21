@@ -86,11 +86,18 @@ The pre-release foundation now contains:
    local store, model lifecycle, SwiftData backing data/value,
    persisted-schema/backup-shape drift, historical-decoder drift, RXcalc
    placement/persisted-state/arithmetic boundaries, calculation/equation and
-   dose-selection naming heuristics, and exact privacy-manifest semantics; and
+   dose-selection naming heuristics, and exact privacy-manifest semantics;
 8. a searchable, stateless draft RXcalc catalog with Cockcroft–Gault,
    2021 CKD-EPI creatinine eGFR, BMI, and Mosteller BSA, backed by versioned
    source metadata, official golden vectors, unit-parity tests, and visible
-   limitations.
+   limitations; and
+9. a Draft-only RXcalc safety-verification layer — result provenance with
+   original and normalized input traces, typed unit kinds, and a current/stale
+   result lifecycle whose pure gate blocks copy or export of stale results —
+   plus a composed V1 golden-journey regression that drives first-run
+   configuration, capture, the DI lifecycle, summary/CSV, the stateless RXcalc
+   result lifecycle, and backup/restore through production service seams in
+   memory.
 
 The three persisted properties intentionally represented without their own
 same-named backup fields are `DIQuestion.citations` (rebuilt from
@@ -120,7 +127,14 @@ That run retained artifact
 with GitHub digest `sha256:18c2a47a231662d3b698227cf5b74dac5d09926be36c626b91578f76b7f6382b`.
 The catalog ran on an iPhone SE (3rd generation), iOS 18.5 simulator at
 Accessibility 5 and failed closed on Dynamic Type, hit-region, text-clipping,
-and trait audit findings. This is supporting engineering evidence only: human
+and trait audit findings. R1.3 adds result provenance, typed unit kinds, and a
+current/stale result lifecycle with a copy/export gate, without changing
+formula arithmetic or Draft status; its merged content and the V1
+golden-journey harness passed the complete hosted pipeline on exact merged head
+[`b1a35a1`](https://github.com/Ayyitskevin/Hippocrates/commit/b1a35a1261923212b85ef1b6cd2f1875fbe75b92)
+in [run 30175731558](https://github.com/Ayyitskevin/Hippocrates/actions/runs/30175731558),
+with the interim red audit runs recorded in the roadmap. This is supporting
+engineering evidence only: human
 visual, VoiceOver, detail-screen, and physical-device A8 remain open;
 P-008/P-009 remain open; R2-R4 remain unstarted pending P-010; signing and
 distribution remain unauthorized.
